@@ -9,11 +9,11 @@ export type Screen = "connection" | "servers" | "stats" | "editor" | "settings";
 const labelTransition = { duration: 0.2 };
 
 const NAV: { id: Screen; icon: React.ElementType; label: string }[] = [
-  { id: "connection", icon: Globe, label: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435" },
-  { id: "servers", icon: List, label: "\u0421\u0435\u0440\u0432\u0435\u0440\u044b" },
-  { id: "stats", icon: BarChart3, label: "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430" },
-  { id: "editor", icon: FileCode2, label: "\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440" },
-  { id: "settings", icon: Settings, label: "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438" },
+  { id: "connection", icon: Globe, label: "Подключение" },
+  { id: "servers", icon: List, label: "Серверы" },
+  { id: "stats", icon: BarChart3, label: "Статистика" },
+  { id: "editor", icon: FileCode2, label: "Редактор" },
+  { id: "settings", icon: Settings, label: "Настройки" },
 ];
 
 export function Sidebar({
@@ -49,7 +49,7 @@ export function Sidebar({
       <NavButton
         id="help"
         icon={HelpCircle}
-        label="\u0421\u043f\u0440\u0430\u0432\u043a\u0430"
+        label="Справка"
         expanded={expanded}
         active={false}
         onClick={() => window.open("https://sing-box.sagernet.org/", "_blank")}
