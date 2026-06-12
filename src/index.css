@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
-/* ─────────────────────────────────────────────────────────────────────────
+/* \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
    NexusShield design tokens (Tailwind v4 @theme)
    Style: glassmorphism + flat hybrid. Electric indigo / teal accents.
-   ──────────────────────────────────────────────────────────────────────── */
+   \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 @theme {
   --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
@@ -68,7 +68,7 @@ body {
   user-select: none;
 }
 
-/* Background ambience — subtle indigo/teal glow behind glass panels */
+/* Background ambience \u2014 subtle indigo/teal glow behind glass panels */
 #root::before {
   content: "";
   position: fixed;
@@ -80,7 +80,7 @@ body {
     radial-gradient(50vw 50vw at 100% 110%, rgba(30, 200, 164, 0.12), transparent 60%);
 }
 
-/* ── Glassmorphism utilities ──────────────────────────────────────────── */
+/* \u2500\u2500 Glassmorphism utilities \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 @utility glass {
   background: color-mix(in srgb, var(--color-surface) 70%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
@@ -114,7 +114,7 @@ body {
   background-clip: content-box;
 }
 
-/* ── Animations ───────────────────────────────────────────────────────── */
+/* \u2500\u2500 Animations \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 @keyframes ns-pulse-ring {
   0% {
     transform: scale(0.85);
@@ -156,7 +156,7 @@ body {
   animation: ns-fade-in 0.25s var(--ease-out) both;
 }
 
-/* ── Reusable form input ──────────────────────────────────────────────── */
+/* \u2500\u2500 Reusable form input \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 .ns-input {
   width: 100%;
   border-radius: var(--radius-btn);
@@ -173,4 +173,16 @@ body {
 }
 .ns-input:focus {
   border-color: var(--color-indigo);
+}
+
+/* \u2500\u2500 Respect OS reduced-motion preference \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
