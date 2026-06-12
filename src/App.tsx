@@ -15,6 +15,7 @@ import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
 import { isTauri } from "./core/ipc";
 import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
+import { startSubscriptionScheduler } from "./core/subscriptions/scheduler";
 import { pageVariants } from "./shared/lib/motion";
 
 export default function App() {
@@ -53,6 +54,9 @@ export default function App() {
       un.then((u) => u());
     };
   }, []);
+
+  // Auto-refresh subscriptions on their configured schedule.
+  useEffect(() => startSubscriptionScheduler(), []);
 
   async function toggleActive() {
     const { activeServerId, toggle } = useConnectionStore.getState();

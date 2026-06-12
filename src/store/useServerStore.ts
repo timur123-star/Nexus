@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { ServerProfile, Subscription } from "../core/types";
 import { parseMany, parseShareLink } from "../core/parser";
 import { fetchSubscription, pingServer } from "../core/ipc";
+import { persistentStorage } from "../core/db";
 
 interface ServerState {
   servers: ServerProfile[];
@@ -173,6 +174,6 @@ export const useServerStore = create<ServerState>()(
           servers: removeServers ? s.servers.filter((x) => x.subscriptionId !== id) : s.servers,
         })),
     }),
-    { name: "nexusshield-servers" },
+    { name: "nexusshield-servers", storage: createJSONStorage(() => persistentStorage) },
   ),
 );
