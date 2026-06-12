@@ -5,6 +5,7 @@ import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { generateSingboxConfig } from "../../core/singbox/configGen";
 import { validateConfig } from "../../core/ipc";
+import { CodeEditor } from "../../shared/components/CodeEditor";
 
 export function EditorScreen() {
   const servers = useServerStore((s) => s.servers);
@@ -49,9 +50,9 @@ export function EditorScreen() {
     <div className="flex h-full flex-col p-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-text">Редактор конфигурации</h2>
+          <h2 className="text-base font-semibold text-text">\u0420\u0435\u0434\u0430\u043a\u0442\u043e\u0440 \u043a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u0438</h2>
           <p className="text-xs text-text-faint">
-            sing-box config для «{active?.name ?? "—"}»
+            sing-box config \u0434\u043b\u044f \u00ab{active?.name ?? "\u2014"}\u00bb
           </p>
         </div>
         <div className="flex gap-2">
@@ -59,19 +60,19 @@ export function EditorScreen() {
             onClick={() => setText(generated)}
             className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
           >
-            <RefreshCw size={14} /> Сгенерировать заново
+            <RefreshCw size={14} /> \u0421\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0437\u0430\u043d\u043e\u0432\u043e
           </button>
           <button
             onClick={handleValidate}
             className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
           >
-            <CheckCircle2 size={14} /> Проверить
+            <CheckCircle2 size={14} /> \u041f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c
           </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
           >
-            <Download size={14} /> Экспорт
+            <Download size={14} /> \u042d\u043a\u0441\u043f\u043e\u0440\u0442
           </button>
         </div>
       </div>
@@ -83,16 +84,13 @@ export function EditorScreen() {
           }`}
         >
           {check.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-          {check.ok ? "Конфигурация валидна" : check.error}
+          {check.ok ? "\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f \u0432\u0430\u043b\u0438\u0434\u043d\u0430" : check.error}
         </div>
       )}
 
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        spellCheck={false}
-        className="min-h-0 flex-1 resize-none rounded-card border border-border bg-bg/60 p-4 font-mono text-xs leading-relaxed text-text outline-none focus:border-indigo"
-      />
+      <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-border">
+        <CodeEditor value={text} onChange={setText} language="json" />
+      </div>
     </div>
   );
 }
