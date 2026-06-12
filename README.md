@@ -1,75 +1,75 @@
 # NexusShield
 
-\u0423\u043d\u0438\u0432\u0435\u0440\u0441\u0430\u043b\u044c\u043d\u044b\u0439 \u043a\u0440\u043e\u0441\u0441-\u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u0435\u043d\u043d\u044b\u0439 \u043a\u043b\u0438\u0435\u043d\u0442 \u0434\u043b\u044f **Xray-core / Sing-box** \u043d\u0430 \u0441\u0442\u0435\u043a\u0435
-**Tauri v2 + React + TypeScript**. Glassmorphism-\u0438\u043d\u0442\u0435\u0440\u0444\u0435\u0439\u0441, \u0434\u0432\u0430 \u044f\u0434\u0440\u0430,
-TUN-\u0440\u0435\u0436\u0438\u043c, \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438, \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0438\u0437\u0430\u0446\u0438\u044f \u0438 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u2014 \u0431\u0435\u0437 \u0442\u0435\u0440\u043c\u0438\u043d\u0430\u043b\u0430.
+Универсальный кросс-платформенный клиент для **Xray-core / Sing-box** на стеке
+**Tauri v2 + React + TypeScript**. Glassmorphism-интерфейс, два ядра,
+TUN-режим, подписки, маршрутизация и статистика — без терминала.
 
 ---
 
-## \u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e\u0441\u0442\u0438
+## Возможности
 
-- **\u0414\u0432\u0430 \u044f\u0434\u0440\u0430**: sing-box \u0438 Xray-core \u0441 \u0435\u0434\u0438\u043d\u043e\u0439 \u0430\u0431\u0441\u0442\u0440\u0430\u043a\u0446\u0438\u0435\u0439 `IProxyCore`
-- **\u041f\u0430\u0440\u0441\u0435\u0440 \u0441\u0441\u044b\u043b\u043e\u043a**: `vless://`, `vmess://`, `trojan://`, `ss://`, `hy2://`/`hysteria2://`, `tuic://`
-- **\u0418\u043c\u043f\u043e\u0440\u0442**: \u0441\u0441\u044b\u043b\u043a\u0430, \u0441\u043f\u0438\u0441\u043e\u043a, base64-\u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430, \u0431\u0443\u0444\u0435\u0440, **QR \u0438\u0437 \u0444\u0430\u0439\u043b\u0430/\u0431\u0443\u0444\u0435\u0440\u0430**, \u0430\u0432\u0442\u043e-\u043e\u043f\u0440\u0435\u0434\u0435\u043b\u0435\u043d\u0438\u0435 \u0444\u043e\u0440\u043c\u0430\u0442\u0430
-- **\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0438** \u0441 \u0430\u0432\u0442\u043e-\u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435\u043c \u043f\u043e \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u044e \u0438 \u0441\u0442\u0430\u0442\u0443\u0441\u0430\u043c\u0438
-- **\u0413\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f config** (TLS, Reality, ws/grpc/h2, TUN, fake-IP, DNS, \u043f\u0440\u0430\u0432\u0438\u043b\u0430)
-- **TUN-\u0440\u0435\u0436\u0438\u043c** \u0441 \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u043c \u043f\u0440\u0430\u0432 \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0430 (UAC / osascript / pkexec)
-- **\u0421\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0439 \u043f\u0440\u043e\u043a\u0441\u0438**: Windows (\u0440\u0435\u0435\u0441\u0442\u0440), macOS (`networksetup`), Linux (`gsettings`)
-- **\u0420\u0435\u0430\u043b\u044c\u043d\u044b\u0439 TCP-\u043f\u0438\u043d\u0433** \u0441\u0435\u0440\u0432\u0435\u0440\u043e\u0432 (\u043f\u0430\u0440\u0430\u043b\u043b\u0435\u043b\u044c\u043d\u043e)
-- **\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430** \u0447\u0435\u0440\u0435\u0437 Clash API: \u0433\u0440\u0430\u0444\u0438\u043a \u0442\u0440\u0430\u0444\u0438\u043a\u0430, \u0441\u043e\u0435\u0434\u0438\u043d\u0435\u043d\u0438\u044f, \u043b\u043e\u0433, **DNS-\u043b\u043e\u0433**
-- **Monaco-\u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440** \u043a\u043e\u043d\u0444\u0438\u0433\u0430 \u0441 \u043f\u043e\u0434\u0441\u0432\u0435\u0442\u043a\u043e\u0439 \u0438 \u043e\u0444\u0444\u043b\u0430\u0439\u043d-worker'\u0430\u043c\u0438
-- **\u0421\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0439 \u0442\u0440\u0435\u0439**, \u043a\u0430\u0441\u0442\u043e\u043c\u043d\u044b\u0439 titlebar, \u0442\u0451\u043c\u043d\u0430\u044f/\u0441\u0432\u0435\u0442\u043b\u0430\u044f \u0442\u0435\u043c\u0430, RU/EN/FA/ZH
-- **\u0410\u043d\u0438\u043c\u0430\u0446\u0438\u0438** \u043d\u0430 framer-motion \u0441 \u0443\u0447\u0451\u0442\u043e\u043c prefers-reduced-motion
-- **\u041f\u0435\u0440\u0441\u0438\u0441\u0442\u0435\u043d\u0442\u043d\u043e\u0441\u0442\u044c** \u0447\u0435\u0440\u0435\u0437 SQLite (tauri-plugin-sql) \u0441 fallback \u043d\u0430 localStorage
-- **\u0413\u043e\u0440\u044f\u0447\u0438\u0435 \u043a\u043b\u0430\u0432\u0438\u0448\u0438**: `Ctrl+K`, `Ctrl+,`, `Ctrl+I`
-
----
-
-## \u0410\u0440\u0445\u0438\u0442\u0435\u043a\u0442\u0443\u0440\u0430
-
-- `src/core/proxy/` \u2014 \u0430\u0431\u0441\u0442\u0440\u0430\u043a\u0446\u0438\u044f `IProxyCore` + \u0440\u0435\u0435\u0441\u0442\u0440 \u044f\u0434\u0435\u0440 (`getCore`, `ALL_CORES`)
-- `src/core/singbox/` \u0438 `src/core/xray/` \u2014 \u0433\u0435\u043d\u0435\u0440\u0430\u0442\u043e\u0440\u044b \u043a\u043e\u043d\u0444\u0438\u0433\u0430 (\u0441 unit-\u0442\u0435\u0441\u0442\u0430\u043c\u0438)
-- `src/core/parser/` \u2014 \u043f\u0430\u0440\u0441\u0435\u0440 \u0441\u0441\u044b\u043b\u043e\u043a; `qr.ts`, `dns.ts`, `subscriptions/scheduler.ts` \u2014 \u0441 \u0442\u0435\u0441\u0442\u0430\u043c\u0438
-- `src/core/db.ts` \u2014 SQLite-\u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0435 \u0434\u043b\u044f Zustand
-- `src/store/` \u2014 Zustand-\u0441\u0442\u043e\u0440\u044b (\u0441\u0435\u0440\u0432\u0435\u0440\u044b, \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435, \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438)
-- `src/features/` \u2014 \u044d\u043a\u0440\u0430\u043d\u044b (connection / servers / stats / editor / settings / import / onboarding)
-- `src-tauri/src/` \u2014 `core.rs`, `ping.rs`, `sysproxy.rs`, `privilege.rs`, `commands.rs`, `tray.rs`
+- **Два ядра**: sing-box и Xray-core с единой абстракцией `IProxyCore`
+- **Парсер ссылок**: `vless://`, `vmess://`, `trojan://`, `ss://`, `hy2://`/`hysteria2://`, `tuic://`
+- **Импорт**: ссылка, список, base64-подписка, буфер, **QR из файла/буфера**, авто-определение формата
+- **Подписки** с авто-обновлением по расписанию и статусами
+- **Генерация config** (TLS, Reality, ws/grpc/h2, TUN, fake-IP, DNS, правила)
+- **TUN-режим** с запросом прав администратора (UAC / osascript / pkexec)
+- **Системный прокси**: Windows (реестр), macOS (`networksetup`), Linux (`gsettings`)
+- **Реальный TCP-пинг** серверов (параллельно)
+- **Статистика** через Clash API: график трафика, соединения, лог, **DNS-лог**
+- **Monaco-редактор** конфига с подсветкой и оффлайн-worker'ами
+- **Системный трей**, кастомный titlebar, тёмная/светлая тема, RU/EN/FA/ZH
+- **Анимации** на framer-motion с учётом prefers-reduced-motion
+- **Персистентность** через SQLite (tauri-plugin-sql) с fallback на localStorage
+- **Горячие клавиши**: `Ctrl+K`, `Ctrl+,`, `Ctrl+I`
 
 ---
 
-## \u0421\u0431\u043e\u0440\u043a\u0430
+## Архитектура
 
-### \u0422\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f
-- Node.js \u2265 20, Rust \u2265 1.77 (msvc \u043d\u0430 Windows), WebView2
-- \u042f\u0434\u0440\u0430 `sing-box` \u0438 `xray` (\u0437\u0430\u0433\u0440\u0443\u0436\u0430\u044e\u0442\u0441\u044f \u0441\u043a\u0440\u0438\u043f\u0442\u043e\u043c, \u0441\u043c. \u043d\u0438\u0436\u0435)
+- `src/core/proxy/` — абстракция `IProxyCore` + реестр ядер (`getCore`, `ALL_CORES`)
+- `src/core/singbox/` и `src/core/xray/` — генераторы конфига (с unit-тестами)
+- `src/core/parser/` — парсер ссылок; `qr.ts`, `dns.ts`, `subscriptions/scheduler.ts` — с тестами
+- `src/core/db.ts` — SQLite-хранилище для Zustand
+- `src/store/` — Zustand-сторы (серверы, подключение, настройки)
+- `src/features/` — экраны (connection / servers / stats / editor / settings / import / onboarding)
+- `src-tauri/src/` — `core.rs`, `ping.rs`, `sysproxy.rs`, `privilege.rs`, `commands.rs`, `tray.rs`
 
-### \u0428\u0430\u0433\u0438
+---
+
+## Сборка
+
+### Требования
+- Node.js ≥ 20, Rust ≥ 1.77 (msvc на Windows), WebView2
+- Ядра `sing-box` и `xray` (загружаются скриптом, см. ниже)
+
+### Шаги
 ```bash
 npm install
 
-# \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u044f\u0434\u0440\u0430 (sing-box + xray + geo) \u0434\u043b\u044f \u0442\u0435\u043a\u0443\u0449\u0435\u0439 \u041e\u0421:
+# загрузить ядра (sing-box + xray + geo) для текущей ОС:
 npm run fetch-cores
 
-# \u0438\u043a\u043e\u043d\u043a\u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f (\u043e\u0434\u0438\u043d \u0440\u0430\u0437)
+# иконки приложения (один раз)
 npm run tauri icon assets/icon-source.png
 
-npm run tauri dev      # \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u043a\u0430
-npm run tauri build    # \u0441\u0431\u043e\u0440\u043a\u0430 \u0438\u043d\u0441\u0442\u0430\u043b\u043b\u044f\u0442\u043e\u0440\u0430
+npm run tauri dev      # разработка
+npm run tauri build    # сборка инсталлятора
 ```
 
-\u042f\u0434\u0440\u0430 \u043a\u043b\u0430\u0434\u0443\u0442\u0441\u044f \u0432 `src-tauri/binaries/` \u0438 \u0431\u0430\u043d\u0434\u043b\u044f\u0442\u0441\u044f \u043a\u0430\u043a resources. `xray` \u0442\u0440\u0435\u0431\u0443\u0435\u0442
-`geosite.dat` \u0438 `geoip.dat` (\u0441\u043a\u0440\u0438\u043f\u0442 \u043a\u043b\u0430\u0434\u0451\u0442 \u0438\u0445 \u0442\u0443\u0434\u0430 \u0436\u0435); sing-box \u0442\u044f\u043d\u0435\u0442 rule-set'\u044b \u043e\u043d\u043b\u0430\u0439\u043d.
+Ядра кладутся в `src-tauri/binaries/` и бандлятся как resources. `xray` требует
+`geosite.dat` и `geoip.dat` (скрипт кладёт их туда же); sing-box тянет rule-set'ы онлайн.
 
-### \u0422\u043e\u043b\u044c\u043a\u043e \u0444\u0440\u043e\u043d\u0442\u0435\u043d\u0434 (\u0431\u0435\u0437 \u044f\u0434\u0440\u0430)
+### Только фронтенд (без ядра)
 ```bash
-npm run dev            # IPC-\u0432\u044b\u0437\u043e\u0432\u044b \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0430\u044e\u0442 \u043c\u043e\u043a\u0438
+npm run dev            # IPC-вызовы возвращают моки
 ```
 
 ---
 
-## \u0422\u0435\u0441\u0442\u044b \u0438 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0438
+## Тесты и проверки
 ```bash
-npm test               # vitest \u2014 \u043f\u0430\u0440\u0441\u0435\u0440, DNS, \u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0449\u0438\u043a \u043f\u043e\u0434\u043f\u0438\u0441\u043e\u043a
+npm test               # vitest — парсер, DNS, планировщик подписок
 npm run lint           # tsc --noEmit
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
@@ -78,20 +78,13 @@ cargo check --manifest-path src-tauri/Cargo.toml
 
 ## CI/CD
 
-\u0412 \u043f\u0430\u043f\u043a\u0435 `.github/workflows/` \u043f\u0440\u0435\u0434\u0443\u0441\u043c\u043e\u0442\u0440\u0435\u043d\u044b \u0434\u0432\u0430 \u043f\u0430\u0439\u043f\u043b\u0430\u0439\u043d\u0430:
+В папке `.github/workflows/` предусмотрены пайплайны:
 
-- **`ci.yml`** \u2014 \u043d\u0430 \u043a\u0430\u0436\u0434\u044b\u0439 push/PR: \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0442\u0438\u043f\u043e\u0432, \u044e\u043d\u0438\u0442-\u0442\u0435\u0441\u0442\u044b, `cargo check`.
-- **`release.yml`** \u2014 \u043f\u043e \u0442\u0435\u0433\u0443 `v*`: \u043c\u0430\u0442\u0440\u0438\u0447\u043d\u0430\u044f \u0441\u0431\u043e\u0440\u043a\u0430
-  (macOS arm64/x64, Linux, Windows) \u0447\u0435\u0440\u0435\u0437 `tauri-action`; \u0438\u043d\u0441\u0442\u0430\u043b\u043b\u044f\u0442\u043e\u0440\u044b
-  \u043f\u0440\u0438\u043a\u043b\u0430\u0434\u044b\u0432\u0430\u044e\u0442\u0441\u044f \u043a \u0447\u0435\u0440\u043d\u043e\u0432\u0438\u043a\u0443 GitHub Release.
+- **`ci.yml`** — на каждый push/PR: проверка типов, юнит-тесты, `cargo check`.
 
-\u0412\u044b\u043f\u0443\u0441\u043a \u0440\u0435\u043b\u0438\u0437\u0430:
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
+Выпуск релиза выполняется по тегу `v*`.
 
 ---
 
-## \u041b\u0438\u0446\u0435\u043d\u0437\u0438\u044f
+## Лицензия
 MIT.
