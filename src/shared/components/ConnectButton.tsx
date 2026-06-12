@@ -25,6 +25,7 @@ const haloStyle: React.CSSProperties = {
   WebkitMaskImage: "radial-gradient(closest-side, transparent 60%, #000 63%, #000 100%)",
   maskImage: "radial-gradient(closest-side, transparent 60%, #000 63%, #000 100%)",
 };
+const haloAnimate = { rotate: 360 };
 const haloTransition = { duration: 6, ease: "linear" as const, repeat: Infinity };
 const idleGlowAnimate = { opacity: [0.35, 0.65, 0.35], scale: [1, 1.08, 1] };
 const idleGlowTransition = { duration: 3.2, ease: "easeInOut" as const, repeat: Infinity };
@@ -82,7 +83,7 @@ export function ConnectButton({
           aria-hidden
           className="pointer-events-none absolute h-36 w-36 rounded-full"
           style={haloStyle}
-          animate= rotate: 360 
+          animate={haloAnimate}
           transition={haloTransition}
         />
       )}
