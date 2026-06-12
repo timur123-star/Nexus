@@ -30,11 +30,16 @@ pub struct ConnectionEntry {
 }
 
 #[tauri::command]
-pub fn core_start(app: AppHandle, state: State<AppState>, config: String) -> Result<(), String> {
-    // Validate JSON shape before handing off to sing-box for a clearer error.
+pub fn core_start(
+    app: AppHandle,
+    state: State<AppState>,
+    config: String,
+    core: Option<String>,
+) -> Result<(), String> {
+    // Validate JSON shape before handing off to the core for a clearer error.
     serde_json::from_str::<Value>(&config).map_err(|e| format!("invalid config JSON: {e}"))?;
-    let mut core = state.core.lock().map_err(|_| "core lock poisoned")?;
-    core.start(&app, &config)
+    let mut mgr = state.core.lock().map_err(|_| "core lock poisoned")?;
+    mgr.start(&app, &config, core.as_deref().unwrap_or("sing-box"))
 }
 
 #[tauri::command]

@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { RoutingMode } from "../core/types";
+import type { CoreKind, RoutingMode } from "../core/types";
 
 export interface ProxySettings {
+  /** Which proxy engine runs connections. */
+  coreKind: CoreKind;
   mixedPort: number;
   allowLan: boolean;
   systemProxy: boolean;
@@ -47,6 +49,7 @@ interface SettingsState {
 }
 
 export const DEFAULT_PROXY: ProxySettings = {
+  coreKind: "sing-box",
   mixedPort: 2080,
   allowLan: false,
   systemProxy: true,
@@ -78,6 +81,18 @@ export const useSettingsStore = create<SettingsState>()(
       setApp: (patch) => set((s) => ({ app: { ...s.app, ...patch } })),
       reset: () => set({ proxy: DEFAULT_PROXY, app: DEFAULT_APP }),
     }),
-    { name: "nexusshield-settings" },
+    {
+      name: "nexusshield-settings",
+      // Merge persisted state over defaults so new fields (e.g. coreKind) are
+      // always present for users upgrading from an older version.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>;
+        return {
+          ...current,
+          proxy: { ...current.proxy, ...(p.proxy ?? {}) },
+          app: { ...current.app, ...(p.app ?? {}) },
+        };
+      },
+    },
   ),
 );
