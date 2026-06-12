@@ -81,7 +81,7 @@ function finalize(
 }
 
 export function parseVless(link: string): ServerProfile {
-  const u = new URL(link);
+  const u = safeUrl(link, "vless");
   if (!u.username) throw new ParseError("vless: missing uuid", link);
   const q = parseQuery(u.search);
   const net = normalizeTransport(q.type);
@@ -91,7 +91,7 @@ export function parseVless(link: string): ServerProfile {
       name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
       protocol: "vless",
       address: u.hostname,
-      port: Number(u.port) || 443,
+      port: parsePort(u.port),
       uuid: decodeURIComponent(u.username),
       flow: q.flow || undefined,
       transport: buildTransport(q, net),
@@ -102,7 +102,7 @@ export function parseVless(link: string): ServerProfile {
 }
 
 export function parseTrojan(link: string): ServerProfile {
-  const u = new URL(link);
+  const u = safeUrl(link, "trojan");
   if (!u.username) throw new ParseError("trojan: missing password", link);
   const q = parseQuery(u.search);
   const net = normalizeTransport(q.type);
@@ -113,7 +113,7 @@ export function parseTrojan(link: string): ServerProfile {
       name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
       protocol: "trojan",
       address: u.hostname,
-      port: Number(u.port) || 443,
+      port: parsePort(u.port),
       password: decodeURIComponent(u.username),
       transport: buildTransport(q, net),
       tls: buildTls(q, security),
@@ -131,8 +131,12 @@ export function parseVmess(link: string): ServerProfile {
     throw new ParseError("vmess: payload is not valid base64-JSON", link);
   }
   const g = (k: string): string => (json[k] === undefined ? "" : String(json[k]));
+  const address = g("add");
+  const uuid = g("id");
+  if (!address) throw new ParseError("vmess: missing address (add)", link);
+  if (!uuid) throw new ParseError("vmess: missing uuid (id)", link);
   const net = normalizeTransport(g("net"));
-  const security = normalizeSecurity(g("tls") ? "tls" : "none");
+  const security = normalizeSecurity(g("tls"));
   const transport = buildTransport(
     { path: g("path"), host: g("host"), serviceName: g("path") },
     net,
@@ -140,11 +144,11 @@ export function parseVmess(link: string): ServerProfile {
   const tls = buildTls({ sni: g("sni") || g("host"), alpn: g("alpn"), fp: g("fp") }, security);
   return finalize(
     {
-      name: g("ps") || `${g("add")}:${g("port")}`,
+      name: g("ps") || `${address}:${g("port")}`,
       protocol: "vmess",
-      address: g("add"),
-      port: Number(g("port")) || 443,
-      uuid: g("id"),
+      address,
+      port: parsePort(g("port")),
+      uuid,
       alterId: Number(g("aid")) || 0,
       method: g("scy") || "auto",
       transport,
@@ -188,7 +192,9 @@ export function parseShadowsocks(link: string): ServerProfile {
     [host, port] = splitHostPort(decoded.slice(at + 1));
   }
 
-  if (!host || !port) throw new ParseError("ss: missing host/port", link);
+  if (!host || !port || !Number.isInteger(port)) {
+    throw new ParseError("ss: missing or invalid host/port", link);
+  }
 
   return finalize(
     {
@@ -208,7 +214,7 @@ export function parseShadowsocks(link: string): ServerProfile {
 
 export function parseHysteria2(link: string): ServerProfile {
   const normalized = link.replace(/^hy2:\/\//, "hysteria2://");
-  const u = new URL(normalized);
+  const u = safeUrl(normalized, "hysteria2");
   const q = parseQuery(u.search);
   const security: Security = "tls";
   const tls = buildTls({ sni: q.sni, alpn: q.alpn, insecure: q.insecure, fp: q.fp }, security);
@@ -217,8 +223,8 @@ export function parseHysteria2(link: string): ServerProfile {
       name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
       protocol: "hysteria2",
       address: u.hostname,
-      port: Number(u.port) || 443,
-      password: decodeURIComponent(u.username || u.password || ""),
+      port: parsePort(u.port),
+      password: decodeURIComponent(u.username || u.password || q.auth || ""),
       transport: { type: "quic" },
       tls,
       extra: {
@@ -231,7 +237,7 @@ export function parseHysteria2(link: string): ServerProfile {
 }
 
 export function parseTuic(link: string): ServerProfile {
-  const u = new URL(link);
+  const u = safeUrl(link, "tuic");
   const q = parseQuery(u.search);
   const tls = buildTls({ sni: q.sni, alpn: q.alpn, insecure: q.allow_insecure }, "tls");
   return finalize(
@@ -239,9 +245,9 @@ export function parseTuic(link: string): ServerProfile {
       name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
       protocol: "tuic",
       address: u.hostname,
-      port: Number(u.port) || 443,
-      uuid: decodeURIComponent(u.username || ""),
-      password: decodeURIComponent(u.password || ""),
+      port: parsePort(u.port),
+      uuid: decodeURIComponent(u.username || "") || q.uuid || "",
+      password: decodeURIComponent(u.password || "") || q.password || "",
       transport: { type: "quic" },
       tls,
       extra: {
@@ -253,7 +259,7 @@ export function parseTuic(link: string): ServerProfile {
   );
 }
 
-// ── tiny string helpers ───────────────────────────────────────────────────
+// ── tiny string helpers ────────────────────────────────────
 function splitFirst(s: string, sep: string): [string, string] {
   const i = s.indexOf(sep);
   return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + 1)];
@@ -270,6 +276,21 @@ function splitHostPort(s: string): [string, number] {
   const i = s.lastIndexOf(":");
   if (i < 0) return [s, 0];
   return [s.slice(0, i), Number(s.slice(i + 1))];
+}
+
+/** Construct a URL, converting the native TypeError into a clean ParseError. */
+function safeUrl(link: string, proto: string): URL {
+  try {
+    return new URL(link);
+  } catch {
+    throw new ParseError(`${proto}: malformed URL`, link);
+  }
+}
+
+/** Parse + validate a port, falling back to 443 for missing/invalid values. */
+function parsePort(raw: string | number | undefined, fallback = 443): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 65535 ? n : fallback;
 }
 
 export const SCHEME_PARSERS: Record<string, (link: string) => ServerProfile> = {

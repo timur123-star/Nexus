@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Zap, Globe2, Clock, ChevronRight } from "lucide-react";
+import type { ConnectionStatus } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { Sparkline } from "../../shared/components/Sparkline";
@@ -15,6 +16,43 @@ const connectLabels = {
   busy: "…",
   idle: "Подключить",
 };
+
+const STATUS_META: Record<ConnectionStatus, { label: string; dot: string }> = {
+  connected: { label: "Подключено", dot: "bg-ok" },
+  connecting: { label: "Подключение…", dot: "bg-warn" },
+  reconnecting: { label: "Переподключение…", dot: "bg-warn" },
+  error: { label: "Ошибка", dot: "bg-bad" },
+  disconnected: { label: "Отключено", dot: "bg-text-faint" },
+};
+
+const dotPulseAnimate = { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] };
+const dotStaticAnimate = { opacity: 1, scale: 1 };
+const valueInitial = { opacity: 0.35, y: -2 };
+const valueAnimate = { opacity: 1, y: 0 };
+const valueTransition = { duration: 0.25, ease: "easeOut" };
+const floatAnimate = { y: [0, -8, 0] };
+const floatTransition = { duration: 4, repeat: Infinity, ease: "easeInOut" };
+
+function StatusDot({ status }: { status: ConnectionStatus }) {
+  const meta = STATUS_META[status] ?? STATUS_META.disconnected;
+  const animated =
+    status === "connected" || status === "connecting" || status === "reconnecting";
+  const fast = status === "connecting" || status === "reconnecting";
+  const transition = animated
+    ? { duration: fast ? 0.9 : 1.8, repeat: Infinity, ease: "easeInOut" }
+    : { duration: 0.2 };
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-text-dim">
+      <motion.span
+        aria-hidden
+        className={cn("h-2 w-2 rounded-full", meta.dot)}
+        animate={animated ? dotPulseAnimate : dotStaticAnimate}
+        transition={transition}
+      />
+      {meta.label}
+    </span>
+  );
+}
 
 export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const servers = useServerStore((s) => s.servers);
@@ -77,8 +115,11 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
               </div>
             </div>
           </div>
-          <div className={cn("text-right font-mono text-sm font-semibold", latencyColor(active.latencyMs))}>
-            {latencyLabel(active.latencyMs)}
+          <div className="flex flex-col items-end gap-1.5">
+            <div className={cn("font-mono text-sm font-semibold", latencyColor(active.latencyMs))}>
+              {latencyLabel(active.latencyMs)}
+            </div>
+            <StatusDot status={status} />
           </div>
         </div>
 
@@ -153,12 +194,20 @@ function ThroughputTile({
   color: string;
 }) {
   return (
-    <div className="glass rounded-card p-3">
+    <div className="glass ns-lift rounded-card p-3">
       <div className="flex items-center justify-between">
         <span className="text-xs text-text-dim">
           {arrow} {label}
         </span>
-        <span className="font-mono text-sm font-semibold text-text">{value}</span>
+        <motion.span
+          key={value}
+          initial={valueInitial}
+          animate={valueAnimate}
+          transition={valueTransition}
+          className="font-mono text-sm font-semibold text-text"
+        >
+          {value}
+        </motion.span>
       </div>
       <div className="mt-2">
         <Sparkline data={series} width={240} height={28} color={color} />
@@ -179,7 +228,7 @@ function Metric({
   mono?: boolean;
 }) {
   return (
-    <div className="glass rounded-card px-3 py-2.5">
+    <div className="glass ns-lift rounded-card px-3 py-2.5">
       <div className="flex items-center gap-1.5 text-[11px] text-text-faint">
         <Icon size={13} /> {label}
       </div>
@@ -194,7 +243,9 @@ function EmptyState({ onBrowse }: { onBrowse: () => void }) {
   return (
     <div className="grid h-full place-items-center p-8 text-center">
       <div className="max-w-sm">
-        <Globe2 size={48} className="mx-auto text-text-faint" />
+        <motion.div animate={floatAnimate} transition={floatTransition} className="mx-auto w-fit">
+          <Globe2 size={48} className="text-text-faint" />
+        </motion.div>
         <h2 className="mt-4 text-lg font-semibold text-text">Нет серверов</h2>
         <p className="mt-1 text-sm text-text-dim">
           Добавьте сервер по ссылке, из подписки или QR-кода, чтобы начать.

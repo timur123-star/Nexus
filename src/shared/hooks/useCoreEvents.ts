@@ -1,27 +1,20 @@
 import { useEffect } from "react";
-import { onCoreLog, onCoreStatus, type CoreStatus } from "../../core/ipc";
+import { onCoreLog, onCoreStatus } from "../../core/ipc";
 import { useConnectionStore } from "../../store/useConnectionStore";
-import type { ConnectionStatus } from "../../core/types";
 
-const STATUS_MAP: Record<CoreStatus, ConnectionStatus> = {
-  stopped: "disconnected",
-  starting: "connecting",
-  running: "connected",
-  error: "error",
-};
-
-/** Wire backend core events into the connection store + an in-memory log ring. */
+/** In-memory ring buffer of recent core log lines (consumed by the log viewer). */
 export const coreLogRing: string[] = [];
 const MAX_LOG = 500;
 
+/** Wire backend core events into the connection store + the log ring. */
 export function useCoreEvents(): void {
-  const setStatus = useConnectionStore((s) => s.setStatus);
+  const applyCoreStatus = useConnectionStore((s) => s.applyCoreStatus);
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];
     let alive = true;
 
-    onCoreStatus((s) => setStatus(STATUS_MAP[s])).then((u) => {
+    onCoreStatus((s) => applyCoreStatus(s)).then((u) => {
       if (alive) unsubs.push(u);
       else u();
     });
@@ -38,5 +31,5 @@ export function useCoreEvents(): void {
       alive = false;
       unsubs.forEach((u) => u());
     };
-  }, [setStatus]);
+  }, [applyCoreStatus]);
 }
