@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Star, MoreVertical, Activity, Copy, Trash2, Power } from "lucide-react";
 import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
@@ -30,7 +31,7 @@ export function ServerCard({
       onDrop={() => onDrop(server.id)}
       onDoubleClick={() => toggle(server)}
       className={cn(
-        "group glass relative flex items-center gap-3 rounded-card px-3.5 py-3 transition-all hover:border-indigo/40",
+        "group glass ns-lift relative flex items-center gap-3 rounded-card px-3.5 py-3 transition-all hover:border-indigo/40",
         isActive && "border-ok/50 bg-ok/5",
       )}
     >
@@ -39,6 +40,14 @@ export function ServerCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium text-text">{server.name}</span>
+          {isActive && (
+            <motion.span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok"
+              animate= opacity: [1, 0.3, 1], scale: [1, 1.5, 1] 
+              transition= duration: 1.6, repeat: Infinity, ease: "easeInOut" 
+            />
+          )}
           {server.tags.map((t) => (
             <span key={t} className="rounded bg-surface px-1.5 text-[10px] text-text-dim">
               #{t}
