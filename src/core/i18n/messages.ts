@@ -23,6 +23,9 @@ export const en = {
   "common.delete": "Delete",
   "common.cancel": "Cancel",
   "common.save": "Save",
+  "common.unit.h": "h",
+  "common.unit.m": "m",
+  "common.unit.s": "s",
 
   "conn.connected": "Connected",
   "conn.connecting": "Connecting\u2026",
@@ -182,6 +185,9 @@ export const ru: Record<MessageKey, string> = {
   "common.delete": "Удалить",
   "common.cancel": "Отмена",
   "common.save": "Сохранить",
+  "common.unit.h": "ч",
+  "common.unit.m": "м",
+  "common.unit.s": "с",
 
   "conn.connected": "Подключено",
   "conn.connecting": "Подключение\u2026",

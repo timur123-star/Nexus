@@ -73,12 +73,19 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const connected = status === "connected";
   const busy = status === "connecting" || status === "reconnecting";
 
+  const unitH = t("common.unit.h");
+  const unitM = t("common.unit.m");
+  const unitS = t("common.unit.s");
+
   const [uptime, setUptime] = useState("");
   useEffect(() => {
     if (!connected || !connectedAt) return setUptime("");
-    const id = setInterval(() => setUptime(formatUptime(Date.now() - connectedAt)), 1000);
+    const units = { h: unitH, m: unitM, s: unitS };
+    const tick = () => setUptime(formatUptime(Date.now() - connectedAt, units));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [connected, connectedAt]);
+  }, [connected, connectedAt, unitH, unitM, unitS]);
 
   // Refresh ping of the active server every 5s.
   useEffect(() => {
@@ -179,7 +186,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
       >
         <Metric icon={Globe2} label={t("conn.address")} value={active.address} mono />
         <Metric icon={Zap} label={t("conn.port")} value={String(active.port)} mono />
-        <Metric icon={Clock} label={t("conn.uptime")} value={connected ? uptime || "0\u0441" : "\u2014"} />
+        <Metric icon={Clock} label={t("conn.uptime")} value={connected ? uptime || `0${unitS}` : "\u2014"} />
       </motion.div>
 
       <button
