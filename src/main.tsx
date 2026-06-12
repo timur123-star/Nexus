@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import "flag-icons/css/flag-icons.min.css";
 import { useSettingsStore } from "./store/useSettingsStore";
 
 /** Apply the persisted theme to <html> before first paint. */

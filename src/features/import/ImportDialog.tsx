@@ -117,14 +117,14 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={6}
-              placeholder="vless://\u2026 / vmess://\u2026 / trojan://\u2026 / ss://\u2026"
+              placeholder="vless://… / vmess://… / trojan://… / ss://…"
               className="w-full resize-none rounded-btn border border-border bg-bg/40 p-3 font-mono text-xs text-text outline-none focus:border-indigo"
             />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="mt-2 flex flex-col gap-2">
               <span className="text-xs text-text-faint">
                 {t("import.formatLabel")} <span className="text-text-dim">{t(FORMAT_KEY[format])}</span>
               </span>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <button
                   onClick={pasteClipboard}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"

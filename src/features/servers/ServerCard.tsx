@@ -5,7 +5,7 @@ import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { cn, latencyColor, latencyLabel } from "../../shared/lib/utils";
-import { flagFor } from "../../shared/lib/flags";
+import { Flag } from "../../shared/components/Flag";
 import { useT } from "../../core/i18n/useT";
 import { PROTOCOL_LABEL } from "./protocolMeta";
 
@@ -40,7 +40,7 @@ export function ServerCard({
         isActive && "border-ok/50 bg-ok/5",
       )}
     >
-      <span className="text-2xl leading-none">{flagFor(server.name)}</span>
+      <Flag name={server.name} address={server.address} size={28} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
