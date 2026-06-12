@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ConnectionStatus, ServerProfile, TrafficSample } from "../core/types";
-import { getCore } from "../core/proxy";
+import { getCore, ALL_CORES } from "../core/proxy";
 import { coreStart, coreStop, setSystemProxy, type CoreStatus, type TrafficStats } from "../core/ipc";
 import { useSettingsStore } from "./useSettingsStore";
 
@@ -90,11 +90,19 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         autoReconnect: true,
       });
       try {
-        const core = getCore(proxy.coreKind);
+        // Auto-select a core that can actually handle this protocol. The user's
+        // chosen core is preferred, but protocols it cannot run (e.g. hysteria2 /
+        // tuic on Xray) transparently fall back to a capable core — sing-box
+        // supports every protocol we parse, so connecting just works.
+        let core = getCore(proxy.coreKind);
         if (!core.supports(server.protocol)) {
-          throw new Error(
-            `${core.label} \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
-          );
+          const fallback = ALL_CORES.find((c) => c.supports(server.protocol));
+          if (!fallback) {
+            throw new Error(
+              `\u041d\u0438 \u043e\u0434\u043d\u043e \u044f\u0434\u0440\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
+            );
+          }
+          core = fallback;
         }
         const config = core.generateConfig(server, {
           mixedPort: proxy.mixedPort,
