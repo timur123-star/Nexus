@@ -1,7 +1,7 @@
 [package]
 name = "nexusshield"
 version = "0.1.0"
-description = "NexusShield \u2014 universal Xray-core / Sing-box client"
+description = "NexusShield — universal Xray-core / Sing-box client"
 authors = ["NexusShield"]
 edition = "2021"
 rust-version = "1.77"
@@ -13,6 +13,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# Force time >= 0.3.36 in the BUILD graph (tauri-build -> tauri-utils -> time).
+# Older 0.3.x versions fail with a spurious E0119 coherence error on modern
+# rustc (>= 1.80), which is why tauri-utils failed to compile in CI.
+time = "0.3.36"
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
@@ -30,6 +34,9 @@ anyhow = "1"
 thiserror = "2"
 log = "0.4"
 chrono = { version = "0.4", features = ["clock"] }
+# Force time >= 0.3.36 in the normal graph (tauri -> tauri-utils -> time) too.
+# See the note in [build-dependencies] above.
+time = "0.3.36"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
