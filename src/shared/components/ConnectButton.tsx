@@ -5,6 +5,19 @@ import { EASE_OUT, prefersReducedMotion } from "../lib/motion";
 
 export type ConnectButtonState = "connected" | "busy" | "idle";
 
+const ringInitial = { scale: 0.85, opacity: 0.6 };
+const ringAnimate = { scale: 1.9, opacity: 0 };
+const ringExit = { opacity: 0 };
+const ringTransition = (delay: number) => ({
+  duration: 1.8,
+  ease: EASE_OUT,
+  repeat: Infinity,
+  delay,
+});
+const btnTransition = { duration: 0.3, ease: EASE_OUT };
+const tapScale = { scale: 0.94 };
+const hoverScale = { scale: 1.05 };
+
 /**
  * Large circular connect/disconnect control.
  *
@@ -28,6 +41,17 @@ export function ConnectButton({
   const reduce = prefersReducedMotion();
   const label = connected ? labels.connected : busy ? labels.busy : labels.idle;
 
+  const btnAnimate = {
+    boxShadow: connected
+      ? "0 14px 44px -8px rgba(30, 200, 164, 0.45)"
+      : "0 14px 44px -8px rgba(91, 106, 240, 0.45)",
+  };
+  const spinAnimate = busy && !reduce ? { rotate: 360 } : { rotate: 0 };
+  const spinTransition =
+    busy && !reduce
+      ? { duration: 1, ease: "linear" as const, repeat: Infinity }
+      : { duration: 0.2 };
+
   return (
     <div className="relative grid place-items-center">
       <AnimatePresence>
@@ -37,10 +61,10 @@ export function ConnectButton({
             <motion.span
               key={delay}
               className="pointer-events-none absolute h-28 w-28 rounded-full bg-ok/30"
-              initial= scale: 0.85, opacity: 0.6 
-              animate= scale: 1.9, opacity: 0 
-              exit= opacity: 0 
-              transition= duration: 1.8, ease: EASE_OUT, repeat: Infinity, delay 
+              initial={ringInitial}
+              animate={ringAnimate}
+              exit={ringExit}
+              transition={ringTransition(delay)}
             />
           ))}
       </AnimatePresence>
@@ -48,14 +72,10 @@ export function ConnectButton({
       <motion.button
         onClick={onClick}
         disabled={busy}
-        whileTap={reduce ? undefined : { scale: 0.94 }}
-        whileHover={reduce || connected ? undefined : { scale: 1.05 }}
-        animate=
-          boxShadow: connected
-            ? "0 14px 44px -8px rgba(30, 200, 164, 0.45)"
-            : "0 14px 44px -8px rgba(91, 106, 240, 0.45)",
-        
-        transition= duration: 0.3, ease: EASE_OUT 
+        whileTap={reduce ? undefined : tapScale}
+        whileHover={reduce || connected ? undefined : hoverScale}
+        animate={btnAnimate}
+        transition={btnTransition}
         className={cn(
           "relative grid h-28 w-28 place-items-center rounded-full text-white transition-colors duration-300 disabled:opacity-70",
           connected
@@ -64,14 +84,7 @@ export function ConnectButton({
         )}
       >
         <div className="flex flex-col items-center gap-1">
-          <motion.span
-            animate={busy && !reduce ? { rotate: 360 } : { rotate: 0 }}
-            transition={
-              busy && !reduce
-                ? { duration: 1, ease: "linear", repeat: Infinity }
-                : { duration: 0.2 }
-            }
-          >
+          <motion.span animate={spinAnimate} transition={spinTransition}>
             <Power size={30} />
           </motion.span>
           <span className="text-xs font-medium">{label}</span>

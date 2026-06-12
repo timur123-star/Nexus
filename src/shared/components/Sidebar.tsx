@@ -6,6 +6,8 @@ import { springSoft } from "../lib/motion";
 
 export type Screen = "connection" | "servers" | "stats" | "editor" | "settings";
 
+const labelTransition = { duration: 0.2 };
+
 const NAV: { id: Screen; icon: React.ElementType; label: string }[] = [
   { id: "connection", icon: Globe, label: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435" },
   { id: "servers", icon: List, label: "\u0421\u0435\u0440\u0432\u0435\u0440\u044b" },
@@ -22,12 +24,13 @@ export function Sidebar({
   onNavigate: (s: Screen) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const navAnimate = { width: expanded ? 200 : 64 };
 
   return (
     <motion.nav
       onMouseEnter={() => setExpanded(true)}
       onMouseLeave={() => setExpanded(false)}
-      animate= width: expanded ? 200 : 64 
+      animate={navAnimate}
       transition={springSoft}
       className="glass z-10 flex shrink-0 flex-col gap-1 overflow-hidden border-r border-border/60 p-3"
     >
@@ -69,6 +72,7 @@ function NavButton({
   active: boolean;
   onClick: () => void;
 }) {
+  const labelAnimate = { opacity: expanded ? 1 : 0 };
   return (
     <button
       onClick={onClick}
@@ -88,11 +92,7 @@ function NavButton({
         />
       )}
       <Icon size={19} className="shrink-0" />
-      <motion.span
-        animate= opacity: expanded ? 1 : 0 
-        transition= duration: 0.2 
-        className="whitespace-nowrap"
-      >
+      <motion.span animate={labelAnimate} transition={labelTransition} className="whitespace-nowrap">
         {label}
       </motion.span>
     </button>

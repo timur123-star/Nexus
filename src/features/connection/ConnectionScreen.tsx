@@ -10,6 +10,12 @@ import { fadeInUp } from "../../shared/lib/motion";
 import { flagFor } from "../../shared/lib/flags";
 import { PROTOCOL_LABEL } from "../servers/protocolMeta";
 
+const connectLabels = {
+  connected: "\u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u044c",
+  busy: "\u2026",
+  idle: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c",
+};
+
 export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const servers = useServerStore((s) => s.servers);
   const pingOne = useServerStore((s) => s.pingOne);
@@ -43,6 +49,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
 
   const downSeries = samples.map((s) => s.down);
   const upSeries = samples.map((s) => s.up);
+  const connectState = connected ? "connected" : busy ? "busy" : "idle";
 
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center gap-6 p-8">
@@ -78,9 +85,9 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         {/* Connect button with pulse ring */}
         <div className="my-7 flex justify-center">
           <ConnectButton
-            state={connected ? "connected" : busy ? "busy" : "idle"}
+            state={connectState}
             onClick={() => toggle(active)}
-            labels= connected: "\u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u044c", busy: "\u2026", idle: "\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c" 
+            labels={connectLabels}
           />
         </div>
 
