@@ -105,6 +105,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           allowLan: proxy.allowLan,
           fakeIp: proxy.fakeIp,
           dns: proxy.dns,
+          customRules: proxy.customRules,
+          blockQuic: proxy.blockQuic,
         });
         await coreStart(config, core.kind);
         // The connected/error transition now arrives via core://status events

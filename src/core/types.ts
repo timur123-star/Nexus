@@ -103,6 +103,24 @@ export interface Subscription {
 
 export type RoutingMode = "global" | "rule" | "direct";
 
+/** How a custom routing rule matches traffic. */
+export type RoutingRuleMatch =
+  | "domain"
+  | "domain_suffix"
+  | "domain_keyword"
+  | "ip_cidr"
+  | "process_name";
+
+/** Where a matched rule sends traffic. */
+export type RoutingTarget = "proxy" | "direct" | "block";
+
+/** A single user-defined routing rule, evaluated before the bundled geo rules. */
+export interface RoutingRule {
+  match: RoutingRuleMatch;
+  value: string;
+  target: RoutingTarget;
+}
+
 export type ConnectionStatus =
   | "disconnected"
   | "connecting"
