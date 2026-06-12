@@ -32,6 +32,12 @@ describe("parseShareLink — vless", () => {
     expect(s.tls.security).toBe("tls");
     expect(s.tls.sni).toBe("cdn.example.com");
   });
+
+  it("derives grpc serviceName from path when serviceName is absent", () => {
+    const s = parseShareLink("vless://u@h.example.com:443?type=grpc&path=mygrpcsvc#G");
+    expect(s.transport.type).toBe("grpc");
+    expect(s.transport.serviceName).toBe("mygrpcsvc");
+  });
 });
 
 describe("parseShareLink — vmess", () => {
@@ -63,6 +69,12 @@ describe("parseShareLink — vmess", () => {
 
   it("throws on non-base64 vmess payload", () => {
     expect(() => parseShareLink("vmess://%%%notbase64%%%")).toThrow(ParseError);
+  });
+
+  it("throws when the vmess payload is missing an address", () => {
+    const json = { ps: "NoAddr", id: "aaaa-bbbb", port: "443", net: "tcp" };
+    const link = "vmess://" + Buffer.from(JSON.stringify(json)).toString("base64");
+    expect(() => parseShareLink(link)).toThrow(/missing address/);
   });
 });
 
@@ -99,6 +111,17 @@ describe("parseShareLink — shadowsocks", () => {
     expect(s.method).toBe("aes-128-gcm");
     expect(s.port).toBe(1234);
   });
+
+  it("parses an IPv6 SIP002 host", () => {
+    const s = parseShareLink("ss://aes-256-gcm:pw@[2001:db8::1]:8388#v6");
+    expect(s.address).toBe("2001:db8::1");
+    expect(s.port).toBe(8388);
+  });
+
+  it("extracts a plugin/obfs query", () => {
+    const s = parseShareLink("ss://aes-256-gcm:pw@1.2.3.4:8388?plugin=obfs-local%3Bobfs%3Dhttp#Obfs");
+    expect(s.extra?.obfs).toContain("obfs-local");
+  });
 });
 
 describe("parseShareLink — hysteria2 / tuic", () => {
@@ -110,12 +133,19 @@ describe("parseShareLink — hysteria2 / tuic", () => {
     expect(s.extra?.obfsPassword).toBe("xyz");
   });
 
-  it("parses tuic with uuid:password", () => {
+  it("parses tuic with uuid:password in userinfo", () => {
     const s = parseShareLink("tuic://uuid-1:pass-1@t.example.com:443?congestion_control=bbr&udp_relay_mode=native#TUIC");
     expect(s.protocol).toBe("tuic");
     expect(s.uuid).toBe("uuid-1");
     expect(s.password).toBe("pass-1");
     expect(s.extra?.congestionControl).toBe("bbr");
+  });
+
+  it("parses tuic credentials supplied via query params", () => {
+    const s = parseShareLink("tuic://uuid-2@t.example.com:443?password=pw2&congestion_control=cubic#TUIC2");
+    expect(s.uuid).toBe("uuid-2");
+    expect(s.password).toBe("pw2");
+    expect(s.extra?.congestionControl).toBe("cubic");
   });
 });
 
@@ -140,6 +170,15 @@ describe("parseMany", () => {
     expect(servers).toHaveLength(2);
     expect(errors).toHaveLength(1);
     expect(errors[0].reason).toBe("unrecognised line");
+  });
+
+  it("de-duplicates the same endpoint even with different remarks", () => {
+    const text = [
+      "trojan://p@a.com:443#First",
+      "trojan://p@a.com:443#SecondTagDiffers",
+    ].join("\n");
+    const { servers } = parseMany(text);
+    expect(servers).toHaveLength(1);
   });
 
   it("decodes a base64 subscription body", () => {
