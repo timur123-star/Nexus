@@ -3,7 +3,7 @@
  *
  * A `ServerProfile` is the protocol-agnostic representation of one outbound.
  * The parser turns share-links / subscription entries into these, and the
- * sing-box config generator turns these into a runnable config.
+ * config generators turn these into a runnable sing-box / xray config.
  */
 
 export type Protocol =
@@ -13,6 +13,9 @@ export type Protocol =
   | "shadowsocks"
   | "hysteria2"
   | "tuic";
+
+/** Proxy core that actually runs the connection. */
+export type CoreKind = "sing-box" | "xray";
 
 /** Transport / network layer carried over the protocol. */
 export type Transport = "tcp" | "ws" | "grpc" | "http" | "h2" | "quic";

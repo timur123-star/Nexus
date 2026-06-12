@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ConnectionStatus, ServerProfile, TrafficSample } from "../core/types";
-import { generateSingboxConfig } from "../core/singbox/configGen";
+import { getCore } from "../core/proxy";
 import { coreStart, coreStop, setSystemProxy, type TrafficStats } from "../core/ipc";
 import { useSettingsStore } from "./useSettingsStore";
 
@@ -36,7 +36,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
     const { proxy } = useSettingsStore.getState();
     set({ status: "connecting", error: null, activeServerId: server.id });
     try {
-      const config = generateSingboxConfig(server, {
+      const core = getCore(proxy.coreKind);
+      if (!core.supports(server.protocol)) {
+        throw new Error(
+          `${core.label} \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
+        );
+      }
+      const config = core.generateConfig(server, {
         mixedPort: proxy.mixedPort,
         clashApiPort: proxy.clashApiPort,
         clashSecret: proxy.clashSecret,
@@ -46,7 +52,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         fakeIp: proxy.fakeIp,
         dns: proxy.dns,
       });
-      await coreStart(config);
+      await coreStart(config, core.kind);
       if (proxy.systemProxy) await setSystemProxy(true, proxy.mixedPort);
       set({ status: "connected", connectedAt: Date.now() });
     } catch (e) {

@@ -7,6 +7,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { CoreKind } from "./types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -37,9 +38,9 @@ export interface ConnectionEntry {
   start: number;
 }
 
-/** Start the sing-box core with a fully-formed config object. */
-export const coreStart = (config: object) =>
-  safeInvoke<void>("core_start", { config: JSON.stringify(config) }, undefined);
+/** Start the selected core with a fully-formed config object. */
+export const coreStart = (config: object, core: CoreKind = "sing-box") =>
+  safeInvoke<void>("core_start", { config: JSON.stringify(config), core }, undefined);
 
 export const coreStop = () => safeInvoke<void>("core_stop", undefined, undefined);
 
@@ -63,6 +64,12 @@ export const getConnections = (port: number, secret: string) =>
 export const setSystemProxy = (enable: boolean, port: number) =>
   safeInvoke<void>("set_system_proxy", { enable, port }, undefined);
 
+/** Whether the app currently has the privileges required for TUN mode. */
+export const isElevated = () => safeInvoke<boolean>("is_elevated", undefined, false);
+
+/** Relaunch the app with elevated privileges (UAC / osascript / pkexec). */
+export const relaunchAsAdmin = () => safeInvoke<void>("relaunch_as_admin", undefined, undefined);
+
 export const openLogsDir = () => safeInvoke<void>("open_logs_dir", undefined, undefined);
 
 export const validateConfig = (config: string) =>
@@ -80,7 +87,7 @@ export async function onCoreStatus(handler: (s: CoreStatus) => void): Promise<Un
   return listen<CoreStatus>("core://status", (e) => handler(e.payload));
 }
 
-// ── Mock helpers for browser-only development ──────────────────────────────
+// \u2500\u2500 Mock helpers for browser-only development \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function mockPing(): number {
   return 40 + Math.floor(Math.random() * 220);
 }

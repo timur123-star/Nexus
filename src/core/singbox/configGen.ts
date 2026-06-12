@@ -2,7 +2,7 @@
  * Generate a runnable sing-box configuration from a ServerProfile.
  *
  * The frontend owns config generation so the Rust side stays a thin process
- * supervisor (write file → spawn → monitor). This keeps the protocol knowledge
+ * supervisor (write file \u2192 spawn \u2192 monitor). This keeps the protocol knowledge
  * in one place and lets us unit-test it.
  *
  * Reference: https://sing-box.sagernet.org/configuration/
@@ -61,7 +61,8 @@ function buildInbounds(opts: GenOptions): object[] {
     },
   ];
 
-  if (opts.routingMode === "rule" && opts.tun.enabled) {
+  // TUN applies in any routing mode when enabled (requires elevated privileges).
+  if (opts.tun.enabled) {
     inbounds.push({
       type: "tun",
       tag: "tun-in",
@@ -151,7 +152,7 @@ function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
   };
 }
 
-// ── Outbound builders ──────────────────────────────────────────────────────
+// \u2500\u2500 Outbound builders \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 function buildOutbound(s: ServerProfile): object {
   const common = { tag: PROXY_TAG, server: s.address, server_port: s.port };
   const tls = buildTlsBlock(s);
@@ -247,6 +248,6 @@ function buildTransportBlock(t: TransportSettings): object | null {
     case "h2":
       return { type: "http", path: t.path || "/", ...(t.host ? { host: [t.host] } : {}) };
     default:
-      return null; // tcp / quic — no transport block
+      return null; // tcp / quic \u2014 no transport block
   }
 }

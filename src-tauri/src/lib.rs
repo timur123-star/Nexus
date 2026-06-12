@@ -3,6 +3,7 @@
 mod commands;
 mod core;
 mod ping;
+mod privilege;
 mod sysproxy;
 mod tray;
 
@@ -13,6 +14,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_sql::Builder::new().build())
         .manage(AppState::new())
         .setup(|app| {
             tray::build_tray(app.handle())?;
@@ -34,6 +36,8 @@ pub fn run() {
             commands::get_traffic,
             commands::get_connections,
             commands::set_system_proxy,
+            commands::is_elevated,
+            commands::relaunch_as_admin,
             commands::validate_config,
             commands::open_logs_dir,
         ])

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { AnimatePresence, motion } from "framer-motion";
 import { TitleBar } from "./shared/components/TitleBar";
 import { Sidebar, type Screen } from "./shared/components/Sidebar";
 import { ConnectionScreen } from "./features/connection/ConnectionScreen";
@@ -14,6 +15,8 @@ import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
 import { isTauri } from "./core/ipc";
 import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
+import { startSubscriptionScheduler } from "./core/subscriptions/scheduler";
+import { pageVariants } from "./shared/lib/motion";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("connection");
@@ -52,6 +55,9 @@ export default function App() {
     };
   }, []);
 
+  // Auto-refresh subscriptions on their configured schedule.
+  useEffect(() => startSubscriptionScheduler(), []);
+
   async function toggleActive() {
     const { activeServerId, toggle } = useConnectionStore.getState();
     const list = useServerStore.getState().servers;
@@ -78,13 +84,22 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar active={screen} onNavigate={setScreen} />
         <main className="relative z-[1] min-h-0 flex-1 overflow-y-auto">
-          <div key={screen} className="animate-fade-in h-full">
-            {screen === "connection" && <ConnectionScreen onBrowse={() => setScreen("servers")} />}
-            {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
-            {screen === "stats" && <StatsScreen />}
-            {screen === "editor" && <EditorScreen />}
-            {screen === "settings" && <SettingsScreen />}
-          </div>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={screen}
+              variants={pageVariants}
+              initial="initial"
+              animate="enter"
+              exit="exit"
+              className="h-full"
+            >
+              {screen === "connection" && <ConnectionScreen onBrowse={() => setScreen("servers")} />}
+              {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
+              {screen === "stats" && <StatsScreen />}
+              {screen === "editor" && <EditorScreen />}
+              {screen === "settings" && <SettingsScreen />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
       {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}

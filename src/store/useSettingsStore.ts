@@ -1,8 +1,11 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import type { RoutingMode } from "../core/types";
+import { persist, createJSONStorage } from "zustand/middleware";
+import type { CoreKind, RoutingMode } from "../core/types";
+import { persistentStorage } from "../core/db";
 
 export interface ProxySettings {
+  /** Which proxy engine runs connections. */
+  coreKind: CoreKind;
   mixedPort: number;
   allowLan: boolean;
   systemProxy: boolean;
@@ -47,6 +50,7 @@ interface SettingsState {
 }
 
 export const DEFAULT_PROXY: ProxySettings = {
+  coreKind: "sing-box",
   mixedPort: 2080,
   allowLan: false,
   systemProxy: true,
@@ -57,7 +61,7 @@ export const DEFAULT_PROXY: ProxySettings = {
   mux: { enabled: false, protocol: "smux" },
   fragment: { enabled: false, packets: "tlshello", length: "10-20", interval: "10-20" },
   clashApiPort: 9090,
-  // Not a secret in the cryptographic sense — local Clash API guard only.
+  // Not a secret in the cryptographic sense \u2014 local Clash API guard only.
   clashSecret: "nexusshield",
 };
 
@@ -78,6 +82,19 @@ export const useSettingsStore = create<SettingsState>()(
       setApp: (patch) => set((s) => ({ app: { ...s.app, ...patch } })),
       reset: () => set({ proxy: DEFAULT_PROXY, app: DEFAULT_APP }),
     }),
-    { name: "nexusshield-settings" },
+    {
+      name: "nexusshield-settings",
+      storage: createJSONStorage(() => persistentStorage),
+      // Merge persisted state over defaults so new fields (e.g. coreKind) are
+      // always present for users upgrading from an older version.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>;
+        return {
+          ...current,
+          proxy: { ...current.proxy, ...(p.proxy ?? {}) },
+          app: { ...current.app, ...(p.app ?? {}) },
+        };
+      },
+    },
   ),
 );
