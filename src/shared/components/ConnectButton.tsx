@@ -18,11 +18,23 @@ const btnTransition = { duration: 0.3, ease: EASE_OUT };
 const tapScale = { scale: 0.94 };
 const hoverScale = { scale: 1.05 };
 
+// Slowly rotating conic "energy" halo shown while connected.
+const haloStyle: React.CSSProperties = {
+  background:
+    "conic-gradient(from 0deg, transparent 0deg, rgba(30,200,164,0.0) 40deg, rgba(30,200,164,0.55) 110deg, rgba(75,217,187,0.0) 200deg, transparent 360deg)",
+  WebkitMaskImage: "radial-gradient(closest-side, transparent 60%, #000 63%, #000 100%)",
+  maskImage: "radial-gradient(closest-side, transparent 60%, #000 63%, #000 100%)",
+};
+const haloTransition = { duration: 6, ease: "linear" as const, repeat: Infinity };
+const idleGlowAnimate = { opacity: [0.35, 0.65, 0.35], scale: [1, 1.08, 1] };
+const idleGlowTransition = { duration: 3.2, ease: "easeInOut" as const, repeat: Infinity };
+
 /**
  * Large circular connect/disconnect control.
  *
- * - Idle: indigo gradient, lifts on hover.
- * - Connected: teal gradient with two expanding "sonar" pulse rings.
+ * - Idle: indigo gradient, lifts on hover, breathes a soft ambient glow.
+ * - Connected: teal gradient with a rotating conic halo + two expanding
+ *   "sonar" pulse rings.
  * - Busy (connecting/reconnecting): the power glyph spins.
  *
  * All motion is disabled when the OS requests reduced motion.
@@ -54,6 +66,28 @@ export function ConnectButton({
 
   return (
     <div className="relative grid place-items-center">
+      {/* Idle ambient glow — keeps the control feeling alive when off. */}
+      {!connected && !busy && !reduce && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute h-32 w-32 rounded-full bg-indigo/25 blur-2xl"
+          animate={idleGlowAnimate}
+          transition={idleGlowTransition}
+        />
+      )}
+
+      {/* Rotating conic halo (connected). */}
+      {connected && !reduce && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute h-36 w-36 rounded-full"
+          style={haloStyle}
+          animate= rotate: 360 
+          transition={haloTransition}
+        />
+      )}
+
+      {/* Sonar pulse rings (connected). */}
       <AnimatePresence>
         {connected &&
           !reduce &&
