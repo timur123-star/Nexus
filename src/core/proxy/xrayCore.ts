@@ -24,5 +24,7 @@ export const xrayCore: IProxyCore = {
       clashApiPort: opts.clashApiPort,
       routingMode: opts.routingMode,
       allowLan: opts.allowLan,
+      fragment: opts.fragment ?? null,
+      mux: opts.mux ?? null,
     }),
 };

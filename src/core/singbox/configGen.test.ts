@@ -112,3 +112,21 @@ describe("generateSingboxConfig — outbound", () => {
     expect(proxy.tls.server_name).toBe("h.com");
   });
 });
+
+describe("generateSingboxConfig — multiplex", () => {
+  it("adds a multiplex block to the proxy outbound when mux is enabled", () => {
+    const cfg = gen({ mux: { enabled: true, protocol: "smux" } });
+    const proxy = cfg.outbounds[0];
+    expect(proxy.multiplex).toMatchObject({ enabled: true, protocol: "smux" });
+  });
+
+  it("omits multiplex when mux is disabled", () => {
+    const cfg = gen({ mux: { enabled: false, protocol: "smux" } });
+    expect(cfg.outbounds[0].multiplex).toBeUndefined();
+  });
+
+  it("omits multiplex when mux is not provided", () => {
+    const cfg = gen();
+    expect(cfg.outbounds[0].multiplex).toBeUndefined();
+  });
+});

@@ -30,6 +30,10 @@ export interface GenOptions {
   customRules?: RoutingRule[];
   /** Reject QUIC so browsers fall back to TCP/TLS and remain routed. */
   blockQuic?: boolean;
+  /** Stream multiplexing (mux) — applied to TCP-based protocols only. */
+  mux?: ProxySettings["mux"];
+  /** TLS fragmentation. Native to Xray; sing-box configs intentionally ignore it. */
+  fragment?: ProxySettings["fragment"];
   logLevel?: "trace" | "debug" | "info" | "warn" | "error";
 }
 
@@ -53,7 +57,7 @@ const TARGET_OUTBOUND: Record<RoutingTarget, string> = {
 
 export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): object {
   const inbounds = buildInbounds(opts);
-  const outbound = buildOutbound(server);
+  const outbound = buildOutbound(server, opts);
 
   return {
     log: { level: opts.logLevel ?? "info", timestamp: true },
@@ -200,10 +204,28 @@ function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
 }
 
 // -- Outbound builders ------------------------------------------------------
-function buildOutbound(s: ServerProfile): object {
+
+/**
+ * sing-box stream multiplexing. Valid only on TCP-based protocols
+ * (vless/vmess/trojan/shadowsocks); hysteria2 and tuic are UDP-native and must
+ * never carry a multiplex block.
+ */
+function buildMultiplex(mux: GenOptions["mux"]): object | null {
+  if (!mux || !mux.enabled) return null;
+  return {
+    enabled: true,
+    protocol: mux.protocol,
+    max_connections: 4,
+    min_streams: 4,
+    padding: false,
+  };
+}
+
+function buildOutbound(s: ServerProfile, opts: GenOptions): object {
   const common = { tag: PROXY_TAG, server: s.address, server_port: s.port };
   const tls = buildTlsBlock(s);
   const transport = buildTransportBlock(s.transport);
+  const multiplex = buildMultiplex(opts.mux);
 
   switch (s.protocol) {
     case "vless":
@@ -214,6 +236,7 @@ function buildOutbound(s: ServerProfile): object {
         flow: s.flow || "",
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
+        ...(multiplex ? { multiplex } : {}),
       };
     case "vmess":
       return {
@@ -224,6 +247,7 @@ function buildOutbound(s: ServerProfile): object {
         security: s.method || "auto",
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
+        ...(multiplex ? { multiplex } : {}),
       };
     case "trojan":
       return {
@@ -232,6 +256,7 @@ function buildOutbound(s: ServerProfile): object {
         password: s.password,
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
+        ...(multiplex ? { multiplex } : {}),
       };
     case "shadowsocks":
       return {
@@ -239,6 +264,7 @@ function buildOutbound(s: ServerProfile): object {
         ...common,
         method: s.method,
         password: s.password,
+        ...(multiplex ? { multiplex } : {}),
       };
     case "hysteria2":
       return {

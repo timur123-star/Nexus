@@ -53,7 +53,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       set({
         status: "error",
         autoReconnect: false,
-        error: "Не удалось переподключиться — превышено число попыток",
+        error: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0435\u0440\u0435\u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u2014 \u043f\u0440\u0435\u0432\u044b\u0448\u0435\u043d\u043e \u0447\u0438\u0441\u043b\u043e \u043f\u043e\u043f\u044b\u0442\u043e\u043a",
       });
       return;
     }
@@ -93,7 +93,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         const core = getCore(proxy.coreKind);
         if (!core.supports(server.protocol)) {
           throw new Error(
-            `${core.label} не поддерживает протокол ${server.protocol.toUpperCase()}`,
+            `${core.label} \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
           );
         }
         const config = core.generateConfig(server, {
@@ -107,6 +107,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           dns: proxy.dns,
           customRules: proxy.customRules,
           blockQuic: proxy.blockQuic,
+          mux: proxy.mux,
+          fragment: proxy.fragment,
         });
         await coreStart(config, core.kind);
         // The connected/error transition now arrives via core://status events

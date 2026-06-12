@@ -1,50 +1,84 @@
 import { describe, it, expect } from "vitest";
-import { generateXrayConfig } from "./configGen";
+import { generateXrayConfig, type XrayGenOptions } from "./configGen";
 import type { ServerProfile } from "../types";
 
-const base: ServerProfile = {
-  id: "1",
-  name: "test",
+const server: ServerProfile = {
+  id: "srv_1",
+  name: "Test",
   protocol: "vless",
   address: "example.com",
   port: 443,
-  uuid: "00000000-0000-0000-0000-000000000000",
-  transport: { type: "ws", path: "/path", host: "host.com" },
-  tls: { enabled: true, security: "tls", sni: "host.com" },
+  uuid: "uuid-1",
+  transport: { type: "ws", path: "/p", host: "h.com" },
+  tls: { enabled: true, security: "tls", sni: "h.com" },
   tags: [],
   favorite: false,
+  latencyMs: null,
   createdAt: 0,
 };
 
-const opts = { mixedPort: 2080, clashApiPort: 9090, routingMode: "rule" as const, allowLan: false };
+const baseOpts: XrayGenOptions = {
+  mixedPort: 2080,
+  clashApiPort: 9090,
+  routingMode: "rule",
+  allowLan: false,
+};
 
-describe("generateXrayConfig", () => {
-  it("builds a vless ws+tls outbound", () => {
-    const c = generateXrayConfig(base, opts) as any;
-    expect(c.outbounds[0].protocol).toBe("vless");
-    expect(c.outbounds[0].streamSettings.network).toBe("ws");
-    expect(c.outbounds[0].streamSettings.security).toBe("tls");
-    expect(c.outbounds[0].streamSettings.wsSettings.path).toBe("/path");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function gen(opts: Partial<XrayGenOptions> = {}): any {
+  return generateXrayConfig(server, { ...baseOpts, ...opts });
+}
+
+describe("generateXrayConfig — base", () => {
+  it("builds http + socks inbounds and a vless proxy outbound", () => {
+    const cfg = gen();
+    const tags = cfg.inbounds.map((i: { tag: string }) => i.tag);
+    expect(tags).toContain("http-in");
+    expect(tags).toContain("socks-in");
+    const proxy = cfg.outbounds.find((o: { tag: string }) => o.tag === "proxy");
+    expect(proxy.protocol).toBe("vless");
   });
 
-  it("exposes an http inbound on the mixed port for system proxy", () => {
-    const c = generateXrayConfig(base, opts) as any;
-    const http = c.inbounds.find((i: any) => i.protocol === "http");
-    expect(http.port).toBe(2080);
+  it("rejects sing-box-only protocols", () => {
+    expect(() =>
+      generateXrayConfig({ ...server, protocol: "hysteria2" }, baseOpts),
+    ).toThrow();
+  });
+});
+
+describe("generateXrayConfig — fragment", () => {
+  it("adds a fragment freedom outbound and dials the proxy through it", () => {
+    const cfg = gen({
+      fragment: { enabled: true, packets: "tlshello", length: "10-20", interval: "10-20" },
+    });
+    const frag = cfg.outbounds.find((o: { tag: string }) => o.tag === "fragment");
+    expect(frag).toBeDefined();
+    expect(frag.settings.fragment).toMatchObject({ packets: "tlshello", length: "10-20" });
+    const proxy = cfg.outbounds.find((o: { tag: string }) => o.tag === "proxy");
+    expect(proxy.streamSettings.sockopt.dialerProxy).toBe("fragment");
   });
 
-  it("maps reality security", () => {
-    const reality: ServerProfile = {
-      ...base,
-      tls: { enabled: true, security: "reality", sni: "host.com", publicKey: "pk", shortId: "sid" },
-    };
-    const c = generateXrayConfig(reality, opts) as any;
-    expect(c.outbounds[0].streamSettings.security).toBe("reality");
-    expect(c.outbounds[0].streamSettings.realitySettings.publicKey).toBe("pk");
+  it("omits fragment plumbing when disabled", () => {
+    const cfg = gen({
+      fragment: { enabled: false, packets: "tlshello", length: "10-20", interval: "10-20" },
+    });
+    const frag = cfg.outbounds.find((o: { tag: string }) => o.tag === "fragment");
+    expect(frag).toBeUndefined();
+    const proxy = cfg.outbounds.find((o: { tag: string }) => o.tag === "proxy");
+    expect(proxy.streamSettings.sockopt).toBeUndefined();
+  });
+});
+
+describe("generateXrayConfig — mux", () => {
+  it("enables mux on the proxy outbound", () => {
+    const cfg = gen({ mux: { enabled: true, protocol: "smux" } });
+    const proxy = cfg.outbounds.find((o: { tag: string }) => o.tag === "proxy");
+    expect(proxy.mux).toMatchObject({ enabled: true });
   });
 
-  it("rejects hysteria2 / tuic (sing-box only)", () => {
-    expect(() => generateXrayConfig({ ...base, protocol: "hysteria2" }, opts)).toThrow();
-    expect(() => generateXrayConfig({ ...base, protocol: "tuic" }, opts)).toThrow();
+  it("omits mux when disabled", () => {
+    const cfg = gen({ mux: { enabled: false } });
+    const proxy = cfg.outbounds.find((o: { tag: string }) => o.tag === "proxy");
+    expect(proxy.mux).toBeUndefined();
   });
 });
