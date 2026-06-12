@@ -1,0 +1,7 @@
+# Pin to a stable rustc known-good with Tauri 2 / time 0.3.x.
+# rustc 1.96.0 hits an E0119 coherence error in the `time` crate's parser;
+# rustc <1.85 lacks stabilized edition2024 needed by transitive deps.
+# 1.90.0 sits in the working window.
+[toolchain]
+channel = "1.90.0"
+profile = "minimal"

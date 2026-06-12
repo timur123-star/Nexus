@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────────────────
+   NexusShield design tokens (Tailwind v4 @theme)
+   Style: glassmorphism + flat hybrid. Electric indigo / teal accents.
+   ──────────────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, monospace;
+
+  /* Brand */
+  --color-indigo: #5b6af0;
+  --color-indigo-soft: #7d88f4;
+  --color-teal: #1ec8a4;
+  --color-teal-soft: #4bd9bb;
+
+  /* Status */
+  --color-ok: #1ec8a4;
+  --color-warn: #f5b14c;
+  --color-bad: #f0556b;
+
+  /* Dark theme surfaces (default) */
+  --color-bg: #0d0f14;
+  --color-bg-elev: #141823;
+  --color-surface: #1a1f2e;
+  --color-border: #262d3f;
+  --color-text: #e6e9f2;
+  --color-text-dim: #9aa3b8;
+  --color-text-faint: #5e6781;
+
+  /* Radii from spec */
+  --radius-card: 12px;
+  --radius-btn: 8px;
+  --radius-panel: 20px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Light theme overrides */
+:root.light {
+  --color-bg: #f4f6fb;
+  --color-bg-elev: #ffffff;
+  --color-surface: #ffffff;
+  --color-border: #e1e6f0;
+  --color-text: #1a1f2e;
+  --color-text-dim: #5b6478;
+  --color-text-faint: #9aa3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Background ambience — subtle indigo/teal glow behind glass panels */
+#root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60vw 60vw at 12% -10%, rgba(91, 106, 240, 0.16), transparent 60%),
+    radial-gradient(50vw 50vw at 100% 110%, rgba(30, 200, 164, 0.12), transparent 60%);
+}
+
+/* ── Glassmorphism utilities ──────────────────────────────────────────── */
+@utility glass {
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+
+@utility glass-elev {
+  background: color-mix(in srgb, var(--color-bg-elev) 75%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, transparent);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border) 90%, transparent);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-faint);
+  background-clip: content-box;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────── */
+@keyframes ns-pulse-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ns-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ns-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pulse-ring {
+  animation: ns-pulse-ring 1.8s var(--ease-out) infinite;
+}
+.animate-spin-slow {
+  animation: ns-spin 1s linear infinite;
+}
+.animate-fade-in {
+  animation: ns-fade-in 0.25s var(--ease-out) both;
+}
+
+/* ── Reusable form input ──────────────────────────────────────────────── */
+.ns-input {
+  width: 100%;
+  border-radius: var(--radius-btn);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 40%, transparent);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s var(--ease-out);
+}
+.ns-input::placeholder {
+  color: var(--color-text-faint);
+}
+.ns-input:focus {
+  border-color: var(--color-indigo);
+}

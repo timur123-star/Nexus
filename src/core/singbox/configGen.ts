@@ -1,0 +1,252 @@
+/**
+ * Generate a runnable sing-box configuration from a ServerProfile.
+ *
+ * The frontend owns config generation so the Rust side stays a thin process
+ * supervisor (write file → spawn → monitor). This keeps the protocol knowledge
+ * in one place and lets us unit-test it.
+ *
+ * Reference: https://sing-box.sagernet.org/configuration/
+ */
+import type { ProxySettings } from "../../store/useSettingsStore";
+import type { RoutingMode, ServerProfile, TransportSettings } from "../types";
+
+export interface GenOptions {
+  mixedPort: number; // local mixed (http+socks) inbound
+  clashApiPort: number;
+  clashSecret: string;
+  routingMode: RoutingMode;
+  tun: ProxySettings["tun"];
+  allowLan: boolean;
+  fakeIp: boolean;
+  dns: ProxySettings["dns"];
+  logLevel?: "trace" | "debug" | "info" | "warn" | "error";
+}
+
+const PROXY_TAG = "proxy";
+const DIRECT_TAG = "direct";
+
+export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): object {
+  const inbounds = buildInbounds(opts);
+  const outbound = buildOutbound(server);
+
+  return {
+    log: { level: opts.logLevel ?? "info", timestamp: true },
+    dns: buildDns(opts),
+    inbounds,
+    outbounds: [
+      outbound,
+      { type: "direct", tag: DIRECT_TAG },
+      { type: "block", tag: "block" },
+    ],
+    route: buildRoute(opts),
+    experimental: {
+      clash_api: {
+        external_controller: `127.0.0.1:${opts.clashApiPort}`,
+        secret: opts.clashSecret,
+      },
+      cache_file: { enabled: true },
+    },
+  };
+}
+
+function buildInbounds(opts: GenOptions): object[] {
+  const inbounds: object[] = [
+    {
+      type: "mixed",
+      tag: "mixed-in",
+      listen: opts.allowLan ? "0.0.0.0" : "127.0.0.1",
+      listen_port: opts.mixedPort,
+      sniff: true,
+      sniff_override_destination: false,
+    },
+  ];
+
+  if (opts.routingMode === "rule" && opts.tun.enabled) {
+    inbounds.push({
+      type: "tun",
+      tag: "tun-in",
+      interface_name: "nexus-tun",
+      inet4_address: "172.19.0.1/30",
+      inet6_address: "fdfe:dcba:9876::1/126",
+      auto_route: true,
+      strict_route: true,
+      stack: opts.tun.stack ?? "system",
+      sniff: true,
+      mtu: 9000,
+    });
+  }
+
+  return inbounds;
+}
+
+function buildDns(opts: GenOptions): object {
+  const servers: object[] = [
+    { tag: "dns-remote", address: opts.dns.remote || "https://1.1.1.1/dns-query", detour: PROXY_TAG },
+    { tag: "dns-direct", address: opts.dns.direct || "https://223.5.5.5/dns-query", detour: DIRECT_TAG },
+    { tag: "dns-block", address: "rcode://success" },
+  ];
+
+  const rules: object[] = [
+    { outbound: "any", server: "dns-direct" },
+    { rule_set: "geosite-cn", server: "dns-direct" },
+  ];
+
+  return {
+    servers,
+    rules,
+    final: "dns-remote",
+    strategy: "prefer_ipv4",
+    independent_cache: true,
+    ...(opts.fakeIp
+      ? {
+          fakeip: { enabled: true, inet4_range: "198.18.0.0/15", inet6_range: "fc00::/18" },
+        }
+      : {}),
+  };
+}
+
+function buildRoute(opts: GenOptions): object {
+  const rules: object[] = [
+    { action: "sniff" },
+    { protocol: "dns", action: "hijack-dns" },
+    { ip_is_private: true, outbound: DIRECT_TAG },
+  ];
+
+  if (opts.routingMode === "rule") {
+    rules.push(
+      { rule_set: "geoip-cn", outbound: DIRECT_TAG },
+      { rule_set: "geosite-cn", outbound: DIRECT_TAG },
+      { rule_set: "geosite-ads", outbound: "block" },
+    );
+  }
+
+  const rule_set =
+    opts.routingMode === "rule"
+      ? [
+          ruleSet("geoip-cn", "geoip", "cn"),
+          ruleSet("geosite-cn", "geosite", "cn"),
+          ruleSet("geosite-ads", "geosite", "category-ads-all"),
+        ]
+      : [];
+
+  return {
+    rules,
+    rule_set,
+    final: opts.routingMode === "direct" ? DIRECT_TAG : PROXY_TAG,
+    auto_detect_interface: true,
+  };
+}
+
+function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
+  const base =
+    kind === "geoip"
+      ? "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set"
+      : "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set";
+  return {
+    tag,
+    type: "remote",
+    format: "binary",
+    url: `${base}/${kind}-${name}.srs`,
+    download_detour: PROXY_TAG,
+  };
+}
+
+// ── Outbound builders ──────────────────────────────────────────────────────
+function buildOutbound(s: ServerProfile): object {
+  const common = { tag: PROXY_TAG, server: s.address, server_port: s.port };
+  const tls = buildTlsBlock(s);
+  const transport = buildTransportBlock(s.transport);
+
+  switch (s.protocol) {
+    case "vless":
+      return {
+        type: "vless",
+        ...common,
+        uuid: s.uuid,
+        flow: s.flow || "",
+        ...(transport ? { transport } : {}),
+        ...(tls ? { tls } : {}),
+      };
+    case "vmess":
+      return {
+        type: "vmess",
+        ...common,
+        uuid: s.uuid,
+        alter_id: s.alterId ?? 0,
+        security: s.method || "auto",
+        ...(transport ? { transport } : {}),
+        ...(tls ? { tls } : {}),
+      };
+    case "trojan":
+      return {
+        type: "trojan",
+        ...common,
+        password: s.password,
+        ...(transport ? { transport } : {}),
+        ...(tls ? { tls } : {}),
+      };
+    case "shadowsocks":
+      return {
+        type: "shadowsocks",
+        ...common,
+        method: s.method,
+        password: s.password,
+      };
+    case "hysteria2":
+      return {
+        type: "hysteria2",
+        ...common,
+        password: s.password,
+        ...(s.extra?.obfs
+          ? { obfs: { type: s.extra.obfs, password: s.extra.obfsPassword } }
+          : {}),
+        ...(tls ? { tls } : { tls: { enabled: true } }),
+      };
+    case "tuic":
+      return {
+        type: "tuic",
+        ...common,
+        uuid: s.uuid,
+        password: s.password,
+        congestion_control: s.extra?.congestionControl || "bbr",
+        udp_relay_mode: s.extra?.udpRelayMode || "native",
+        ...(tls ? { tls } : { tls: { enabled: true } }),
+      };
+  }
+}
+
+function buildTlsBlock(s: ServerProfile): object | null {
+  if (!s.tls.enabled) return null;
+  const tls: Record<string, unknown> = {
+    enabled: true,
+    server_name: s.tls.sni || s.address,
+    insecure: !!s.tls.allowInsecure,
+  };
+  if (s.tls.alpn?.length) tls.alpn = s.tls.alpn;
+  if (s.tls.fingerprint) tls.utls = { enabled: true, fingerprint: s.tls.fingerprint };
+  if (s.tls.security === "reality") {
+    tls.reality = {
+      enabled: true,
+      public_key: s.tls.publicKey,
+      short_id: s.tls.shortId || "",
+    };
+  }
+  return tls;
+}
+
+function buildTransportBlock(t: TransportSettings): object | null {
+  switch (t.type) {
+    case "ws":
+      return {
+        type: "ws",
+        path: t.path || "/",
+        ...(t.host ? { headers: { Host: t.host } } : {}),
+      };
+    case "grpc":
+      return { type: "grpc", service_name: t.serviceName || "" };
+    case "h2":
+      return { type: "http", path: t.path || "/", ...(t.host ? { host: [t.host] } : {}) };
+    default:
+      return null; // tcp / quic — no transport block
+  }
+}
