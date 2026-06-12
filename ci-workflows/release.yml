@@ -1,72 +1,18 @@
-name: Release
-
-on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-
-jobs:
-  release:
-    name: Build $ matrix.platform 
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: "--target aarch64-apple-darwin"
-            rust_targets: aarch64-apple-darwin
-          - platform: macos-latest
-            args: "--target x86_64-apple-darwin"
-            rust_targets: x86_64-apple-darwin
-          - platform: ubuntu-22.04
-            args: ""
-            rust_targets: ""
-          - platform: windows-latest
-            args: ""
-            rust_targets: ""
-    runs-on: $ matrix.platform 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: $ matrix.rust_targets 
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Install Linux build deps
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install frontend dependencies
-        run: npm ci || npm install
-
-      - name: Fetch core binaries (sing-box + xray)
-        run: npm run fetch-cores
-
-      - name: Build & publish
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: $ secrets.GITHUB_TOKEN 
-        with:
-          tagName: $ github.ref_name 
-          releaseName: "NexusShield $ github.ref_name "
-          releaseBody: "Download the installer for your platform from the assets below."
-          releaseDraft: true
-          prerelease: false
-          args: $ matrix.args 
+# release.yml - placeholder / instructions
+#
+# A full cross-platform release workflow requires GitHub Actions expression
+# syntax (a dollar sign followed by double curly braces) which cannot be
+# transmitted intact by the assistant, so the real file is not generated here.
+#
+# To enable auto-built installers (macOS / Windows / Linux) on tag push:
+#   1. Open the official Tauri action example:
+#        https://github.com/tauri-apps/tauri-action  (README, "Example Workflow")
+#   2. Copy its release workflow into .github/workflows/release.yml
+#   3. Add this step BEFORE the tauri-apps/tauri-action step:
+#        - name: Fetch core binaries
+#          run: npm run fetch-cores
+#   4. Make sure Node is set up (actions/setup-node@v4, node-version 20).
+#
+# Trigger a release later by pushing a tag, for example:
+#   git tag v0.1.0
+#   git push origin v0.1.0
