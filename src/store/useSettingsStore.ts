@@ -61,7 +61,7 @@ export const DEFAULT_PROXY: ProxySettings = {
   mux: { enabled: false, protocol: "smux" },
   fragment: { enabled: false, packets: "tlshello", length: "10-20", interval: "10-20" },
   clashApiPort: 9090,
-  // Not a secret in the cryptographic sense \u2014 local Clash API guard only.
+  // Not a secret in the cryptographic sense — local Clash API guard only.
   clashSecret: "nexusshield",
 };
 

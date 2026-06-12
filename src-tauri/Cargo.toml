@@ -13,10 +13,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-# Force time >= 0.3.36 in the BUILD graph (tauri-build -> tauri-utils -> time).
-# Older 0.3.x versions fail with a spurious E0119 coherence error on modern
-# rustc (>= 1.80), which is why tauri-utils failed to compile in CI.
-time = "0.3.36"
+# Pin `time` to 0.3.47 in the BUILD graph (tauri-build -> tauri-utils -> time).
+# time 0.3.48 (released 2026-06-12) refactored format-description parsing and
+# added an impl that triggers a spurious E0119 coherence error inside
+# tauri-utils 2.9.2 (acl/value.rs & assets.rs) on EVERY rustc version.
+# 0.3.47 is the last release before that refactor and still satisfies the
+# `time = "^0.3.47"` requirement of plist (pulled in by tauri 2.11).
+time = "=0.3.47"
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
@@ -34,9 +37,9 @@ anyhow = "1"
 thiserror = "2"
 log = "0.4"
 chrono = { version = "0.4", features = ["clock"] }
-# Force time >= 0.3.36 in the normal graph (tauri -> tauri-utils -> time) too.
-# See the note in [build-dependencies] above.
-time = "0.3.36"
+# Pin `time` to 0.3.47 in the normal graph too (tauri -> tauri-utils -> time).
+# See the note in [build-dependencies] above for why 0.3.48 must be avoided.
+time = "=0.3.47"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

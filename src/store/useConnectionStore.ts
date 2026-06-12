@@ -39,7 +39,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       const core = getCore(proxy.coreKind);
       if (!core.supports(server.protocol)) {
         throw new Error(
-          `${core.label} \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
+          `${core.label} не поддерживает протокол ${server.protocol.toUpperCase()}`,
         );
       }
       const config = core.generateConfig(server, {

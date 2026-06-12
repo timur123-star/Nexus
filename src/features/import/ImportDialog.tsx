@@ -24,20 +24,20 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     try {
       setText(await navigator.clipboard.readText());
     } catch {
-      setResult("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u043e\u0447\u0438\u0442\u0430\u0442\u044c \u0431\u0443\u0444\u0435\u0440 \u043e\u0431\u043c\u0435\u043d\u0430");
+      setResult("Не удалось прочитать буфер обмена");
     }
   }
 
   function importDecoded(decoded: string | null) {
     if (!decoded) {
-      setResult("QR-\u043a\u043e\u0434 \u043d\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d");
+      setResult("QR-код не распознан");
       return;
     }
     const { added, errors } = addFromBlob(decoded);
     setResult(
       added > 0
-        ? `\u0418\u0437 QR \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043e: ${added}`
-        : `\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0437\u043e\u0431\u0440\u0430\u0442\u044c QR (\u043e\u0448\u0438\u0431\u043e\u043a: ${errors})`,
+        ? `Из QR добавлено: ${added}`
+        : `Не удалось разобрать QR (ошибок: ${errors})`,
     );
   }
 
@@ -55,7 +55,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   function handleImportLinks() {
     if (!text.trim()) return;
     const { added, errors } = addFromBlob(text);
-    setResult(`\u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043e: ${added}${errors ? `, \u043e\u0448\u0438\u0431\u043e\u043a: ${errors}` : ""}`);
+    setResult(`Добавлено: ${added}${errors ? `, ошибок: ${errors}` : ""}`);
     if (added > 0) setText("");
   }
 
@@ -65,11 +65,11 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     setResult(null);
     try {
       await addSubscription(subName || subUrl, subUrl, interval);
-      setResult("\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430 \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0430 \u0438 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0430");
+      setResult("Подписка добавлена и обновлена");
       setSubUrl("");
       setSubName("");
     } catch (e) {
-      setResult(`\u041e\u0448\u0438\u0431\u043a\u0430: ${e instanceof Error ? e.message : e}`);
+      setResult(`Ошибка: ${e instanceof Error ? e.message : e}`);
     } finally {
       setBusy(false);
     }
@@ -85,7 +85,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text">\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0441\u0435\u0440\u0432\u0435\u0440</h2>
+          <h2 className="text-base font-semibold text-text">Добавить сервер</h2>
           <button onClick={onClose} className="text-text-faint hover:text-text">
             <X size={18} />
           </button>
@@ -93,10 +93,10 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
 
         <div className="mb-4 flex gap-1 rounded-btn bg-bg/50 p-1">
           <TabBtn active={tab === "link"} onClick={() => setTab("link")} icon={Link2}>
-            \u0421\u0441\u044b\u043b\u043a\u0430 / \u0441\u043f\u0438\u0441\u043e\u043a
+            Ссылка / список
           </TabBtn>
           <TabBtn active={tab === "subscription"} onClick={() => setTab("subscription")} icon={Rss}>
-            \u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0430
+            Подписка
           </TabBtn>
         </div>
 
@@ -106,31 +106,31 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={6}
-              placeholder="vless://\u2026 / vmess://\u2026 / trojan://\u2026 / ss://\u2026"
+              placeholder="vless://… / vmess://… / trojan://… / ss://…"
               className="w-full resize-none rounded-btn border border-border bg-bg/40 p-3 font-mono text-xs text-text outline-none focus:border-indigo"
             />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-text-faint">
-                \u0424\u043e\u0440\u043c\u0430\u0442: <span className="text-text-dim">{FORMAT_LABEL[format]}</span>
+                Формат: <span className="text-text-dim">{FORMAT_LABEL[format]}</span>
               </span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={pasteClipboard}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"
                 >
-                  <ClipboardPaste size={14} /> \u0418\u0437 \u0431\u0443\u0444\u0435\u0440\u0430
+                  <ClipboardPaste size={14} /> Из буфера
                 </button>
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"
                 >
-                  <QrCode size={14} /> QR \u0438\u0437 \u0444\u0430\u0439\u043b\u0430
+                  <QrCode size={14} /> QR из файла
                 </button>
                 <button
                   onClick={onQrClipboard}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"
                 >
-                  <Camera size={14} /> QR \u0438\u0437 \u0431\u0443\u0444\u0435\u0440\u0430
+                  <Camera size={14} /> QR из буфера
                 </button>
               </div>
             </div>
@@ -140,20 +140,20 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               disabled={!text.trim()}
               className="mt-4 w-full rounded-btn bg-indigo py-2.5 text-sm font-medium text-white hover:bg-indigo-soft disabled:opacity-50"
             >
-              \u0418\u043c\u043f\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c
+              Импортировать
             </button>
           </>
         ) : (
           <>
-            <Field label="\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435">
+            <Field label="Название">
               <input
                 value={subName}
                 onChange={(e) => setSubName(e.target.value)}
-                placeholder="\u041c\u043e\u044f \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430"
+                placeholder="Моя подписка"
                 className="ns-input"
               />
             </Field>
-            <Field label="URL \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438">
+            <Field label="URL подписки">
               <input
                 value={subUrl}
                 onChange={(e) => setSubUrl(e.target.value)}
@@ -161,7 +161,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
                 className="ns-input font-mono"
               />
             </Field>
-            <Field label="\u0410\u0432\u0442\u043e-\u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435 (\u0447\u0430\u0441\u043e\u0432)">
+            <Field label="Авто-обновление (часов)">
               <input
                 type="number"
                 min={1}
@@ -176,7 +176,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-btn bg-indigo py-2.5 text-sm font-medium text-white hover:bg-indigo-soft disabled:opacity-50"
             >
               <FileUp size={16} />
-              {busy ? "\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430\u2026" : "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0438 \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c"}
+              {busy ? "Загрузка…" : "Добавить и обновить"}
             </button>
           </>
         )}
@@ -192,11 +192,11 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
 }
 
 const FORMAT_LABEL: Record<ReturnType<typeof detectFormat>, string> = {
-  "share-link": "\u043e\u0434\u043d\u0430 \u0441\u0441\u044b\u043b\u043a\u0430",
-  "base64-subscription": "base64-\u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430",
-  "link-list": "\u0441\u043f\u0438\u0441\u043e\u043a \u0441\u0441\u044b\u043b\u043e\u043a",
-  json: "JSON-\u043a\u043e\u043d\u0444\u0438\u0433",
-  unknown: "\u2014",
+  "share-link": "одна ссылка",
+  "base64-subscription": "base64-подписка",
+  "link-list": "список ссылок",
+  json: "JSON-конфиг",
+  unknown: "—",
 };
 
 function TabBtn({

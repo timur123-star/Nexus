@@ -1,15 +1,13 @@
-# Pin the whole build/CI to a stable rustc known-good with Tauri 2 / time 0.3.x.
+# Build/CI toolchain pin.
 #
-# Newer stable rustc (~1.96+) hits a spurious E0119 coherence error while
-# compiling tauri-utils (a false conflict with the `time` crate's parser),
-# which breaks `cargo check`/`cargo build`. rustc 1.90.0 is in the working
-# window.
+# The real fix for the tauri-utils 2.9.2 build break is pinning the `time`
+# crate to 0.3.47 (see src-tauri/Cargo.toml): time 0.3.48 introduced an impl
+# that triggers a spurious E0119 coherence error in tauri-utils on ALL rustc
+# versions, so changing the compiler alone does not help.
 #
-# This file lives at the REPO ROOT on purpose: CI runs
-# `cargo check --manifest-path src-tauri/Cargo.toml` from the repo root, and
-# rustup only honors a rust-toolchain file found in the current directory or
-# its ancestors. The copy in src-tauri/ only applies when cargo is invoked
-# from inside src-tauri/ (e.g. local `tauri dev`).
+# rustc is kept pinned to 1.90.0 only for reproducible builds and parity with
+# the locally verified-good configuration. It can safely be bumped to a newer
+# stable now that the `time` pin resolves the actual issue.
 [toolchain]
 channel = "1.90.0"
 profile = "minimal"
