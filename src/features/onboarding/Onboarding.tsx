@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Shield, Plus, Route, Power, ArrowRight } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../shared/lib/utils";
+import { useT } from "../../core/i18n/useT";
 import type { RoutingMode } from "../../core/types";
 
 /**
- * First-run wizard: add a server → choose a mode → connect.
+ * First-run wizard: add a server \u2192 choose a mode \u2192 connect.
  * `importNode` lets the parent render the shared ImportDialog over the wizard.
  */
 export function Onboarding({
@@ -20,25 +21,26 @@ export function Onboarding({
   const [step, setStep] = useState(0);
   const setProxy = useSettingsStore((s) => s.setProxy);
   const mode = useSettingsStore((s) => s.proxy.routingMode);
+  const t = useT();
 
   const steps = [
     {
       icon: Plus,
-      title: "Добавьте сервер",
-      body: "Вставьте ссылку (vless/vmess/trojan/ss), подписку или отсканируйте QR.",
+      title: t("onboarding.step1.title"),
+      body: t("onboarding.step1.body"),
       action: (
         <button
           onClick={onImport}
           className="rounded-btn bg-indigo px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-soft"
         >
-          Добавить сервер
+          {t("import.title")}
         </button>
       ),
     },
     {
       icon: Route,
-      title: "Выберите режим",
-      body: "Rule-based маршрутизирует трафик по правилам, Global — весь через прокси.",
+      title: t("onboarding.step2.title"),
+      body: t("onboarding.step2.body"),
       action: (
         <div className="flex gap-2">
           {(["global", "rule", "direct"] as RoutingMode[]).map((m) => (
@@ -58,14 +60,14 @@ export function Onboarding({
     },
     {
       icon: Power,
-      title: "Подключайтесь",
-      body: "Большая кнопка на главном экране включает и выключает VPN. Готово!",
+      title: t("onboarding.step3.title"),
+      body: t("onboarding.step3.body"),
       action: (
         <button
           onClick={onDone}
           className="rounded-btn bg-gradient-to-br from-indigo to-teal px-6 py-2.5 text-sm font-medium text-white"
         >
-          Начать работу
+          {t("onboarding.start")}
         </button>
       ),
     },
@@ -109,11 +111,11 @@ export function Onboarding({
               onClick={() => setStep((s) => s + 1)}
               className="flex items-center gap-1 text-sm text-text-dim hover:text-text"
             >
-              Далее <ArrowRight size={15} />
+              {t("onboarding.next")} <ArrowRight size={15} />
             </button>
           ) : (
             <button onClick={onDone} className="text-sm text-text-faint hover:text-text">
-              Пропустить
+              {t("onboarding.skip")}
             </button>
           )}
         </div>
