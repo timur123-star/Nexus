@@ -8,6 +8,9 @@ import { cn, latencyColor, latencyLabel } from "../../shared/lib/utils";
 import { flagFor } from "../../shared/lib/flags";
 import { PROTOCOL_LABEL } from "./protocolMeta";
 
+const activeDotAnimate = { opacity: [1, 0.3, 1], scale: [1, 1.5, 1] };
+const activeDotTransition = { duration: 1.6, repeat: Infinity, ease: "easeInOut" };
+
 export function ServerCard({
   server,
   onDragStart,
@@ -44,8 +47,8 @@ export function ServerCard({
             <motion.span
               aria-hidden
               className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok"
-              animate= opacity: [1, 0.3, 1], scale: [1, 1.5, 1] 
-              transition= duration: 1.6, repeat: Infinity, ease: "easeInOut" 
+              animate={activeDotAnimate}
+              transition={activeDotTransition}
             />
           )}
           {server.tags.map((t) => (

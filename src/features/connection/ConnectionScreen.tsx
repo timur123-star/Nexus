@@ -25,22 +25,29 @@ const STATUS_META: Record<ConnectionStatus, { label: string; dot: string }> = {
   disconnected: { label: "Отключено", dot: "bg-text-faint" },
 };
 
+const dotPulseAnimate = { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] };
+const dotStaticAnimate = { opacity: 1, scale: 1 };
+const valueInitial = { opacity: 0.35, y: -2 };
+const valueAnimate = { opacity: 1, y: 0 };
+const valueTransition = { duration: 0.25, ease: "easeOut" };
+const floatAnimate = { y: [0, -8, 0] };
+const floatTransition = { duration: 4, repeat: Infinity, ease: "easeInOut" };
+
 function StatusDot({ status }: { status: ConnectionStatus }) {
   const meta = STATUS_META[status] ?? STATUS_META.disconnected;
   const animated =
     status === "connected" || status === "connecting" || status === "reconnecting";
   const fast = status === "connecting" || status === "reconnecting";
+  const transition = animated
+    ? { duration: fast ? 0.9 : 1.8, repeat: Infinity, ease: "easeInOut" }
+    : { duration: 0.2 };
   return (
     <span className="flex items-center gap-1.5 text-xs text-text-dim">
       <motion.span
         aria-hidden
         className={cn("h-2 w-2 rounded-full", meta.dot)}
-        animate={animated ? { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] } : { opacity: 1, scale: 1 }}
-        transition={
-          animated
-            ? { duration: fast ? 0.9 : 1.8, repeat: Infinity, ease: "easeInOut" }
-            : { duration: 0.2 }
-        }
+        animate={animated ? dotPulseAnimate : dotStaticAnimate}
+        transition={transition}
       />
       {meta.label}
     </span>
@@ -194,9 +201,9 @@ function ThroughputTile({
         </span>
         <motion.span
           key={value}
-          initial= opacity: 0.35, y: -2 
-          animate= opacity: 1, y: 0 
-          transition= duration: 0.25, ease: "easeOut" 
+          initial={valueInitial}
+          animate={valueAnimate}
+          transition={valueTransition}
           className="font-mono text-sm font-semibold text-text"
         >
           {value}
@@ -236,11 +243,7 @@ function EmptyState({ onBrowse }: { onBrowse: () => void }) {
   return (
     <div className="grid h-full place-items-center p-8 text-center">
       <div className="max-w-sm">
-        <motion.div
-          animate= y: [0, -8, 0] 
-          transition= duration: 4, repeat: Infinity, ease: "easeInOut" 
-          className="mx-auto w-fit"
-        >
+        <motion.div animate={floatAnimate} transition={floatTransition} className="mx-auto w-fit">
           <Globe2 size={48} className="text-text-faint" />
         </motion.div>
         <h2 className="mt-4 text-lg font-semibold text-text">Нет серверов</h2>
