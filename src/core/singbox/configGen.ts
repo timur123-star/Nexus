@@ -2,13 +2,20 @@
  * Generate a runnable sing-box configuration from a ServerProfile.
  *
  * The frontend owns config generation so the Rust side stays a thin process
- * supervisor (write file \u2192 spawn \u2192 monitor). This keeps the protocol knowledge
- * in one place and lets us unit-test it.
+ * supervisor (write file -> spawn -> monitor). This keeps the protocol
+ * knowledge in one place and lets us unit-test it.
  *
  * Reference: https://sing-box.sagernet.org/configuration/
  */
 import type { ProxySettings } from "../../store/useSettingsStore";
-import type { RoutingMode, ServerProfile, TransportSettings } from "../types";
+import type {
+  RoutingMode,
+  RoutingRule,
+  RoutingRuleMatch,
+  RoutingTarget,
+  ServerProfile,
+  TransportSettings,
+} from "../types";
 
 export interface GenOptions {
   mixedPort: number; // local mixed (http+socks) inbound
@@ -19,11 +26,30 @@ export interface GenOptions {
   allowLan: boolean;
   fakeIp: boolean;
   dns: ProxySettings["dns"];
+  /** User-defined rules, applied before the bundled geo rules. */
+  customRules?: RoutingRule[];
+  /** Reject QUIC so browsers fall back to TCP/TLS and remain routed. */
+  blockQuic?: boolean;
   logLevel?: "trace" | "debug" | "info" | "warn" | "error";
 }
 
 const PROXY_TAG = "proxy";
 const DIRECT_TAG = "direct";
+const BLOCK_TAG = "block";
+
+const MATCH_KEY: Record<RoutingRuleMatch, string> = {
+  domain: "domain",
+  domain_suffix: "domain_suffix",
+  domain_keyword: "domain_keyword",
+  ip_cidr: "ip_cidr",
+  process_name: "process_name",
+};
+
+const TARGET_OUTBOUND: Record<RoutingTarget, string> = {
+  proxy: PROXY_TAG,
+  direct: DIRECT_TAG,
+  block: BLOCK_TAG,
+};
 
 export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): object {
   const inbounds = buildInbounds(opts);
@@ -36,7 +62,7 @@ export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): 
     outbounds: [
       outbound,
       { type: "direct", tag: DIRECT_TAG },
-      { type: "block", tag: "block" },
+      { type: "block", tag: BLOCK_TAG },
     ],
     route: buildRoute(opts),
     experimental: {
@@ -110,14 +136,23 @@ function buildRoute(opts: GenOptions): object {
   const rules: object[] = [
     { action: "sniff" },
     { protocol: "dns", action: "hijack-dns" },
-    { ip_is_private: true, outbound: DIRECT_TAG },
   ];
+
+  // Reject QUIC early so HTTP/3 cannot bypass the rules below over UDP/443.
+  if (opts.blockQuic) {
+    rules.push({ protocol: "quic", action: "reject" });
+  }
+
+  rules.push({ ip_is_private: true, outbound: DIRECT_TAG });
+
+  // User rules win over the bundled geo rules.
+  for (const rule of buildCustomRules(opts.customRules)) rules.push(rule);
 
   if (opts.routingMode === "rule") {
     rules.push(
       { rule_set: "geoip-cn", outbound: DIRECT_TAG },
       { rule_set: "geosite-cn", outbound: DIRECT_TAG },
-      { rule_set: "geosite-ads", outbound: "block" },
+      { rule_set: "geosite-ads", outbound: BLOCK_TAG },
     );
   }
 
@@ -138,6 +173,18 @@ function buildRoute(opts: GenOptions): object {
   };
 }
 
+/** Turn user rules into sing-box route rule objects (skips empty values). */
+function buildCustomRules(rules: RoutingRule[] | undefined): object[] {
+  if (!rules || rules.length === 0) return [];
+  const out: object[] = [];
+  for (const r of rules) {
+    const value = r.value.trim();
+    if (!value) continue;
+    out.push({ [MATCH_KEY[r.match]]: [value], outbound: TARGET_OUTBOUND[r.target] });
+  }
+  return out;
+}
+
 function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
   const base =
     kind === "geoip"
@@ -152,7 +199,7 @@ function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
   };
 }
 
-// \u2500\u2500 Outbound builders \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// -- Outbound builders ------------------------------------------------------
 function buildOutbound(s: ServerProfile): object {
   const common = { tag: PROXY_TAG, server: s.address, server_port: s.port };
   const tls = buildTlsBlock(s);
@@ -248,6 +295,6 @@ function buildTransportBlock(t: TransportSettings): object | null {
     case "h2":
       return { type: "http", path: t.path || "/", ...(t.host ? { host: [t.host] } : {}) };
     default:
-      return null; // tcp / quic \u2014 no transport block
+      return null; // tcp / quic -- no transport block
   }
 }

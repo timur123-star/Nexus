@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { CoreKind, RoutingMode } from "../core/types";
+import type { CoreKind, RoutingMode, RoutingRule } from "../core/types";
 import { persistentStorage } from "../core/db";
 
 export interface ProxySettings {
@@ -10,6 +10,10 @@ export interface ProxySettings {
   allowLan: boolean;
   systemProxy: boolean;
   routingMode: RoutingMode;
+  /** Reject the QUIC protocol so browsers fall back to TCP/TLS and stay routed. */
+  blockQuic: boolean;
+  /** User-defined rules, evaluated before the bundled geo rules. */
+  customRules: RoutingRule[];
   tun: {
     enabled: boolean;
     stack: "system" | "gvisor" | "mixed";
@@ -55,6 +59,8 @@ export const DEFAULT_PROXY: ProxySettings = {
   allowLan: false,
   systemProxy: true,
   routingMode: "rule",
+  blockQuic: false,
+  customRules: [],
   tun: { enabled: false, stack: "system" },
   dns: { remote: "https://1.1.1.1/dns-query", direct: "https://223.5.5.5/dns-query" },
   fakeIp: true,
