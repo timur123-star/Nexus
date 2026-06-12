@@ -6,8 +6,10 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { generateSingboxConfig } from "../../core/singbox/configGen";
 import { validateConfig } from "../../core/ipc";
 import { CodeEditor } from "../../shared/components/CodeEditor";
+import { useT } from "../../core/i18n/useT";
 
 export function EditorScreen() {
+  const t = useT();
   const servers = useServerStore((s) => s.servers);
   const activeId = useConnectionStore((s) => s.activeServerId);
   const proxy = useSettingsStore((s) => s.proxy);
@@ -50,9 +52,9 @@ export function EditorScreen() {
     <div className="flex h-full flex-col p-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-text">Редактор конфигурации</h2>
+          <h2 className="text-base font-semibold text-text">{t("editor.title")}</h2>
           <p className="text-xs text-text-faint">
-            sing-box config для «{active?.name ?? "—"}»
+            {t("editor.subtitle", { name: active?.name ?? "\u2014" })}
           </p>
         </div>
         <div className="flex gap-2">
@@ -60,19 +62,19 @@ export function EditorScreen() {
             onClick={() => setText(generated)}
             className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
           >
-            <RefreshCw size={14} /> Сгенерировать заново
+            <RefreshCw size={14} /> {t("editor.regenerate")}
           </button>
           <button
             onClick={handleValidate}
             className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
           >
-            <CheckCircle2 size={14} /> Проверить
+            <CheckCircle2 size={14} /> {t("editor.validate")}
           </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
           >
-            <Download size={14} /> Экспорт
+            <Download size={14} /> {t("editor.export")}
           </button>
         </div>
       </div>
@@ -84,7 +86,7 @@ export function EditorScreen() {
           }`}
         >
           {check.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-          {check.ok ? "Конфигурация валидна" : check.error}
+          {check.ok ? t("editor.valid") : check.error}
         </div>
       )}
 

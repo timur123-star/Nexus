@@ -10,19 +10,23 @@ import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../..
 import { fadeInUp } from "../../shared/lib/motion";
 import { flagFor } from "../../shared/lib/flags";
 import { PROTOCOL_LABEL } from "../servers/protocolMeta";
+import { useT } from "../../core/i18n/useT";
+import type { MessageKey } from "../../core/i18n";
 
-const connectLabels = {
-  connected: "Отключить",
-  busy: "…",
-  idle: "Подключить",
+const STATUS_DOT: Record<ConnectionStatus, string> = {
+  connected: "bg-ok",
+  connecting: "bg-warn",
+  reconnecting: "bg-warn",
+  error: "bg-bad",
+  disconnected: "bg-text-faint",
 };
 
-const STATUS_META: Record<ConnectionStatus, { label: string; dot: string }> = {
-  connected: { label: "Подключено", dot: "bg-ok" },
-  connecting: { label: "Подключение…", dot: "bg-warn" },
-  reconnecting: { label: "Переподключение…", dot: "bg-warn" },
-  error: { label: "Ошибка", dot: "bg-bad" },
-  disconnected: { label: "Отключено", dot: "bg-text-faint" },
+const STATUS_LABEL_KEY: Record<ConnectionStatus, MessageKey> = {
+  connected: "conn.connected",
+  connecting: "conn.connecting",
+  reconnecting: "conn.reconnecting",
+  error: "conn.error",
+  disconnected: "conn.disconnected",
 };
 
 const dotPulseAnimate = { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] };
@@ -34,7 +38,9 @@ const floatAnimate = { y: [0, -8, 0] };
 const floatTransition = { duration: 4, repeat: Infinity, ease: "easeInOut" };
 
 function StatusDot({ status }: { status: ConnectionStatus }) {
-  const meta = STATUS_META[status] ?? STATUS_META.disconnected;
+  const t = useT();
+  const dot = STATUS_DOT[status] ?? STATUS_DOT.disconnected;
+  const label = t(STATUS_LABEL_KEY[status] ?? "conn.disconnected");
   const animated =
     status === "connected" || status === "connecting" || status === "reconnecting";
   const fast = status === "connecting" || status === "reconnecting";
@@ -45,16 +51,17 @@ function StatusDot({ status }: { status: ConnectionStatus }) {
     <span className="flex items-center gap-1.5 text-xs text-text-dim">
       <motion.span
         aria-hidden
-        className={cn("h-2 w-2 rounded-full", meta.dot)}
+        className={cn("h-2 w-2 rounded-full", dot)}
         animate={animated ? dotPulseAnimate : dotStaticAnimate}
         transition={transition}
       />
-      {meta.label}
+      {label}
     </span>
   );
 }
 
 export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
+  const t = useT();
   const servers = useServerStore((s) => s.servers);
   const pingOne = useServerStore((s) => s.pingOne);
   const { status, activeServerId, connectedAt, traffic, samples, toggle, error } = useConnectionStore();
@@ -66,12 +73,19 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const connected = status === "connected";
   const busy = status === "connecting" || status === "reconnecting";
 
+  const unitH = t("common.unit.h");
+  const unitM = t("common.unit.m");
+  const unitS = t("common.unit.s");
+
   const [uptime, setUptime] = useState("");
   useEffect(() => {
     if (!connected || !connectedAt) return setUptime("");
-    const id = setInterval(() => setUptime(formatUptime(Date.now() - connectedAt)), 1000);
+    const units = { h: unitH, m: unitM, s: unitS };
+    const tick = () => setUptime(formatUptime(Date.now() - connectedAt, units));
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [connected, connectedAt]);
+  }, [connected, connectedAt, unitH, unitM, unitS]);
 
   // Refresh ping of the active server every 5s.
   useEffect(() => {
@@ -88,6 +102,11 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const downSeries = samples.map((s) => s.down);
   const upSeries = samples.map((s) => s.up);
   const connectState = connected ? "connected" : busy ? "busy" : "idle";
+  const connectLabels = {
+    connected: t("common.disconnect"),
+    busy: "\u2026",
+    idle: t("common.connect"),
+  };
 
   return (
     <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center gap-6 p-8">
@@ -135,15 +154,15 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         {/* Live throughput */}
         <div className="grid grid-cols-2 gap-3">
           <ThroughputTile
-            label="Загрузка"
-            arrow="↓"
+            label={t("conn.download")}
+            arrow="\u2193"
             value={formatBytes(traffic.down, true)}
             series={downSeries}
             color="var(--color-teal)"
           />
           <ThroughputTile
-            label="Отдача"
-            arrow="↑"
+            label={t("conn.upload")}
+            arrow="\u2191"
             value={formatBytes(traffic.up, true)}
             series={upSeries}
             color="var(--color-indigo)"
@@ -152,7 +171,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
 
         {error && status === "error" && (
           <div className="mt-4 rounded-btn border border-bad/40 bg-bad/10 px-3 py-2 text-xs text-bad">
-            {error} — попробуйте другой сервер.
+            {error} {t("conn.errorSuffix")}
           </div>
         )}
       </motion.div>
@@ -165,16 +184,16 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         animate="enter"
         className="grid w-full grid-cols-3 gap-3"
       >
-        <Metric icon={Globe2} label="Адрес" value={active.address} mono />
-        <Metric icon={Zap} label="Порт" value={String(active.port)} mono />
-        <Metric icon={Clock} label="Uptime" value={connected ? uptime || "0с" : "—"} />
+        <Metric icon={Globe2} label={t("conn.address")} value={active.address} mono />
+        <Metric icon={Zap} label={t("conn.port")} value={String(active.port)} mono />
+        <Metric icon={Clock} label={t("conn.uptime")} value={connected ? uptime || `0${unitS}` : "\u2014"} />
       </motion.div>
 
       <button
         onClick={onBrowse}
         className="flex items-center gap-1 text-sm text-indigo transition-colors hover:text-indigo-soft"
       >
-        Быстрый выбор сервера <ChevronRight size={16} />
+        {t("conn.quickSelect")} <ChevronRight size={16} />
       </button>
     </div>
   );
@@ -240,21 +259,20 @@ function Metric({
 }
 
 function EmptyState({ onBrowse }: { onBrowse: () => void }) {
+  const t = useT();
   return (
     <div className="grid h-full place-items-center p-8 text-center">
       <div className="max-w-sm">
         <motion.div animate={floatAnimate} transition={floatTransition} className="mx-auto w-fit">
           <Globe2 size={48} className="text-text-faint" />
         </motion.div>
-        <h2 className="mt-4 text-lg font-semibold text-text">Нет серверов</h2>
-        <p className="mt-1 text-sm text-text-dim">
-          Добавьте сервер по ссылке, из подписки или QR-кода, чтобы начать.
-        </p>
+        <h2 className="mt-4 text-lg font-semibold text-text">{t("conn.noServers")}</h2>
+        <p className="mt-1 text-sm text-text-dim">{t("conn.noServersHint")}</p>
         <button
           onClick={onBrowse}
           className="mt-5 rounded-btn bg-indigo px-4 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
         >
-          Перейти к серверам
+          {t("conn.goToServers")}
         </button>
       </div>
     </div>

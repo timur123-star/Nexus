@@ -5,7 +5,8 @@ import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { cn, latencyColor, latencyLabel } from "../../shared/lib/utils";
-import { flagFor } from "../../shared/lib/flags";
+import { Flag } from "../../shared/components/Flag";
+import { useT } from "../../core/i18n/useT";
 import { PROTOCOL_LABEL } from "./protocolMeta";
 
 const activeDotAnimate = { opacity: [1, 0.3, 1], scale: [1, 1.5, 1] };
@@ -23,6 +24,7 @@ export function ServerCard({
   const { toggleFavorite, duplicateServer, removeServer, pingOne } = useServerStore();
   const { toggle, activeServerId, status } = useConnectionStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const t = useT();
 
   const isActive = activeServerId === server.id && status === "connected";
 
@@ -38,7 +40,7 @@ export function ServerCard({
         isActive && "border-ok/50 bg-ok/5",
       )}
     >
-      <span className="text-2xl leading-none">{flagFor(server.name)}</span>
+      <Flag name={server.name} address={server.address} size={28} />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -51,9 +53,9 @@ export function ServerCard({
               transition={activeDotTransition}
             />
           )}
-          {server.tags.map((t) => (
-            <span key={t} className="rounded bg-surface px-1.5 text-[10px] text-text-dim">
-              #{t}
+          {server.tags.map((tag) => (
+            <span key={tag} className="rounded bg-surface px-1.5 text-[10px] text-text-dim">
+              #{tag}
             </span>
           ))}
         </div>
@@ -70,7 +72,7 @@ export function ServerCard({
       {/* Latency */}
       <button
         onClick={() => pingOne(server.id)}
-        title="Тест задержки"
+        title={t("servers.latencyTest")}
         className={cn("flex items-center gap-1 font-mono text-xs", latencyColor(server.latencyMs))}
       >
         <Activity size={13} />
@@ -78,7 +80,7 @@ export function ServerCard({
       </button>
 
       {/* Favorite */}
-      <button onClick={() => toggleFavorite(server.id)} title="В избранное">
+      <button onClick={() => toggleFavorite(server.id)} title={t("servers.favorite")}>
         <Star
           size={16}
           className={cn(
@@ -94,7 +96,7 @@ export function ServerCard({
           "grid h-8 w-8 place-items-center rounded-btn transition-colors",
           isActive ? "bg-ok text-white" : "bg-surface text-text-dim hover:bg-indigo hover:text-white",
         )}
-        title={isActive ? "Отключить" : "Подключить"}
+        title={isActive ? t("common.disconnect") : t("common.connect")}
       >
         <Power size={15} />
       </button>
@@ -111,13 +113,13 @@ export function ServerCard({
         {menuOpen && (
           <div className="glass-elev absolute right-0 top-9 z-20 w-40 overflow-hidden rounded-card py-1 text-sm shadow-xl">
             <MenuRow icon={Activity} onClick={() => pingOne(server.id)}>
-              Тест
+              {t("servers.menuTest")}
             </MenuRow>
             <MenuRow icon={Copy} onClick={() => duplicateServer(server.id)}>
-              Дублировать
+              {t("servers.duplicate")}
             </MenuRow>
             <MenuRow icon={Trash2} danger onClick={() => removeServer(server.id)}>
-              Удалить
+              {t("common.delete")}
             </MenuRow>
           </div>
         )}

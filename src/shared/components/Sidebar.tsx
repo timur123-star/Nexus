@@ -3,17 +3,19 @@ import { motion } from "framer-motion";
 import { Globe, List, BarChart3, Settings, HelpCircle, FileCode2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { springSoft } from "../lib/motion";
+import { useT } from "../../core/i18n/useT";
+import type { MessageKey } from "../../core/i18n";
 
 export type Screen = "connection" | "servers" | "stats" | "editor" | "settings";
 
 const labelTransition = { duration: 0.2 };
 
-const NAV: { id: Screen; icon: React.ElementType; label: string }[] = [
-  { id: "connection", icon: Globe, label: "Подключение" },
-  { id: "servers", icon: List, label: "Серверы" },
-  { id: "stats", icon: BarChart3, label: "Статистика" },
-  { id: "editor", icon: FileCode2, label: "Редактор" },
-  { id: "settings", icon: Settings, label: "Настройки" },
+const NAV: { id: Screen; icon: React.ElementType; labelKey: MessageKey }[] = [
+  { id: "connection", icon: Globe, labelKey: "nav.connection" },
+  { id: "servers", icon: List, labelKey: "nav.servers" },
+  { id: "stats", icon: BarChart3, labelKey: "nav.stats" },
+  { id: "editor", icon: FileCode2, labelKey: "nav.editor" },
+  { id: "settings", icon: Settings, labelKey: "nav.settings" },
 ];
 
 export function Sidebar({
@@ -25,6 +27,7 @@ export function Sidebar({
 }) {
   const [expanded, setExpanded] = useState(false);
   const navAnimate = { width: expanded ? 200 : 64 };
+  const t = useT();
 
   return (
     <motion.nav
@@ -37,7 +40,8 @@ export function Sidebar({
       {NAV.map((item) => (
         <NavButton
           key={item.id}
-          {...item}
+          icon={item.icon}
+          label={t(item.labelKey)}
           expanded={expanded}
           active={active === item.id}
           onClick={() => onNavigate(item.id)}
@@ -47,9 +51,8 @@ export function Sidebar({
       <div className="flex-1" />
 
       <NavButton
-        id="help"
         icon={HelpCircle}
-        label="Справка"
+        label={t("nav.help")}
         expanded={expanded}
         active={false}
         onClick={() => window.open("https://sing-box.sagernet.org/", "_blank")}
@@ -65,7 +68,6 @@ function NavButton({
   active,
   onClick,
 }: {
-  id: string;
   icon: React.ElementType;
   label: string;
   expanded: boolean;

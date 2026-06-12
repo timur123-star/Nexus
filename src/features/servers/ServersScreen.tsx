@@ -4,6 +4,7 @@ import { useServerStore } from "../../store/useServerStore";
 import { ServerCard } from "./ServerCard";
 import { ALL_PROTOCOLS, PROTOCOL_LABEL } from "./protocolMeta";
 import { cn } from "../../shared/lib/utils";
+import { useT } from "../../core/i18n/useT";
 import type { Protocol } from "../../core/types";
 
 type Filter = "all" | "favorites" | Protocol;
@@ -13,6 +14,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   const servers = useServerStore((s) => s.servers);
   const reorder = useServerStore((s) => s.reorder);
   const pingAll = useServerStore((s) => s.pingAll);
+  const t = useT();
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -57,7 +59,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по имени или адресу…"
+            placeholder={t("servers.searchPlaceholder")}
             className="w-full bg-transparent text-sm text-text outline-none placeholder:text-text-faint"
           />
         </div>
@@ -67,23 +69,23 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
           className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
         >
           <Activity size={15} className={pinging ? "animate-spin-slow" : ""} />
-          Тест всех
+          {t("servers.pingAll")}
         </button>
         <button
           onClick={onImport}
           className="flex items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
         >
-          <Plus size={16} /> Добавить
+          <Plus size={16} /> {t("common.add")}
         </button>
       </div>
 
       {/* Filters + sort */}
       <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1">
         <Chip active={filter === "all"} onClick={() => setFilter("all")}>
-          Все
+          {t("servers.filterAll")}
         </Chip>
         <Chip active={filter === "favorites"} onClick={() => setFilter("favorites")}>
-          Избранные
+          {t("servers.filterFavorites")}
         </Chip>
         {ALL_PROTOCOLS.map((p) => (
           <Chip key={p} active={filter === p} onClick={() => setFilter(p)}>
@@ -96,7 +98,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
           className="flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 text-xs text-text-dim hover:text-text"
         >
           <ArrowDownUp size={13} />
-          {sort === "ping" ? "По пингу" : sort === "name" ? "По имени" : "Недавние"}
+          {t(sort === "ping" ? "servers.sortPing" : sort === "name" ? "servers.sortName" : "servers.sortRecent")}
         </button>
       </div>
 
@@ -104,7 +106,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
       <div className="flex flex-col gap-2 overflow-y-auto pr-1">
         {visible.length === 0 && (
           <p className="mt-10 text-center text-sm text-text-faint">
-            {servers.length === 0 ? "Список пуст — добавьте первый сервер." : "Ничего не найдено."}
+            {servers.length === 0 ? t("servers.emptyList") : t("servers.notFound")}
           </p>
         )}
         {visible.map((s) => (
@@ -121,7 +123,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
       </div>
 
       <div className="mt-3 shrink-0 text-center text-[11px] text-text-faint">
-        {servers.length} серверов · двойной клик — подключить · перетаскивание — порядок
+        {t("servers.footer", { count: servers.length })}
       </div>
     </div>
   );
