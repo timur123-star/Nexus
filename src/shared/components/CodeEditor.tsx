@@ -80,7 +80,7 @@ export function CodeEditor({
   const options = { ...EDITOR_OPTIONS, readOnly };
   const loadingNode = (
     <div className="grid h-full place-items-center text-xs text-text-faint">
-      \u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0430\u2026
+      Загрузка редактора…
     </div>
   );
 

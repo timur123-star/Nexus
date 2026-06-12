@@ -16,7 +16,7 @@ export function SettingsScreen() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-5">
-      <Section title="\u042f\u0434\u0440\u043e (\u0434\u0432\u0438\u0436\u043e\u043a)">
+      <Section title="Ядро (движок)">
         <div className="grid grid-cols-2 gap-2">
           {(["sing-box", "xray"] as CoreKind[]).map((k) => (
             <button
@@ -36,7 +36,7 @@ export function SettingsScreen() {
         </div>
       </Section>
 
-      <Section title="\u0420\u0435\u0436\u0438\u043c \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0438\u0437\u0430\u0446\u0438\u0438">
+      <Section title="Режим маршрутизации">
         <div className="grid grid-cols-3 gap-2">
           {(["global", "rule", "direct"] as RoutingMode[]).map((m) => (
             <button
@@ -56,28 +56,28 @@ export function SettingsScreen() {
         </div>
       </Section>
 
-      <Section title="TUN-\u0440\u0435\u0436\u0438\u043c (\u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0439 VPN)">
+      <Section title="TUN-режим (системный VPN)">
         {proxy.tun.enabled && !elevated && (
           <div className="flex items-center justify-between gap-3 rounded-btn bg-indigo/10 px-3 py-2.5">
             <div className="flex items-center gap-2 text-xs text-indigo">
-              <ShieldAlert size={16} /> \u0414\u043b\u044f TUN \u043d\u0443\u0436\u043d\u044b \u043f\u0440\u0430\u0432\u0430 \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0430
+              <ShieldAlert size={16} /> Для TUN нужны права администратора
             </div>
             <button
               onClick={() => relaunchAsAdmin()}
               className="shrink-0 rounded-btn bg-indigo px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-soft"
             >
-              \u041f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0441 \u043f\u0440\u0430\u0432\u0430\u043c\u0438
+              Перезапустить с правами
             </button>
           </div>
         )}
         {proxy.tun.enabled && elevated && (
           <div className="flex items-center gap-2 rounded-btn bg-ok/10 px-3 py-2 text-xs text-ok">
-            <ShieldCheck size={16} /> \u041f\u0440\u0430\u0432\u0430 \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0430 \u043f\u043e\u043b\u0443\u0447\u0435\u043d\u044b
+            <ShieldCheck size={16} /> Права администратора получены
           </div>
         )}
         <Toggle
-          label="\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c TUN-\u0430\u0434\u0430\u043f\u0442\u0435\u0440"
-          hint="\u041f\u0435\u0440\u0435\u0445\u0432\u0430\u0442 \u0432\u0441\u0435\u0433\u043e \u0442\u0440\u0430\u0444\u0438\u043a\u0430. \u0422\u0440\u0435\u0431\u0443\u0435\u0442 \u043f\u0440\u0430\u0432 \u0430\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0430."
+          label="Включить TUN-адаптер"
+          hint="Перехват всего трафика. Требует прав администратора."
           checked={proxy.tun.enabled}
           onChange={(v) => setProxy({ tun: { ...proxy.tun, enabled: v } })}
         />
@@ -96,7 +96,7 @@ export function SettingsScreen() {
         </Row>
         <Toggle
           label="Fake-IP DNS"
-          hint="\u0423\u0441\u043a\u043e\u0440\u044f\u0435\u0442 \u0440\u0435\u0437\u043e\u043b\u0432\u0438\u043d\u0433 \u0438 \u0441\u043d\u0438\u0436\u0430\u0435\u0442 \u0443\u0442\u0435\u0447\u043a\u0438 DNS."
+          hint="Ускоряет резолвинг и снижает утечки DNS."
           checked={proxy.fakeIp}
           onChange={(v) => setProxy({ fakeIp: v })}
         />
@@ -116,8 +116,8 @@ export function SettingsScreen() {
         </Row>
       </Section>
 
-      <Section title="\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u0440\u043e\u043a\u0441\u0438">
-        <Row label="Mixed-\u043f\u043e\u0440\u0442 (HTTP+SOCKS)">
+      <Section title="Локальный прокси">
+        <Row label="Mixed-порт (HTTP+SOCKS)">
           <input
             type="number"
             className="ns-input w-32 font-mono"
@@ -126,32 +126,32 @@ export function SettingsScreen() {
           />
         </Row>
         <Toggle
-          label="\u0421\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0439 \u043f\u0440\u043e\u043a\u0441\u0438"
-          hint="\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u0440\u043e\u043f\u0438\u0441\u044b\u0432\u0430\u0442\u044c \u043f\u0440\u043e\u043a\u0441\u0438 \u0432 \u0441\u0438\u0441\u0442\u0435\u043c\u0435 \u043f\u0440\u0438 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0438."
+          label="Системный прокси"
+          hint="Автоматически прописывать прокси в системе при подключении."
           checked={proxy.systemProxy}
           onChange={(v) => setProxy({ systemProxy: v })}
         />
         <Toggle
-          label="\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u0438\u0437 LAN"
+          label="Разрешить подключения из LAN"
           checked={proxy.allowLan}
           onChange={(v) => setProxy({ allowLan: v })}
         />
         <Toggle
-          label="Mux (\u043c\u0443\u043b\u044c\u0442\u0438\u043f\u043b\u0435\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435)"
-          hint={`\u041f\u0440\u043e\u0442\u043e\u043a\u043e\u043b: ${proxy.mux.protocol}`}
+          label="Mux (мультиплексирование)"
+          hint={`Протокол: ${proxy.mux.protocol}`}
           checked={proxy.mux.enabled}
           onChange={(v) => setProxy({ mux: { ...proxy.mux, enabled: v } })}
         />
         <Toggle
-          label="Fragment (\u043e\u0431\u0445\u043e\u0434 DPI)"
-          hint="\u0424\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u0430\u0446\u0438\u044f TLS ClientHello."
+          label="Fragment (обход DPI)"
+          hint="Фрагментация TLS ClientHello."
           checked={proxy.fragment.enabled}
           onChange={(v) => setProxy({ fragment: { ...proxy.fragment, enabled: v } })}
         />
       </Section>
 
       <Section title="Clash API">
-        <Row label="\u041f\u043e\u0440\u0442">
+        <Row label="Порт">
           <input
             type="number"
             className="ns-input w-32 font-mono"
@@ -168,41 +168,41 @@ export function SettingsScreen() {
         </Row>
       </Section>
 
-      <Section title="\u041f\u043e\u0434\u043f\u0438\u0441\u043a\u0438">
+      <Section title="Подписки">
         <SubscriptionList />
       </Section>
 
-      <Section title="\u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435">
-        <Row label="\u0422\u0435\u043c\u0430">
+      <Section title="Приложение">
+        <Row label="Тема">
           <select
             className="ns-input w-40"
             value={app.theme}
             onChange={(e) => setApp({ theme: e.target.value as typeof app.theme })}
           >
-            <option value="system">\u0421\u0438\u0441\u0442\u0435\u043c\u043d\u0430\u044f</option>
-            <option value="dark">\u0422\u0451\u043c\u043d\u0430\u044f</option>
-            <option value="light">\u0421\u0432\u0435\u0442\u043b\u0430\u044f</option>
+            <option value="system">Системная</option>
+            <option value="dark">Тёмная</option>
+            <option value="light">Светлая</option>
           </select>
         </Row>
-        <Row label="\u042f\u0437\u044b\u043a">
+        <Row label="Язык">
           <select
             className="ns-input w-40"
             value={app.language}
             onChange={(e) => setApp({ language: e.target.value as typeof app.language })}
           >
-            <option value="ru">\u0420\u0443\u0441\u0441\u043a\u0438\u0439</option>
+            <option value="ru">Русский</option>
             <option value="en">English</option>
-            <option value="fa">\u0641\u0627\u0631\u0633\u06cc</option>
-            <option value="zh">\u4e2d\u6587</option>
+            <option value="fa">فارسی</option>
+            <option value="zh">中文</option>
           </select>
         </Row>
         <Toggle
-          label="\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u043f\u0440\u0438 \u0441\u0442\u0430\u0440\u0442\u0435 \u0441\u0438\u0441\u0442\u0435\u043c\u044b"
+          label="Автозапуск при старте системы"
           checked={app.autoStart}
           onChange={(v) => setApp({ autoStart: v })}
         />
         <Toggle
-          label="\u0421\u0432\u043e\u0440\u0430\u0447\u0438\u0432\u0430\u0442\u044c \u0432 \u0442\u0440\u0435\u0439"
+          label="Сворачивать в трей"
           checked={app.minimizeToTray}
           onChange={(v) => setApp({ minimizeToTray: v })}
         />
@@ -213,13 +213,13 @@ export function SettingsScreen() {
           onClick={() => openLogsDir()}
           className="glass flex items-center gap-2 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
         >
-          <Folder size={15} /> \u041e\u0442\u043a\u0440\u044b\u0442\u044c \u043f\u0430\u043f\u043a\u0443 \u043b\u043e\u0433\u043e\u0432
+          <Folder size={15} /> Открыть папку логов
         </button>
         <button
           onClick={reset}
           className="flex items-center gap-2 rounded-btn px-3 py-2 text-sm text-text-faint hover:text-bad"
         >
-          <RotateCcw size={15} /> \u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438
+          <RotateCcw size={15} /> Сбросить настройки
         </button>
       </div>
     </div>
@@ -227,14 +227,14 @@ export function SettingsScreen() {
 }
 
 const CORE_LABEL: Record<CoreKind, { title: string; sub: string }> = {
-  "sing-box": { title: "sing-box", sub: "\u0443\u043d\u0438\u0432\u0435\u0440\u0441\u0430\u043b\u044c\u043d\u043e\u0435" },
+  "sing-box": { title: "sing-box", sub: "универсальное" },
   xray: { title: "Xray-core", sub: "VLESS / Reality" },
 };
 
 const ROUTING_LABEL: Record<RoutingMode, { title: string; sub: string }> = {
-  global: { title: "Global", sub: "\u0432\u0435\u0441\u044c \u0442\u0440\u0430\u0444\u0438\u043a" },
-  rule: { title: "Rule-based", sub: "\u043f\u043e \u043f\u0440\u0430\u0432\u0438\u043b\u0430\u043c" },
-  direct: { title: "Direct", sub: "\u043d\u0430\u043f\u0440\u044f\u043c\u0443\u044e" },
+  global: { title: "Global", sub: "весь трафик" },
+  rule: { title: "Rule-based", sub: "по правилам" },
+  direct: { title: "Direct", sub: "напрямую" },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
