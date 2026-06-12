@@ -4,11 +4,22 @@ import { useServerStore } from "../../store/useServerStore";
 import { detectFormat } from "../../core/parser";
 import { decodeQrFromImage, decodeQrFromClipboard } from "../../core/qr";
 import { cn } from "../../shared/lib/utils";
+import { useT } from "../../core/i18n/useT";
+import type { MessageKey } from "../../core/i18n";
 
 type Tab = "link" | "subscription";
 
+const FORMAT_KEY: Record<ReturnType<typeof detectFormat>, MessageKey> = {
+  "share-link": "import.fmt.shareLink",
+  "base64-subscription": "import.fmt.base64",
+  "link-list": "import.fmt.linkList",
+  json: "import.fmt.json",
+  unknown: "import.fmt.unknown",
+};
+
 export function ImportDialog({ onClose }: { onClose: () => void }) {
   const { addFromBlob, addSubscription } = useServerStore();
+  const t = useT();
   const [tab, setTab] = useState<Tab>("link");
   const [text, setText] = useState("");
   const [subName, setSubName] = useState("");
@@ -24,20 +35,20 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     try {
       setText(await navigator.clipboard.readText());
     } catch {
-      setResult("Не удалось прочитать буфер обмена");
+      setResult(t("import.clipboardFail"));
     }
   }
 
   function importDecoded(decoded: string | null) {
     if (!decoded) {
-      setResult("QR-код не распознан");
+      setResult(t("import.qrFail"));
       return;
     }
     const { added, errors } = addFromBlob(decoded);
     setResult(
       added > 0
-        ? `Из QR добавлено: ${added}`
-        : `Не удалось разобрать QR (ошибок: ${errors})`,
+        ? t("import.qrAdded", { count: added })
+        : t("import.qrParseFail", { errors }),
     );
   }
 
@@ -55,7 +66,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   function handleImportLinks() {
     if (!text.trim()) return;
     const { added, errors } = addFromBlob(text);
-    setResult(`Добавлено: ${added}${errors ? `, ошибок: ${errors}` : ""}`);
+    setResult(t("import.added", { count: added }) + (errors ? t("import.addedErrors", { errors }) : ""));
     if (added > 0) setText("");
   }
 
@@ -65,11 +76,11 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     setResult(null);
     try {
       await addSubscription(subName || subUrl, subUrl, interval);
-      setResult("Подписка добавлена и обновлена");
+      setResult(t("import.subAdded"));
       setSubUrl("");
       setSubName("");
     } catch (e) {
-      setResult(`Ошибка: ${e instanceof Error ? e.message : e}`);
+      setResult(t("import.errorPrefix", { msg: e instanceof Error ? e.message : String(e) }));
     } finally {
       setBusy(false);
     }
@@ -85,7 +96,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text">Добавить сервер</h2>
+          <h2 className="text-base font-semibold text-text">{t("import.title")}</h2>
           <button onClick={onClose} className="text-text-faint hover:text-text">
             <X size={18} />
           </button>
@@ -93,10 +104,10 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
 
         <div className="mb-4 flex gap-1 rounded-btn bg-bg/50 p-1">
           <TabBtn active={tab === "link"} onClick={() => setTab("link")} icon={Link2}>
-            Ссылка / список
+            {t("import.tabLink")}
           </TabBtn>
           <TabBtn active={tab === "subscription"} onClick={() => setTab("subscription")} icon={Rss}>
-            Подписка
+            {t("import.tabSubscription")}
           </TabBtn>
         </div>
 
@@ -106,31 +117,31 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={6}
-              placeholder="vless://… / vmess://… / trojan://… / ss://…"
+              placeholder="vless://\u2026 / vmess://\u2026 / trojan://\u2026 / ss://\u2026"
               className="w-full resize-none rounded-btn border border-border bg-bg/40 p-3 font-mono text-xs text-text outline-none focus:border-indigo"
             />
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-text-faint">
-                Формат: <span className="text-text-dim">{FORMAT_LABEL[format]}</span>
+                {t("import.formatLabel")} <span className="text-text-dim">{t(FORMAT_KEY[format])}</span>
               </span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={pasteClipboard}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"
                 >
-                  <ClipboardPaste size={14} /> Из буфера
+                  <ClipboardPaste size={14} /> {t("import.fromClipboard")}
                 </button>
                 <button
                   onClick={() => fileRef.current?.click()}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"
                 >
-                  <QrCode size={14} /> QR из файла
+                  <QrCode size={14} /> {t("import.qrFromFile")}
                 </button>
                 <button
                   onClick={onQrClipboard}
                   className="flex items-center gap-1 text-xs text-text-dim hover:text-text"
                 >
-                  <Camera size={14} /> QR из буфера
+                  <Camera size={14} /> {t("import.qrFromClipboard")}
                 </button>
               </div>
             </div>
@@ -140,20 +151,20 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               disabled={!text.trim()}
               className="mt-4 w-full rounded-btn bg-indigo py-2.5 text-sm font-medium text-white hover:bg-indigo-soft disabled:opacity-50"
             >
-              Импортировать
+              {t("import.importBtn")}
             </button>
           </>
         ) : (
           <>
-            <Field label="Название">
+            <Field label={t("import.fieldName")}>
               <input
                 value={subName}
                 onChange={(e) => setSubName(e.target.value)}
-                placeholder="Моя подписка"
+                placeholder={t("import.subNamePlaceholder")}
                 className="ns-input"
               />
             </Field>
-            <Field label="URL подписки">
+            <Field label={t("import.fieldUrl")}>
               <input
                 value={subUrl}
                 onChange={(e) => setSubUrl(e.target.value)}
@@ -161,7 +172,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
                 className="ns-input font-mono"
               />
             </Field>
-            <Field label="Авто-обновление (часов)">
+            <Field label={t("import.fieldInterval")}>
               <input
                 type="number"
                 min={1}
@@ -176,7 +187,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-btn bg-indigo py-2.5 text-sm font-medium text-white hover:bg-indigo-soft disabled:opacity-50"
             >
               <FileUp size={16} />
-              {busy ? "Загрузка…" : "Добавить и обновить"}
+              {busy ? t("import.loading") : t("import.addAndUpdate")}
             </button>
           </>
         )}
@@ -190,14 +201,6 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
-const FORMAT_LABEL: Record<ReturnType<typeof detectFormat>, string> = {
-  "share-link": "одна ссылка",
-  "base64-subscription": "base64-подписка",
-  "link-list": "список ссылок",
-  json: "JSON-конфиг",
-  unknown: "—",
-};
 
 function TabBtn({
   active,
