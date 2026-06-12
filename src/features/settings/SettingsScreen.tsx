@@ -1,10 +1,40 @@
 import { useEffect, useState } from "react";
-import { Folder, RotateCcw, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Folder, Plus, RotateCcw, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { openLogsDir, isElevated, relaunchAsAdmin } from "../../core/ipc";
 import { cn } from "../../shared/lib/utils";
-import type { RoutingMode, CoreKind } from "../../core/types";
+import type { CoreKind, RoutingMode, RoutingRuleMatch, RoutingTarget } from "../../core/types";
 import { SubscriptionList } from "./SubscriptionList";
+
+const MATCH_KEYS: RoutingRuleMatch[] = [
+  "domain",
+  "domain_suffix",
+  "domain_keyword",
+  "ip_cidr",
+  "process_name",
+];
+const TARGET_KEYS: RoutingTarget[] = ["proxy", "direct", "block"];
+
+const MATCH_LABEL: Record<RoutingRuleMatch, string> = {
+  domain: "Домен",
+  domain_suffix: "Суффикс",
+  domain_keyword: "Ключ. слово",
+  ip_cidr: "IP / CIDR",
+  process_name: "Процесс",
+};
+const TARGET_LABEL: Record<RoutingTarget, string> = {
+  proxy: "Прокси",
+  direct: "Напрямую",
+  block: "Блок",
+};
+
+const MATCH_PLACEHOLDER: Record<RoutingRuleMatch, string> = {
+  domain: "example.com",
+  domain_suffix: ".openai.com",
+  domain_keyword: "google",
+  ip_cidr: "10.0.0.0/8",
+  process_name: "telegram.exe",
+};
 
 export function SettingsScreen() {
   const { proxy, app, setProxy, setApp, reset } = useSettingsStore();
@@ -13,6 +43,20 @@ export function SettingsScreen() {
   useEffect(() => {
     isElevated().then(setElevated);
   }, []);
+
+  const addRule = () =>
+    setProxy({
+      customRules: [
+        ...proxy.customRules,
+        { match: "domain_suffix", value: "", target: "proxy" },
+      ],
+    });
+  const updateRule = (idx: number, patch: Partial<{ match: RoutingRuleMatch; value: string; target: RoutingTarget }>) =>
+    setProxy({
+      customRules: proxy.customRules.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    });
+  const removeRule = (idx: number) =>
+    setProxy({ customRules: proxy.customRules.filter((_, i) => i !== idx) });
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-5">
@@ -54,6 +98,68 @@ export function SettingsScreen() {
             </button>
           ))}
         </div>
+        <Toggle
+          label="Блокировать QUIC (HTTP/3)"
+          hint="Заставляет браузеры использовать TCP/TLS, чтобы трафик не утекал мимо правил."
+          checked={proxy.blockQuic}
+          onChange={(v) => setProxy({ blockQuic: v })}
+        />
+      </Section>
+
+      <Section title="Свои правила маршрутизации">
+        <p className="-mt-1 text-[11px] text-text-faint">
+          Применяются раньше встроенных geo-правил и имеют приоритет. Пустые строки игнорируются.
+        </p>
+        {proxy.customRules.length === 0 && (
+          <div className="rounded-btn border border-dashed border-border px-3 py-3 text-center text-xs text-text-faint">
+            Пока нет правил — добавьте первое ниже.
+          </div>
+        )}
+        {proxy.customRules.map((rule, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <select
+              className="ns-input w-32 shrink-0"
+              value={rule.match}
+              onChange={(e) => updateRule(idx, { match: e.target.value as RoutingRuleMatch })}
+            >
+              {MATCH_KEYS.map((m) => (
+                <option key={m} value={m}>
+                  {MATCH_LABEL[m]}
+                </option>
+              ))}
+            </select>
+            <input
+              className="ns-input flex-1 font-mono"
+              placeholder={MATCH_PLACEHOLDER[rule.match]}
+              value={rule.value}
+              onChange={(e) => updateRule(idx, { value: e.target.value })}
+            />
+            <select
+              className="ns-input w-28 shrink-0"
+              value={rule.target}
+              onChange={(e) => updateRule(idx, { target: e.target.value as RoutingTarget })}
+            >
+              {TARGET_KEYS.map((t) => (
+                <option key={t} value={t}>
+                  {TARGET_LABEL[t]}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => removeRule(idx)}
+              title="Удалить правило"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-btn text-text-faint transition-colors hover:bg-surface hover:text-bad"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={addRule}
+          className="flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm text-text-dim transition-colors hover:border-indigo/40 hover:text-text"
+        >
+          <Plus size={15} /> Добавить правило
+        </button>
       </Section>
 
       <Section title="TUN-режим (системный VPN)">
