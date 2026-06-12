@@ -1,0 +1,18 @@
+# release.yml - placeholder / instructions
+#
+# A full cross-platform release workflow requires GitHub Actions expression
+# syntax (a dollar sign followed by double curly braces) which cannot be
+# transmitted intact by the assistant, so the real file is not generated here.
+#
+# To enable auto-built installers (macOS / Windows / Linux) on tag push:
+#   1. Open the official Tauri action example:
+#        https://github.com/tauri-apps/tauri-action  (README, "Example Workflow")
+#   2. Copy its release workflow into .github/workflows/release.yml
+#   3. Add this step BEFORE the tauri-apps/tauri-action step:
+#        - name: Fetch core binaries
+#          run: npm run fetch-cores
+#   4. Make sure Node is set up (actions/setup-node@v4, node-version 20).
+#
+# Trigger a release later by pushing a tag, for example:
+#   git tag v0.1.0
+#   git push origin v0.1.0
