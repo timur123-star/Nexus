@@ -1,5 +1,11 @@
-//! System proxy toggling. Windows-native via the registry; other platforms are
-//! stubbed (sing-box TUN mode is the cross-platform path there).
+//! System proxy toggling.
+//!
+//! - Windows: native via the registry (HKCU Internet Settings) + WinINet notify.
+//! - macOS: `networksetup` across every network service.
+//! - Linux (GNOME/GTK): `gsettings` org.gnome.system.proxy.
+//!
+//! TUN mode is the most robust cross-platform path; system proxy is offered as
+//! a lighter alternative for apps that honor it.
 
 #[cfg(windows)]
 pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
@@ -52,8 +58,85 @@ fn notify_wininet() {
     }
 }
 
-#[cfg(not(windows))]
-pub fn set_system_proxy(_enable: bool, _port: u16) -> Result<(), String> {
-    // TODO: gsettings (GNOME) / networksetup (macOS). TUN mode is preferred here.
+// \u2500\u2500 macOS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#[cfg(target_os = "macos")]
+pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
+    let services = macos_network_services()?;
+    let host = "127.0.0.1";
+    let port_s = port.to_string();
+    for svc in &services {
+        let svc = svc.as_str();
+        if enable {
+            run("networksetup", &["-setwebproxy", svc, host, port_s.as_str()])?;
+            run("networksetup", &["-setsecurewebproxy", svc, host, port_s.as_str()])?;
+            run("networksetup", &["-setsocksfirewallproxy", svc, host, port_s.as_str()])?;
+            run("networksetup", &["-setwebproxystate", svc, "on"])?;
+            run("networksetup", &["-setsecurewebproxystate", svc, "on"])?;
+            run("networksetup", &["-setsocksfirewallproxystate", svc, "on"])?;
+        } else {
+            run("networksetup", &["-setwebproxystate", svc, "off"]).ok();
+            run("networksetup", &["-setsecurewebproxystate", svc, "off"]).ok();
+            run("networksetup", &["-setsocksfirewallproxystate", svc, "off"]).ok();
+        }
+    }
     Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_network_services() -> Result<Vec<String>, String> {
+    let out = std::process::Command::new("networksetup")
+        .arg("-listallnetworkservices")
+        .output()
+        .map_err(|e| format!("networksetup: {e}"))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    Ok(text
+        .lines()
+        .skip(1) // first line is an informational header
+        .filter(|l| !l.is_empty())
+        .map(|l| l.trim_start_matches('*').trim().to_string())
+        .collect())
+}
+
+// \u2500\u2500 Linux (GNOME/GTK) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+#[cfg(all(unix, not(target_os = "macos")))]
+pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
+    let schema = "org.gnome.system.proxy";
+    if enable {
+        let p = port.to_string();
+        gsettings(&[schema, "mode", "manual"])?;
+        for proto in ["http", "https", "socks"] {
+            let key = format!("{schema}.{proto}");
+            gsettings(&[key.as_str(), "host", "127.0.0.1"])?;
+            gsettings(&[key.as_str(), "port", p.as_str()])?;
+        }
+        gsettings(&[
+            schema,
+            "ignore-hosts",
+            "['localhost', '127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '::1']",
+        ])?;
+    } else {
+        gsettings(&[schema, "mode", "none"])?;
+    }
+    Ok(())
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn gsettings(args: &[&str]) -> Result<(), String> {
+    let mut full: Vec<&str> = vec!["set"];
+    full.extend_from_slice(args);
+    run("gsettings", &full)
+}
+
+// Shared command runner for the unix backends.
+#[cfg(not(windows))]
+fn run(cmd: &str, args: &[&str]) -> Result<(), String> {
+    let status = std::process::Command::new(cmd)
+        .args(args)
+        .status()
+        .map_err(|e| format!("{cmd}: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("{cmd} exited with {status}"))
+    }
 }

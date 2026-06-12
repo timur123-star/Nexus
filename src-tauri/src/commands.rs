@@ -166,6 +166,16 @@ pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn is_elevated() -> bool {
+    crate::privilege::is_elevated()
+}
+
+#[tauri::command]
+pub fn relaunch_as_admin(app: AppHandle) -> Result<(), String> {
+    crate::privilege::relaunch_as_admin(&app)
+}
+
+#[tauri::command]
 pub fn validate_config(config: String) -> Value {
     match serde_json::from_str::<Value>(&config) {
         Ok(v) => {

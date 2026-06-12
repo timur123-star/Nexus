@@ -3,6 +3,7 @@
 mod commands;
 mod core;
 mod ping;
+mod privilege;
 mod sysproxy;
 mod tray;
 
@@ -35,6 +36,8 @@ pub fn run() {
             commands::get_traffic,
             commands::get_connections,
             commands::set_system_proxy,
+            commands::is_elevated,
+            commands::relaunch_as_admin,
             commands::validate_config,
             commands::open_logs_dir,
         ])
