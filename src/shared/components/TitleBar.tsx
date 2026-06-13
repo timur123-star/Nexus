@@ -48,7 +48,7 @@ export function TitleBar() {
         <span className={cn("h-2 w-2 rounded-full", dotColor, status === "connecting" && "animate-pulse")} />
         <span>{t(STATUS_KEY[status] ?? "conn.disconnected")}</span>
         {status === "connected" && active?.latencyMs != null && (
-          <span className="font-mono text-text-faint">\u00b7 {latencyLabel(active.latencyMs)}</span>
+          <span className="font-mono text-text-faint">· {latencyLabel(active.latencyMs)}</span>
         )}
       </div>
 
