@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Shield, Plus, Route, Power, ArrowRight, ArrowLeft } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../shared/lib/utils";
+import { EASE_OUT } from "../../shared/lib/motion";
 import { useT } from "../../core/i18n/useT";
 import type { Lang, MessageKey } from "../../core/i18n";
 import type { RoutingMode } from "../../core/types";
@@ -12,6 +14,13 @@ const BACK_LABEL: Record<Lang, string> = {
   ru: "Назад",
   fa: "بازگشت",
   zh: "返回",
+};
+
+// Slide + fade keyed by navigation direction so forward/back feel distinct.
+const stepVariants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir >= 0 ? 28 : -28 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir >= 0 ? -28 : 28 }),
 };
 
 /**
@@ -28,10 +37,16 @@ export function Onboarding({
   importNode: React.ReactNode;
 }) {
   const [step, setStep] = useState(0);
+  const [dir, setDir] = useState(1);
   const setProxy = useSettingsStore((s) => s.setProxy);
   const mode = useSettingsStore((s) => s.proxy.routingMode);
   const lang = useSettingsStore((s) => s.app.language);
   const t = useT();
+
+  const goTo = (next: number) => {
+    setDir(next > step ? 1 : -1);
+    setStep(next);
+  };
 
   const steps = [
     {
@@ -96,21 +111,35 @@ export function Onboarding({
           <span className="text-lg font-semibold tracking-wide text-text">NexusShield</span>
         </div>
 
-        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-indigo/15 text-indigo">
-          <Icon size={28} />
+        <div className="min-h-[15rem] overflow-hidden">
+          <AnimatePresence mode="wait" custom={dir} initial={false}>
+            <motion.div
+              key={step}
+              custom={dir}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={ { duration: 0.28, ease: EASE_OUT } }
+            >
+              <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-indigo/15 text-indigo">
+                <Icon size={28} />
+              </div>
+
+              <h2 className="text-xl font-semibold text-text">{cur.title}</h2>
+              <p className="mx-auto mt-2 max-w-xs text-sm text-text-dim">{cur.body}</p>
+
+              <div className="mt-6 flex justify-center">{cur.action}</div>
+            </motion.div>
+          </AnimatePresence>
         </div>
-
-        <h2 className="text-xl font-semibold text-text">{cur.title}</h2>
-        <p className="mx-auto mt-2 max-w-xs text-sm text-text-dim">{cur.body}</p>
-
-        <div className="mt-6 flex justify-center">{cur.action}</div>
 
         {/* Step dots + nav */}
         <div className="mt-8 grid grid-cols-3 items-center">
           <div className="flex justify-start">
             {step > 0 ? (
               <button
-                onClick={() => setStep((s) => s - 1)}
+                onClick={() => goTo(step - 1)}
                 className="flex items-center gap-1 text-sm text-text-dim transition-colors hover:text-text"
               >
                 <ArrowLeft size={15} /> {backLabel}
@@ -133,7 +162,7 @@ export function Onboarding({
           <div className="flex justify-end">
             {!isLast ? (
               <button
-                onClick={() => setStep((s) => s + 1)}
+                onClick={() => goTo(step + 1)}
                 className="flex items-center gap-1 text-sm text-text-dim transition-colors hover:text-text"
               >
                 {t("onboarding.next")} <ArrowRight size={15} />
