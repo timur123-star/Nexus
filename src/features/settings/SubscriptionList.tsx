@@ -22,6 +22,11 @@ export function SubscriptionList() {
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm text-text">{sub.name}</div>
             <div className="truncate font-mono text-[11px] text-text-faint">{sub.url}</div>
+            {sub.status === "error" && sub.lastError ? (
+              <div className="truncate text-[11px] text-bad" title={sub.lastError}>
+                {sub.lastError}
+              </div>
+            ) : null}
           </div>
           <span className="shrink-0 text-xs text-text-dim">{sub.serverCount} серв.</span>
           <button
@@ -45,10 +50,14 @@ export function SubscriptionList() {
 }
 
 function StatusIcon({ sub }: { sub: Subscription }) {
-  if (sub.status === "ok") return <CheckCircle2 size={16} className="text-ok" />;
+  if (sub.status === "ok") return <CheckCircle2 size={16} className="shrink-0 text-ok" />;
   if (sub.status === "error")
-    return <AlertCircle size={16} className="text-bad" />;
+    return (
+      <span title={sub.lastError ?? "Ошибка обновления"} className="shrink-0">
+        <AlertCircle size={16} className="text-bad" />
+      </span>
+    );
   if (sub.status === "updating")
-    return <RefreshCw size={16} className="animate-spin-slow text-warn" />;
-  return <Clock size={16} className={cn("text-text-faint")} />;
+    return <RefreshCw size={16} className="shrink-0 animate-spin-slow text-warn" />;
+  return <Clock size={16} className={cn("shrink-0 text-text-faint")} />;
 }
