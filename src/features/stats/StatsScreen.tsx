@@ -179,13 +179,13 @@ export function StatsScreen() {
         <div className="mt-2 flex items-center justify-between text-[11px] text-text-faint">
           <span className="flex items-center gap-1">
             <span className="text-text-dim">{S.peak}</span>
-            <span className="text-teal">\u2193 {formatBytes(peakDown, true)}</span>
-            <span className="text-indigo">\u2191 {formatBytes(peakUp, true)}</span>
+            <span className="text-teal">↓ {formatBytes(peakDown, true)}</span>
+            <span className="text-indigo">↑ {formatBytes(peakUp, true)}</span>
           </span>
           <span className="flex items-center gap-1">
             <span className="text-text-dim">{S.avg}</span>
-            <span className="text-teal">\u2193 {formatBytes(avgDown, true)}</span>
-            <span className="text-indigo">\u2191 {formatBytes(avgUp, true)}</span>
+            <span className="text-teal">↓ {formatBytes(avgDown, true)}</span>
+            <span className="text-indigo">↑ {formatBytes(avgUp, true)}</span>
           </span>
         </div>
       </div>

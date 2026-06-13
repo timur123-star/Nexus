@@ -214,7 +214,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <ThroughputTile
             label={t("conn.download")}
-            arrow="\u2193"
+            arrow="↓"
             value={formatBytes(traffic.down, true)}
             caption={connected && peakDown > 0 ? `${L.peak} ${formatBytes(peakDown, true)}` : undefined}
             series={downSeries}
@@ -222,7 +222,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
           />
           <ThroughputTile
             label={t("conn.upload")}
-            arrow="\u2191"
+            arrow="↑"
             value={formatBytes(traffic.up, true)}
             caption={connected && peakUp > 0 ? `${L.peak} ${formatBytes(peakUp, true)}` : undefined}
             series={upSeries}
