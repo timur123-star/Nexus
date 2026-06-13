@@ -8,6 +8,7 @@ export function Sparkline({
   color = "var(--color-teal)",
   fill = true,
   strokeWidth = 1.5,
+  responsive = false,
 }: {
   data: number[];
   width?: number;
@@ -15,6 +16,8 @@ export function Sparkline({
   color?: string;
   fill?: boolean;
   strokeWidth?: number;
+  /** Stretch to fill the parent's width; `width` is then only the viewBox coordinate space. */
+  responsive?: boolean;
 }) {
   // All hooks must run unconditionally and in a stable order, so compute the
   // gradient id and the path geometry before any early return.
@@ -34,12 +37,31 @@ export function Sparkline({
     return { line, area };
   }, [data, width, height]);
 
+  // Responsive mode lets the graph stretch horizontally to its container so it
+  // never overflows a narrow window; the numeric width stays the coordinate space.
+  const svgWidth = responsive ? "100%" : width;
+  const preserveAspectRatio = responsive ? "none" : undefined;
+
   if (!line) {
-    return <svg width={width} height={height} className="opacity-30" />;
+    return (
+      <svg
+        width={svgWidth}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio={preserveAspectRatio}
+        className={responsive ? "block opacity-30" : "opacity-30"}
+      />
+    );
   }
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      width={svgWidth}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio={preserveAspectRatio}
+      className={responsive ? "block" : undefined}
+    >
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.35" />

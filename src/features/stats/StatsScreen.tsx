@@ -73,9 +73,9 @@ export function StatsScreen() {
           </div>
         </div>
         <div className="relative">
-          <Sparkline data={samples.map((s) => s.down)} width={900} height={90} color="var(--color-teal)" />
+          <Sparkline data={samples.map((s) => s.down)} width={900} height={90} color="var(--color-teal)" responsive />
           <div className="absolute inset-0">
-            <Sparkline data={samples.map((s) => s.up)} width={900} height={90} color="var(--color-indigo)" fill={false} />
+            <Sparkline data={samples.map((s) => s.up)} width={900} height={90} color="var(--color-indigo)" fill={false} responsive />
           </div>
         </div>
       </div>
