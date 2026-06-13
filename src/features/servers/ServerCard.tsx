@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Star, MoreVertical, Activity, Copy, Trash2, Power, Loader2, GripVertical } from "lucide-react";
+import { Star, MoreVertical, Activity, Copy, Trash2, Power, Loader2, GripVertical, CheckSquare, Square } from "lucide-react";
 import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -14,10 +14,16 @@ const activeDotTransition = { duration: 1.6, repeat: Infinity, ease: "easeInOut"
 
 export function ServerCard({
   server,
+  batchMode,
+  batchSelected,
+  onBatchToggle,
   onDragStart,
   onDrop,
 }: {
   server: ServerProfile;
+  batchMode?: boolean;
+  batchSelected?: boolean;
+  onBatchToggle?: () => void;
   onDragStart: (id: string) => void;
   onDrop: (id: string) => void;
 }) {
@@ -65,11 +71,28 @@ export function ServerCard({
         dragOver && "ring-2 ring-indigo/60",
       )}
     >
-      <GripVertical
-        size={15}
-        aria-hidden
-        className="-ml-1 shrink-0 cursor-grab text-text-faint/40 opacity-0 transition-opacity group-hover:opacity-100"
-      />
+      {batchMode ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onBatchToggle?.();
+          }}
+          className="-ml-1 shrink-0 text-text-dim hover:text-indigo"
+          aria-label={batchSelected ? "Deselect" : "Select"}
+        >
+          {batchSelected ? (
+            <CheckSquare size={18} className="text-indigo" />
+          ) : (
+            <Square size={18} />
+          )}
+        </button>
+      ) : (
+        <GripVertical
+          size={15}
+          aria-hidden
+          className="-ml-1 shrink-0 cursor-grab text-text-faint/40 opacity-0 transition-opacity group-hover:opacity-100"
+        />
+      )}
 
       <Flag name={server.name} address={server.address} size={28} />
 

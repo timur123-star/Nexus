@@ -47,6 +47,25 @@
   --color-text-faint: #9aa3b8;
 }
 
+/* OLED theme — pure black backgrounds for AMOLED displays */
+:root.oled {
+  --color-bg: #000000;
+  --color-bg-elev: #0a0a0a;
+  --color-surface: #111111;
+  --color-border: #1a1a1a;
+  --color-text: #eaeaea;
+  --color-text-dim: #8a8a8a;
+  --color-text-faint: #555555;
+}
+:root.oled #root::before {
+  /* Subtler aurora on pure black */
+  opacity: 0.6;
+}
+:root.oled .glass,
+:root.oled .glass-elev {
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+}
+
 * {
   box-sizing: border-box;
 }

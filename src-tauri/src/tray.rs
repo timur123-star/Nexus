@@ -6,6 +6,8 @@ use tauri::{
     AppHandle, Emitter, Manager,
 };
 
+use crate::core::AppState;
+
 pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Показать NexusShield", true, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", "Подключить / Отключить", true, None::<&str>)?;
@@ -24,7 +26,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             "toggle" => {
                 let _ = app.emit("tray://toggle", ());
             }
-            "quit" => app.exit(0),
+            "quit" => graceful_quit(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -47,4 +49,18 @@ fn show_main(app: &AppHandle) {
         let _ = win.show();
         let _ = win.set_focus();
     }
+}
+
+/// Graceful quit: stop the proxy core, reset system proxy, then exit.
+/// Prevents zombie core processes and dangling OS proxy settings.
+fn graceful_quit(app: &AppHandle) {
+    // Stop the core process if running.
+    if let Some(state) = app.try_state::<AppState>() {
+        if let Ok(mut core) = state.core.lock() {
+            core.stop(app);
+        }
+    }
+    // Best-effort reset of OS proxy settings (use common ports).
+    let _ = crate::sysproxy::set_system_proxy(false, 0);
+    app.exit(0);
 }

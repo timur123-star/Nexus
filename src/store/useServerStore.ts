@@ -4,6 +4,7 @@ import type { ServerProfile, Subscription } from "../core/types";
 import { parseMany, parseShareLink } from "../core/parser";
 import { fetchSubscription, pingServer } from "../core/ipc";
 import { persistentStorage } from "../core/db";
+import { useSettingsStore } from "./useSettingsStore";
 
 interface ServerState {
   servers: ServerProfile[];
@@ -13,10 +14,14 @@ interface ServerState {
   addFromLink: (link: string) => ServerProfile;
   addFromBlob: (text: string) => { added: number; errors: number };
   removeServer: (id: string) => void;
+  /** Remove multiple servers at once (batch delete). */
+  removeMany: (ids: string[]) => void;
   duplicateServer: (id: string) => void;
   updateServer: (id: string, patch: Partial<ServerProfile>) => void;
   toggleFavorite: (id: string) => void;
   reorder: (fromId: string, toId: string) => void;
+  /** Sort servers by measured latency (lowest first, unreachable last). */
+  sortByPing: () => void;
 
   // ping
   pingOne: (id: string) => Promise<void>;
@@ -69,6 +74,11 @@ export const useServerStore = create<ServerState>()(
 
       removeServer: (id) => set((s) => ({ servers: s.servers.filter((x) => x.id !== id) })),
 
+      removeMany: (ids) => {
+        const remove = new Set(ids);
+        set((s) => ({ servers: s.servers.filter((x) => !remove.has(x.id)) }));
+      },
+
       duplicateServer: (id) =>
         set((s) => {
           const orig = s.servers.find((x) => x.id === id);
@@ -101,6 +111,18 @@ export const useServerStore = create<ServerState>()(
           return { servers: arr };
         }),
 
+      sortByPing: () =>
+        set((s) => ({
+          servers: [...s.servers].sort((a, b) => {
+            const la = a.latencyMs ?? Infinity;
+            const lb = b.latencyMs ?? Infinity;
+            // Unreachable (-1) → last
+            const va = la < 0 ? Infinity : la;
+            const vb = lb < 0 ? Infinity : lb;
+            return va - vb;
+          }),
+        })),
+
       pingOne: async (id) => {
         const srv = get().servers.find((x) => x.id === id);
         if (!srv) return;
@@ -120,6 +142,11 @@ export const useServerStore = create<ServerState>()(
           }
         };
         await Promise.all(Array.from({ length: PING_WORKERS }, worker));
+
+        // Auto-sort by latency if the user enabled it.
+        if (useSettingsStore.getState().app.autoSortByPing) {
+          get().sortByPing();
+        }
       },
 
       pingAll: async () => {
@@ -158,7 +185,8 @@ export const useServerStore = create<ServerState>()(
           ),
         }));
         try {
-          const body = await fetchSubscription(sub.url);
+          const allowInsecure = useSettingsStore.getState().proxy.allowInsecureSubs;
+          const body = await fetchSubscription(sub.url, allowInsecure);
           const { servers } = parseMany(body);
           set((s) => {
             // Server ids are deterministic, so the same endpoint keeps the same

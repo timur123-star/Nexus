@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "framer-motion";
 import { TitleBar } from "./shared/components/TitleBar";
@@ -10,7 +10,9 @@ import { StatsScreen } from "./features/stats/StatsScreen";
 import { HistoryScreen } from "./features/history/HistoryScreen";
 import { LogsScreen } from "./features/logs/LogsScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
-import { EditorScreen } from "./features/editor/EditorScreen";
+const EditorScreen = lazy(() =>
+  import("./features/editor/EditorScreen").then((m) => ({ default: m.EditorScreen })),
+);
 import { ImportDialog } from "./features/import/ImportDialog";
 import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
@@ -43,21 +45,28 @@ export default function App() {
   // nothing. In "system" mode we follow (and keep following) the OS preference.
   useEffect(() => {
     const root = document.documentElement;
-    const applyLight = (light: boolean) => root.classList.toggle("light", light);
+    const apply = (light: boolean, oled: boolean) => {
+      root.classList.toggle("light", light);
+      root.classList.toggle("oled", oled);
+    };
 
     if (theme === "light") {
-      applyLight(true);
+      apply(true, false);
+      return;
+    }
+    if (theme === "oled") {
+      apply(false, true);
       return;
     }
     if (theme === "dark") {
-      applyLight(false);
+      apply(false, false);
       return;
     }
 
     // system
     const mq = window.matchMedia("(prefers-color-scheme: light)");
-    applyLight(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => applyLight(e.matches);
+    apply(mq.matches, false);
+    const onChange = (e: MediaQueryListEvent) => apply(e.matches, false);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [theme]);
@@ -67,8 +76,18 @@ export default function App() {
     applyAccent(accent);
   }, [accent]);
 
-  // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import.
+  // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import,
+  // Ctrl+1-7 navigate screens.
   useEffect(() => {
+    const SCREEN_MAP: Record<string, Screen> = {
+      "1": "connection",
+      "2": "servers",
+      "3": "stats",
+      "4": "history",
+      "5": "logs",
+      "6": "editor",
+      "7": "settings",
+    };
     const onKey = (e: KeyboardEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       if (e.key === "k") {
@@ -80,6 +99,9 @@ export default function App() {
       } else if (e.key.toLowerCase() === "i") {
         e.preventDefault();
         setImportOpen(true);
+      } else if (SCREEN_MAP[e.key]) {
+        e.preventDefault();
+        setScreen(SCREEN_MAP[e.key]);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -138,7 +160,11 @@ export default function App() {
               {screen === "stats" && <StatsScreen />}
               {screen === "history" && <HistoryScreen />}
               {screen === "logs" && <LogsScreen />}
-              {screen === "editor" && <EditorScreen />}
+              {screen === "editor" && (
+                <Suspense fallback={<div className="flex h-full items-center justify-center text-text-faint">Loading editor…</div>}>
+                  <EditorScreen />
+                </Suspense>
+              )}
               {screen === "settings" && <SettingsScreen />}
             </motion.div>
           </AnimatePresence>
