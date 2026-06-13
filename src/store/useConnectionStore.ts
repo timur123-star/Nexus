@@ -39,6 +39,28 @@ function clearReconnectTimer(): void {
   }
 }
 
+/**
+ * Pick a core that can actually run this server. The user's chosen core is
+ * preferred, but a protocol it cannot run (hysteria2 / tuic on Xray) -- or a
+ * Shadowsocks server with an obfs plugin, which only sing-box can apply
+ * without an external plugin binary -- transparently falls back to a capable
+ * core. sing-box supports every protocol we parse, so it is always a valid
+ * landing spot.
+ */
+function selectCore(server: ServerProfile, preferredKind: string) {
+  const preferred = getCore(preferredKind as never);
+  const xrayCantObfs =
+    preferred.kind === "xray" &&
+    server.protocol === "shadowsocks" &&
+    !!server.extra?.obfs;
+  if (preferred.supports(server.protocol) && !xrayCantObfs) return preferred;
+  return (
+    ALL_CORES.find(
+      (c) => c.supports(server.protocol) && !(c.kind === "xray" && xrayCantObfs),
+    ) ?? null
+  );
+}
+
 export const useConnectionStore = create<ConnectionState>((set, get) => {
   /** Schedule an auto-reconnect with exponential backoff, capped. */
   const scheduleReconnect = (): void => {
@@ -90,19 +112,11 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         autoReconnect: true,
       });
       try {
-        // Auto-select a core that can actually handle this protocol. The user's
-        // chosen core is preferred, but protocols it cannot run (e.g. hysteria2 /
-        // tuic on Xray) transparently fall back to a capable core — sing-box
-        // supports every protocol we parse, so connecting just works.
-        let core = getCore(proxy.coreKind);
-        if (!core.supports(server.protocol)) {
-          const fallback = ALL_CORES.find((c) => c.supports(server.protocol));
-          if (!fallback) {
-            throw new Error(
-              `\u041d\u0438 \u043e\u0434\u043d\u043e \u044f\u0434\u0440\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
-            );
-          }
-          core = fallback;
+        const core = selectCore(server, proxy.coreKind);
+        if (!core) {
+          throw new Error(
+            `\u041d\u0438 \u043e\u0434\u043d\u043e \u044f\u0434\u0440\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
+          );
         }
         const config = core.generateConfig(server, {
           mixedPort: proxy.mixedPort,

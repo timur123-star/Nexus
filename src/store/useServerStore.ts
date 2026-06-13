@@ -151,14 +151,28 @@ export const useServerStore = create<ServerState>()(
         try {
           const body = await fetchSubscription(sub.url);
           const { servers } = parseMany(body);
-          const tagged = servers.map((srv) => ({
-            ...srv,
-            id: `${id}_${srv.id}`,
-            subscriptionId: id,
-            createdAt: now(),
-          }));
           set((s) => {
-            // Replace this subscription's servers wholesale.
+            // Server ids are deterministic, so the same endpoint keeps the same
+            // id across refreshes. Preserve the user-owned state (favorite,
+            // measured latency, usage) while adopting fresh config fields from
+            // the subscription body. Servers dropped upstream simply disappear.
+            const prev = new Map(
+              s.servers.filter((x) => x.subscriptionId === id).map((x) => [x.id, x]),
+            );
+            const tagged = servers.map((srv) => {
+              const fullId = `${id}_${srv.id}`;
+              const old = prev.get(fullId);
+              return {
+                ...srv,
+                id: fullId,
+                subscriptionId: id,
+                favorite: old?.favorite ?? srv.favorite,
+                latencyMs: old ? old.latencyMs ?? null : srv.latencyMs ?? null,
+                lastUsedAt: old?.lastUsedAt,
+                tags: old?.tags ?? srv.tags,
+                createdAt: old?.createdAt ?? now(),
+              };
+            });
             const others = s.servers.filter((x) => x.subscriptionId !== id);
             return {
               servers: [...others, ...tagged],
