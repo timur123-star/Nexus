@@ -31,7 +31,18 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["nexusshield"]
+        "schemes": [
+          "nexusshield"
+        ]
+      }
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3NkMzRTY0NkI5Q0MwRDAKUldUUXdKeHJaRDVzdHpFaDVHbjdlbmJsQWhsUW9DSzc1WTNPS2hSanNnNEJBL1YyV05lTGV6akoK",
+      "endpoints": [
+        "https://github.com/timur123-star/Nexus/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   },
@@ -49,6 +60,7 @@
     },
     "category": "Utility",
     "shortDescription": "Universal Xray/Sing-box client",
-    "longDescription": "NexusShield — a modern cross-platform client for Xray-core and Sing-box."
+    "longDescription": "NexusShield — a modern cross-platform client for Xray-core and Sing-box.",
+    "createUpdaterArtifacts": true
   }
 }

@@ -10,6 +10,7 @@ import type { Lang, MessageKey } from "../../core/i18n";
 import type { CoreKind, RoutingMode, RoutingProfile, RoutingRuleMatch, RoutingTarget } from "../../core/types";
 import { SubscriptionList } from "./SubscriptionList";
 import { BackupSection } from "./BackupSection";
+import { UpdateSection } from "./UpdateSection";
 
 const MATCH_KEYS: RoutingRuleMatch[] = [
   "domain",
@@ -553,6 +554,8 @@ export function SettingsScreen() {
       </Section>
 
       <BackupSection />
+
+      <UpdateSection />
 
       <div className="flex gap-2">
         <button
