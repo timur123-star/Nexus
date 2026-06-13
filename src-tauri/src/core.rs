@@ -296,7 +296,8 @@ fn wait_until_ready(
     spec: &LaunchSpec,
     still_current: &dyn Fn() -> bool,
 ) -> bool {
-    if let Some((port, _secret)) = spec.clash {
+    if let Some((port, _secret)) = &spec.clash {
+        let port = *port;
         let addr: SocketAddr = ([127, 0, 0, 1], port).into();
         let deadline = Instant::now() + READINESS_TIMEOUT;
         loop {

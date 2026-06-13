@@ -18,6 +18,10 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::new().build())
         .manage(AppState::new())
         .setup(|app| {
+            // Safety net: reset OS proxy on startup in case a previous session
+            // crashed while system proxy was active, leaving the user stranded.
+            let _ = sysproxy::set_system_proxy(false, 0);
+
             tray::build_tray(app.handle())?;
             Ok(())
         })
