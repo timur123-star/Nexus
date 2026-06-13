@@ -1,27 +1,19 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Globe2, Clock, ChevronRight, Rocket, Download, Upload, Cpu } from "lucide-react";
+import { Zap, Globe2, ChevronRight, Rocket, Download, Upload, Cpu, ShieldCheck, Lock, Activity } from "lucide-react";
 import type { ConnectionStatus } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { toast } from "../../store/useToastStore";
 import { Sparkline } from "../../shared/components/Sparkline";
-import { ConnectButton } from "../../shared/components/ConnectButton";
+import { ShieldConnectButton } from "../../shared/components/ShieldConnectButton";
 import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../../shared/lib/utils";
 import { fadeInUp } from "../../shared/lib/motion";
 import { flagFor } from "../../shared/lib/flags";
 import { PROTOCOL_LABEL } from "../servers/protocolMeta";
 import { useT } from "../../core/i18n/useT";
 import type { Lang, MessageKey } from "../../core/i18n";
-
-const STATUS_DOT: Record<ConnectionStatus, string> = {
-  connected: "bg-ok",
-  connecting: "bg-warn",
-  reconnecting: "bg-warn",
-  error: "bg-bad",
-  disconnected: "bg-text-faint",
-};
 
 const STATUS_LABEL_KEY: Record<ConnectionStatus, MessageKey> = {
   connected: "conn.connected",
@@ -42,44 +34,53 @@ interface DashStrings {
   core: string;
   peak: string;
   xrayLive: string;
+  ipAddress: string;
+  protocol: string;
+  encryption: string;
+  connStatus: string;
+  stable: string;
+  protectedTitle: string;
+  protectedSub: string;
+  exposedTitle: string;
+  exposedSub: string;
+  tapConnect: string;
 }
 const DASH_STRINGS: Record<Lang, DashStrings> = {
-  en: { downloaded: "Downloaded", uploaded: "Uploaded", core: "Core", peak: "peak", xrayLive: "Live counters need the Clash API — unavailable on the Xray core." },
-  ru: { downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a", xrayLive: "Живые счётчики работают через Clash API — недоступно на ядре Xray." },
-  fa: { downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج", xrayLive: "شمارنده‌های زنده به Clash API نیاز دارند — روی هسته Xray در دسترس نیست." },
-  zh: { downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值", xrayLive: "实时计数依赖 Clash API——Xray 内核不可用。" },
+  en: {
+    downloaded: "Downloaded", uploaded: "Uploaded", core: "Core", peak: "peak",
+    xrayLive: "Live counters need the Clash API — unavailable on the Xray core.",
+    ipAddress: "IP Address", protocol: "Protocol", encryption: "Encryption", connStatus: "Status",
+    stable: "Stable", protectedTitle: "You are protected", protectedSub: "Your traffic is encrypted and private.",
+    exposedTitle: "You are exposed", exposedSub: "Connect to secure your traffic.", tapConnect: "Tap to connect",
+  },
+  ru: {
+    downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a",
+    xrayLive: "Живые счётчики работают через Clash API — недоступно на ядре Xray.",
+    ipAddress: "IP-адрес", protocol: "Протокол", encryption: "Шифрование", connStatus: "Статус",
+    stable: "Стабильно", protectedTitle: "Вы под защитой", protectedSub: "Трафик зашифрован и приватен.",
+    exposedTitle: "Вы не защищены", exposedSub: "Подключитесь, чтобы защитить трафик.", tapConnect: "Нажмите, чтобы подключиться",
+  },
+  fa: {
+    downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج",
+    xrayLive: "شمارنده‌های زنده به Clash API نیاز دارند — روی هسته Xray در دسترس نیست.",
+    ipAddress: "آدرس IP", protocol: "پروتکل", encryption: "رمزنگاری", connStatus: "وضعیت",
+    stable: "پایدار", protectedTitle: "شما محافظت می‌شوید", protectedSub: "ترافیک شما رمزنگاری و خصوصی است.",
+    exposedTitle: "شما در معرض هستید", exposedSub: "برای ایمن‌سازی ترافیک متصل شوید.", tapConnect: "برای اتصال ضربه بزنید",
+  },
+  zh: {
+    downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值",
+    xrayLive: "实时计数依赖 Clash API——Xray 内核不可用。",
+    ipAddress: "IP 地址", protocol: "协议", encryption: "加密", connStatus: "状态",
+    stable: "稳定", protectedTitle: "您已受保护", protectedSub: "您的流量已加密且私密。",
+    exposedTitle: "您已暴露", exposedSub: "连接以保护您的流量。", tapConnect: "点击连接",
+  },
 };
 
-const dotPulseAnimate = { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] };
-const dotStaticAnimate = { opacity: 1, scale: 1 };
 const valueInitial = { opacity: 0.35, y: -2 };
 const valueAnimate = { opacity: 1, y: 0 };
 const valueTransition = { duration: 0.25, ease: "easeOut" };
 const floatAnimate = { y: [0, -8, 0] };
 const floatTransition = { duration: 4, repeat: Infinity, ease: "easeInOut" };
-
-function StatusDot({ status }: { status: ConnectionStatus }) {
-  const t = useT();
-  const dot = STATUS_DOT[status] ?? STATUS_DOT.disconnected;
-  const label = t(STATUS_LABEL_KEY[status] ?? "conn.disconnected");
-  const animated =
-    status === "connected" || status === "connecting" || status === "reconnecting";
-  const fast = status === "connecting" || status === "reconnecting";
-  const transition = animated
-    ? { duration: fast ? 0.9 : 1.8, repeat: Infinity, ease: "easeInOut" }
-    : { duration: 0.2 };
-  return (
-    <span className="flex items-center gap-1.5 text-xs text-text-dim">
-      <motion.span
-        aria-hidden
-        className={cn("h-2 w-2 rounded-full", dot)}
-        animate={animated ? dotPulseAnimate : dotStaticAnimate}
-        transition={transition}
-      />
-      {label}
-    </span>
-  );
-}
 
 export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const t = useT();
@@ -147,139 +148,171 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const upSeries = samples.map((s) => s.up);
   const peakDown = downSeries.length ? Math.max(...downSeries) : 0;
   const peakUp = upSeries.length ? Math.max(...upSeries) : 0;
-  const connectState = connected ? "connected" : busy ? "busy" : "idle";
-  const connectLabels = {
-    connected: t("common.disconnect"),
-    busy: "\u2026",
-    idle: t("common.connect"),
-  };
+  const shieldState = connected ? "connected" : busy ? "busy" : "idle";
+  const shieldLabel = connected ? t("common.disconnect") : busy ? t(STATUS_LABEL_KEY[status]) : t("common.connect");
+  const shieldSub = connected ? uptime || `0${unitS}` : busy ? "\u2026" : L.tapConnect;
   const shownCore = (connected || busy) && activeCore ? activeCore : proxyCore;
   const coreLabel = shownCore === "xray" ? "Xray" : "sing-box";
   const dash = "\u2014";
+  const encryption = active.tls.security !== "none" ? active.tls.security.toUpperCase() : "AES-256";
+  const statusText = connected ? L.stable : t(STATUS_LABEL_KEY[status]);
 
   return (
-    <div className="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center gap-6 p-8">
-      {/* Active server card */}
+    <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center gap-6 px-6 py-8">
+      {/* Protection banner */}
       <motion.div
         custom={0}
         variants={fadeInUp}
         initial="initial"
         animate="enter"
-        className="glass-elev w-full rounded-panel p-7"
+        className="glass flex w-full items-center justify-between rounded-panel px-5 py-3.5"
       >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-4xl leading-none">{flagFor(active.name)}</span>
-            <div>
-              <h2 className="text-lg font-semibold text-text">{active.name}</h2>
-              <div className="mt-0.5 flex items-center gap-2 text-xs text-text-dim">
-                <span className="rounded bg-indigo/15 px-1.5 py-0.5 font-medium text-indigo">
-                  {PROTOCOL_LABEL[active.protocol]}
-                </span>
-                <span className="font-mono uppercase">{active.transport.type}</span>
-                {active.tls.security !== "none" && (
-                  <span className="font-mono uppercase text-teal">{active.tls.security}</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <div className={cn("font-mono text-sm font-semibold", latencyColor(active.latencyMs))}>
-              {latencyLabel(active.latencyMs)}
-            </div>
-            <StatusDot status={status} />
-          </div>
-        </div>
-
-        {/* Connect button with pulse ring */}
-        <div className="mb-3 mt-7 flex justify-center">
-          <ConnectButton
-            state={connectState}
-            onClick={() => toggle(active)}
-            labels={connectLabels}
-          />
-        </div>
-
-        {/* Quick auto-best action */}
-        <div className="mb-5 flex justify-center">
-          <button
-            type="button"
-            onClick={handleAutoBest}
-            disabled={autoBusy || busy}
-            title={t("servers.autoBest")}
-            className="flex items-center gap-1.5 rounded-btn border border-border px-3 py-1.5 text-xs text-text-dim transition-colors hover:border-indigo/40 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid h-9 w-9 place-items-center rounded-full transition-colors",
+              connected ? "bg-ok/15 text-ok" : "bg-text-faint/10 text-text-dim",
+            )}
           >
-            <Rocket size={13} className={cn(autoBusy && "animate-pulse")} />
-            {t("servers.autoBest")}
-          </button>
-        </div>
-
-        {/* Live throughput */}
-        <div className="grid grid-cols-2 gap-3">
-          <ThroughputTile
-            label={t("conn.download")}
-            arrow="↓"
-            value={formatBytes(traffic.down, true)}
-            caption={connected && peakDown > 0 ? `${L.peak} ${formatBytes(peakDown, true)}` : undefined}
-            series={downSeries}
-            color="var(--color-teal)"
-          />
-          <ThroughputTile
-            label={t("conn.upload")}
-            arrow="↑"
-            value={formatBytes(traffic.up, true)}
-            caption={connected && peakUp > 0 ? `${L.peak} ${formatBytes(peakUp, true)}` : undefined}
-            series={upSeries}
-            color="var(--color-indigo)"
-          />
-        </div>
-
-        {/* Session summary */}
-        <div className="mt-3 grid grid-cols-3 gap-3">
-          <Metric
-            icon={Clock}
-            label={t("conn.uptime")}
-            value={connected ? uptime || `0${unitS}` : dash}
-          />
-          <Metric
-            icon={Download}
-            label={L.downloaded}
-            value={connected ? formatBytes(traffic.totalDown) : dash}
-            mono
-          />
-          <Metric
-            icon={Upload}
-            label={L.uploaded}
-            value={connected ? formatBytes(traffic.totalUp) : dash}
-            mono
-          />
-        </div>
-
-        {xrayActive && (
-          <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-text-faint">
-            <Cpu size={11} /> {L.xrayLive}
-          </p>
-        )}
-
-        {error && status === "error" && (
-          <div className="mt-4 rounded-btn border border-bad/40 bg-bad/10 px-3 py-2 text-xs text-bad">
-            {error} {t("conn.errorSuffix")}
+            <ShieldCheck size={18} />
+          </span>
+          <div className="leading-tight">
+            <div className={cn("text-sm font-semibold", connected ? "text-ok" : "text-text")}>
+              {connected ? L.protectedTitle : L.exposedTitle}
+            </div>
+            <div className="text-xs text-text-dim">{connected ? L.protectedSub : L.exposedSub}</div>
           </div>
-        )}
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] uppercase tracking-wider text-text-faint">{t("conn.uptime")}</div>
+          <div className="font-mono text-sm font-semibold text-text">
+            {connected ? uptime || `0${unitS}` : dash}
+          </div>
+        </div>
       </motion.div>
 
-      {/* Connection details */}
+      {/* Hero: server identity + shield */}
       <motion.div
         custom={1}
         variants={fadeInUp}
         initial="initial"
         animate="enter"
+        className="flex w-full flex-col items-center gap-6 py-2"
+      >
+        <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
+          <span className="text-2xl leading-none">{flagFor(active.name)}</span>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold text-text">{active.name}</div>
+            <div className="flex items-center gap-2 text-[11px] text-text-dim">
+              <span className="rounded bg-indigo/15 px-1.5 font-medium text-indigo">
+                {PROTOCOL_LABEL[active.protocol]}
+              </span>
+              <span className={cn("font-mono font-semibold", latencyColor(active.latencyMs))}>
+                {latencyLabel(active.latencyMs)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <ShieldConnectButton
+          state={shieldState}
+          onClick={() => toggle(active)}
+          label={shieldLabel}
+          sublabel={shieldSub}
+        />
+
+        {/* Quick auto-best action */}
+        <button
+          type="button"
+          onClick={handleAutoBest}
+          disabled={autoBusy || busy}
+          title={t("servers.autoBest")}
+          className="flex items-center gap-1.5 rounded-btn border border-border bg-bg-elev/40 px-3.5 py-1.5 text-xs text-text-dim backdrop-blur transition-colors hover:border-indigo/40 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Rocket size={13} className={cn(autoBusy && "animate-pulse")} />
+          {t("servers.autoBest")}
+        </button>
+      </motion.div>
+
+      {/* Mockup-style info tiles */}
+      <motion.div
+        custom={2}
+        variants={fadeInUp}
+        initial="initial"
+        animate="enter"
+        className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        <InfoTile icon={Globe2} label={L.ipAddress} value={active.address} mono />
+        <InfoTile icon={Zap} label={L.protocol} value={PROTOCOL_LABEL[active.protocol]} />
+        <InfoTile icon={Lock} label={L.encryption} value={encryption} mono />
+        <InfoTile
+          icon={Activity}
+          label={L.connStatus}
+          value={statusText}
+          valueClass={connected ? "text-ok" : busy ? "text-warn" : "text-text-dim"}
+        />
+      </motion.div>
+
+      {/* Live throughput */}
+      <motion.div
+        custom={3}
+        variants={fadeInUp}
+        initial="initial"
+        animate="enter"
+        className="grid w-full grid-cols-2 gap-3"
+      >
+        <ThroughputTile
+          label={t("conn.download")}
+          arrow="↓"
+          value={formatBytes(traffic.down, true)}
+          caption={connected && peakDown > 0 ? `${L.peak} ${formatBytes(peakDown, true)}` : undefined}
+          series={downSeries}
+          color="var(--color-teal)"
+        />
+        <ThroughputTile
+          label={t("conn.upload")}
+          arrow="↑"
+          value={formatBytes(traffic.up, true)}
+          caption={connected && peakUp > 0 ? `${L.peak} ${formatBytes(peakUp, true)}` : undefined}
+          series={upSeries}
+          color="var(--color-indigo)"
+        />
+      </motion.div>
+
+      {/* Session summary */}
+      <motion.div
+        custom={4}
+        variants={fadeInUp}
+        initial="initial"
+        animate="enter"
         className="grid w-full grid-cols-3 gap-3"
       >
-        <Metric icon={Globe2} label={t("conn.address")} value={active.address} mono />
-        <Metric icon={Zap} label={t("conn.port")} value={String(active.port)} mono />
-        <Metric icon={Cpu} label={L.core} value={coreLabel} mono />
+        <InfoTile
+          icon={Download}
+          label={L.downloaded}
+          value={connected ? formatBytes(traffic.totalDown) : dash}
+          mono
+        />
+        <InfoTile
+          icon={Upload}
+          label={L.uploaded}
+          value={connected ? formatBytes(traffic.totalUp) : dash}
+          mono
+        />
+        <InfoTile icon={Cpu} label={L.core} value={coreLabel} mono />
       </motion.div>
+
+      {xrayActive && (
+        <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-text-faint">
+          <Cpu size={11} /> {L.xrayLive}
+        </p>
+      )}
+
+      {error && status === "error" && (
+        <div className="w-full rounded-btn border border-bad/40 bg-bad/10 px-3 py-2 text-center text-xs text-bad">
+          {error} {t("conn.errorSuffix")}
+        </div>
+      )}
 
       <button
         onClick={onBrowse}
@@ -330,23 +363,28 @@ function ThroughputTile({
   );
 }
 
-function Metric({
+function InfoTile({
   icon: Icon,
   label,
   value,
   mono,
+  valueClass,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   mono?: boolean;
+  valueClass?: string;
 }) {
   return (
     <div className="glass ns-lift rounded-card px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[11px] text-text-faint">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-text-faint">
         <Icon size={13} /> {label}
       </div>
-      <div className={cn("mt-0.5 truncate text-sm text-text", mono && "font-mono")} title={value}>
+      <div
+        className={cn("mt-1 truncate text-sm font-semibold text-text", mono && "font-mono", valueClass)}
+        title={value}
+      >
         {value}
       </div>
     </div>

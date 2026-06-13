@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "framer-motion";
 import { TitleBar } from "./shared/components/TitleBar";
+import { AppBackground } from "./shared/components/AppBackground";
 import { Sidebar, type Screen } from "./shared/components/Sidebar";
 import { Toaster } from "./shared/components/Toaster";
 import { ConnectionScreen } from "./features/connection/ConnectionScreen";
@@ -162,6 +163,7 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen flex-col">
+      <AppBackground />
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Sidebar active={screen} onNavigate={setScreen} />
