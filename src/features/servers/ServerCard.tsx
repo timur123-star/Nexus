@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Star, MoreVertical, Activity, Copy, Trash2, Power, GripVertical } from "lucide-react";
+import { Star, MoreVertical, Activity, Copy, Trash2, Power, Loader2, GripVertical } from "lucide-react";
 import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -28,7 +28,10 @@ export function ServerCard({
   const [dragOver, setDragOver] = useState(false);
   const t = useT();
 
-  const isActive = activeServerId === server.id && status === "connected";
+  const isCurrent = activeServerId === server.id;
+  const isActive = isCurrent && status === "connected";
+  // This server is the one mid-handshake (initial connect or auto-reconnect).
+  const isBusy = isCurrent && (status === "connecting" || status === "reconnecting");
 
   const handlePing = async () => {
     if (pinging) return;
@@ -58,6 +61,7 @@ export function ServerCard({
       className={cn(
         "group glass ns-lift relative flex items-center gap-3 rounded-card px-3.5 py-3 transition-all hover:border-indigo/40",
         isActive && "border-ok/50 bg-ok/5",
+        isBusy && "border-indigo/50 bg-indigo/5",
         dragOver && "ring-2 ring-indigo/60",
       )}
     >
@@ -76,6 +80,14 @@ export function ServerCard({
             <motion.span
               aria-hidden
               className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok"
+              animate={activeDotAnimate}
+              transition={activeDotTransition}
+            />
+          )}
+          {isBusy && (
+            <motion.span
+              aria-hidden
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-warn"
               animate={activeDotAnimate}
               transition={activeDotTransition}
             />
@@ -122,11 +134,15 @@ export function ServerCard({
         onClick={() => toggle(server)}
         className={cn(
           "grid h-8 w-8 shrink-0 place-items-center rounded-btn transition-colors",
-          isActive ? "bg-ok text-white" : "bg-surface text-text-dim hover:bg-indigo hover:text-white",
+          isActive
+            ? "bg-ok text-white"
+            : isBusy
+              ? "bg-indigo text-white"
+              : "bg-surface text-text-dim hover:bg-indigo hover:text-white",
         )}
-        title={isActive ? t("common.disconnect") : t("common.connect")}
+        title={isBusy ? t("conn.connecting") : isActive ? t("common.disconnect") : t("common.connect")}
       >
-        <Power size={15} />
+        {isBusy ? <Loader2 size={15} className="animate-spin" /> : <Power size={15} />}
       </button>
 
       {/* Context menu */}
