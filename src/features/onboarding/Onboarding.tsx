@@ -1,10 +1,18 @@
 import { useState } from "react";
-import { Shield, Plus, Route, Power, ArrowRight } from "lucide-react";
+import { Shield, Plus, Route, Power, ArrowRight, ArrowLeft } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../shared/lib/utils";
 import { useT } from "../../core/i18n/useT";
-import type { MessageKey } from "../../core/i18n";
+import type { Lang, MessageKey } from "../../core/i18n";
 import type { RoutingMode } from "../../core/types";
+
+// Inline label so the global dictionary (and its parity test) stays untouched.
+const BACK_LABEL: Record<Lang, string> = {
+  en: "Back",
+  ru: "Назад",
+  fa: "بازگشت",
+  zh: "返回",
+};
 
 /**
  * First-run wizard: add a server \u2192 choose a mode \u2192 connect.
@@ -22,6 +30,7 @@ export function Onboarding({
   const [step, setStep] = useState(0);
   const setProxy = useSettingsStore((s) => s.setProxy);
   const mode = useSettingsStore((s) => s.proxy.routingMode);
+  const lang = useSettingsStore((s) => s.app.language);
   const t = useT();
 
   const steps = [
@@ -76,6 +85,8 @@ export function Onboarding({
 
   const cur = steps[step];
   const Icon = cur.icon;
+  const isLast = step === steps.length - 1;
+  const backLabel = BACK_LABEL[lang] ?? BACK_LABEL.en;
 
   return (
     <div className="relative grid h-screen place-items-center p-8">
@@ -95,8 +106,20 @@ export function Onboarding({
         <div className="mt-6 flex justify-center">{cur.action}</div>
 
         {/* Step dots + nav */}
-        <div className="mt-8 flex items-center justify-between">
-          <div className="flex gap-1.5">
+        <div className="mt-8 grid grid-cols-3 items-center">
+          <div className="flex justify-start">
+            {step > 0 ? (
+              <button
+                onClick={() => setStep((s) => s - 1)}
+                className="flex items-center gap-1 text-sm text-text-dim transition-colors hover:text-text"
+              >
+                <ArrowLeft size={15} /> {backLabel}
+              </button>
+            ) : (
+              <span />
+            )}
+          </div>
+          <div className="flex justify-center gap-1.5">
             {steps.map((_, i) => (
               <span
                 key={i}
@@ -107,18 +130,20 @@ export function Onboarding({
               />
             ))}
           </div>
-          {step < steps.length - 1 ? (
-            <button
-              onClick={() => setStep((s) => s + 1)}
-              className="flex items-center gap-1 text-sm text-text-dim hover:text-text"
-            >
-              {t("onboarding.next")} <ArrowRight size={15} />
-            </button>
-          ) : (
-            <button onClick={onDone} className="text-sm text-text-faint hover:text-text">
-              {t("onboarding.skip")}
-            </button>
-          )}
+          <div className="flex justify-end">
+            {!isLast ? (
+              <button
+                onClick={() => setStep((s) => s + 1)}
+                className="flex items-center gap-1 text-sm text-text-dim transition-colors hover:text-text"
+              >
+                {t("onboarding.next")} <ArrowRight size={15} />
+              </button>
+            ) : (
+              <button onClick={onDone} className="text-sm text-text-faint transition-colors hover:text-text">
+                {t("onboarding.skip")}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Link2, Rss, ClipboardPaste, FileUp, QrCode, Camera } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { detectFormat } from "../../core/parser";
@@ -8,6 +8,7 @@ import { useT } from "../../core/i18n/useT";
 import type { MessageKey } from "../../core/i18n";
 
 type Tab = "link" | "subscription";
+type ResultKind = "ok" | "err";
 
 const FORMAT_KEY: Record<ReturnType<typeof detectFormat>, MessageKey> = {
   "share-link": "import.fmt.shareLink",
@@ -26,30 +27,47 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   const [subUrl, setSubUrl] = useState("");
   const [interval, setIntervalH] = useState(12);
   const [result, setResult] = useState<string | null>(null);
+  const [resultKind, setResultKind] = useState<ResultKind>("ok");
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const format = detectFormat(text);
 
+  // Close on Escape, like every other modal expectation.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const showResult = (msg: string, kind: ResultKind = "ok") => {
+    setResult(msg);
+    setResultKind(kind);
+  };
+
+  const switchTab = (next: Tab) => {
+    setTab(next);
+    setResult(null);
+  };
+
   async function pasteClipboard() {
     try {
       setText(await navigator.clipboard.readText());
     } catch {
-      setResult(t("import.clipboardFail"));
+      showResult(t("import.clipboardFail"), "err");
     }
   }
 
   function importDecoded(decoded: string | null) {
     if (!decoded) {
-      setResult(t("import.qrFail"));
+      showResult(t("import.qrFail"), "err");
       return;
     }
     const { added, errors } = addFromBlob(decoded);
-    setResult(
-      added > 0
-        ? t("import.qrAdded", { count: added })
-        : t("import.qrParseFail", { errors }),
-    );
+    if (added > 0) showResult(t("import.qrAdded", { count: added }), "ok");
+    else showResult(t("import.qrParseFail", { errors }), "err");
   }
 
   async function onQrFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -66,7 +84,10 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   function handleImportLinks() {
     if (!text.trim()) return;
     const { added, errors } = addFromBlob(text);
-    setResult(t("import.added", { count: added }) + (errors ? t("import.addedErrors", { errors }) : ""));
+    showResult(
+      t("import.added", { count: added }) + (errors ? t("import.addedErrors", { errors }) : ""),
+      added > 0 ? "ok" : "err",
+    );
     if (added > 0) setText("");
   }
 
@@ -76,11 +97,11 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     setResult(null);
     try {
       await addSubscription(subName || subUrl, subUrl, interval);
-      setResult(t("import.subAdded"));
+      showResult(t("import.subAdded"), "ok");
       setSubUrl("");
       setSubName("");
     } catch (e) {
-      setResult(t("import.errorPrefix", { msg: e instanceof Error ? e.message : String(e) }));
+      showResult(t("import.errorPrefix", { msg: e instanceof Error ? e.message : String(e) }), "err");
     } finally {
       setBusy(false);
     }
@@ -103,10 +124,10 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="mb-4 flex gap-1 rounded-btn bg-bg/50 p-1">
-          <TabBtn active={tab === "link"} onClick={() => setTab("link")} icon={Link2}>
+          <TabBtn active={tab === "link"} onClick={() => switchTab("link")} icon={Link2}>
             {t("import.tabLink")}
           </TabBtn>
-          <TabBtn active={tab === "subscription"} onClick={() => setTab("subscription")} icon={Rss}>
+          <TabBtn active={tab === "subscription"} onClick={() => switchTab("subscription")} icon={Rss}>
             {t("import.tabSubscription")}
           </TabBtn>
         </div>
@@ -177,7 +198,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
                 type="number"
                 min={1}
                 value={interval}
-                onChange={(e) => setIntervalH(Number(e.target.value))}
+                onChange={(e) => setIntervalH(Math.max(1, Number(e.target.value) || 1))}
                 className="ns-input w-28"
               />
             </Field>
@@ -193,7 +214,12 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         )}
 
         {result && (
-          <p className="mt-3 rounded-btn bg-surface/60 px-3 py-2 text-center text-xs text-text-dim">
+          <p
+            className={cn(
+              "mt-3 rounded-btn px-3 py-2 text-center text-xs",
+              resultKind === "err" ? "bg-bad/10 text-bad" : "bg-ok/10 text-ok",
+            )}
+          >
             {result}
           </p>
         )}
