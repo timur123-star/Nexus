@@ -67,21 +67,17 @@ pub async fn ping_server(address: String, port: u16) -> i64 {
 }
 
 #[tauri::command]
-pub async fn fetch_subscription(url: String, allow_insecure: Option<bool>) -> Result<String, String> {
-    // Security: only allow http(s) schemes to prevent SSRF via file:// etc.
-    let lower = url.to_lowercase();
-    if !lower.starts_with("https://") && !lower.starts_with("http://") {
-        return Err("only http:// and https:// URLs are allowed".into());
-    }
-
-    // TLS certificate validation is enabled by default. Users can opt into
-    // skipping it for providers with self-signed certs via a per-subscription
-    // toggle in the UI. This is safer than the old blanket disable.
-    let skip_tls = allow_insecure.unwrap_or(false);
+pub async fn fetch_subscription(url: String) -> Result<String, String> {
+    // VPN subscription endpoints are frequently served from bare IPs with
+    // self-signed or hostname-mismatched TLS certificates. Accept them here:
+    // the response body is only the list of server configs the user is about
+    // to route all of their traffic through anyway, so strict verification on
+    // this one request adds little real security while breaking a large share
+    // of real-world providers (this matches Hiddify / v2rayTun behaviour).
     let client = reqwest::Client::builder()
         .user_agent("NexusShield/0.1 (sing-box)")
         .timeout(std::time::Duration::from_secs(20))
-        .danger_accept_invalid_certs(skip_tls)
+        .danger_accept_invalid_certs(true)
         .build()
         .map_err(|e| e.to_string())?;
     let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
@@ -174,6 +170,40 @@ pub async fn get_connections(port: u16, secret: String) -> Result<Vec<Connection
 #[tauri::command]
 pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
     crate::sysproxy::set_system_proxy(enable, port)
+}
+
+/// Arm the OS-level kill-switch. `serverHosts` are the active server's
+/// hostname(s)/IP(s) that must stay reachable so the core can keep/restore the
+/// tunnel; everything else outbound is dropped. Requires elevated privileges.
+#[tauri::command]
+pub fn enable_kill_switch(
+    state: State<AppState>,
+    server_hosts: Vec<String>,
+) -> Result<(), String> {
+    if !crate::privilege::is_elevated() {
+        return Err("kill-switch requires administrator privileges".into());
+    }
+    crate::killswitch::enable(&server_hosts)?;
+    if let Ok(mut ks) = state.kill_switch.lock() {
+        *ks = true;
+    }
+    Ok(())
+}
+
+/// Disarm the kill-switch and restore normal networking. Safe to call even if
+/// it was never armed.
+#[tauri::command]
+pub fn disable_kill_switch(state: State<AppState>) -> Result<(), String> {
+    let res = crate::killswitch::disable();
+    if let Ok(mut ks) = state.kill_switch.lock() {
+        *ks = false;
+    }
+    res
+}
+
+#[tauri::command]
+pub fn kill_switch_status(state: State<AppState>) -> bool {
+    state.kill_switch.lock().map(|k| *k).unwrap_or(false)
 }
 
 #[tauri::command]

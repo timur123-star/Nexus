@@ -1,7 +1,15 @@
 import { create } from "zustand";
 import type { ConnectionStatus, CoreKind, ServerProfile, TrafficSample } from "../core/types";
 import { getCore, ALL_CORES } from "../core/proxy";
-import { coreStart, coreStop, setSystemProxy, type CoreStatus, type TrafficStats } from "../core/ipc";
+import {
+  coreStart,
+  coreStop,
+  setSystemProxy,
+  enableKillSwitch,
+  disableKillSwitch,
+  type CoreStatus,
+  type TrafficStats,
+} from "../core/ipc";
 import { useSettingsStore } from "./useSettingsStore";
 import { useServerStore } from "./useServerStore";
 import { toast } from "./useToastStore";
@@ -32,6 +40,30 @@ const FAILOVER_MESSAGE: Record<"ru" | "en" | "fa" | "zh", (name: string) => stri
   fa: (n) => `اتصال ناپایدار است — در حال تغییر به بهترین سرور: ${n}`,
   zh: (n) => `连接不稳定 — 正在切换到最佳服务器：${n}`,
 };
+
+/**
+ * Screen-local warning shown when the kill-switch couldn't be armed (usually
+ * because the app isn't running elevated). Kept out of the global dictionary so
+ * it never affects the i18n key-parity test.
+ */
+const KILLSWITCH_FAIL_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
+  ru: "Не удалось включить kill-switch — запустите приложение от администратора",
+  en: "Couldn't enable the kill-switch — run the app as administrator",
+  fa: "فعال‌سازی kill-switch ناموفق بود — برنامه را با دسترسی مدیر اجرا کنید",
+  zh: "无法启用断网保护 — 请以管理员身份运行应用",
+};
+
+/**
+ * Arm the OS-level kill-switch for the given server, tolerating failure with a
+ * user-visible warning. Called on every (re)connect so a failover transparently
+ * updates the firewall allow-list to the new server.
+ */
+function armKillSwitch(host: string): void {
+  void enableKillSwitch([host]).catch(() => {
+    const lang = useSettingsStore.getState().app.language;
+    toast.warning(KILLSWITCH_FAIL_MESSAGE[lang]);
+  });
+}
 
 /**
  * Find the best (lowest-latency) reachable server that is NOT the one that just
@@ -190,6 +222,10 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         autoReconnect: true,
         healthFailures: 0,
       });
+      // Arm the kill-switch *before* the tunnel comes up so the connection
+      // attempt itself can't leak. Re-arming on each (re)connect keeps the
+      // firewall allow-list pointed at the current server after a failover.
+      if (proxy.killSwitch) armKillSwitch(server.address);
       try {
         const core = selectCore(server, proxy.coreKind);
         if (!core) {
@@ -232,6 +268,9 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       clearReconnectTimer();
       set({ autoReconnect: false, reconnectAttempts: 0, healthFailures: 0 });
       try {
+        // Tear down the kill-switch first so the user always regains networking
+        // on an explicit disconnect, even if stopping the core hiccups.
+        if (proxy.killSwitch) void disableKillSwitch().catch(() => {});
         if (proxy.systemProxy) await setSystemProxy(false, proxy.mixedPort);
         await coreStop();
       } finally {

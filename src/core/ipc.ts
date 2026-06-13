@@ -51,8 +51,8 @@ export const pingServer = (address: string, port: number) =>
   safeInvoke<number>("ping_server", { address, port }, mockPing());
 
 /** Download a subscription body (raw text, possibly base64). */
-export const fetchSubscription = (url: string, allowInsecure = false) =>
-  safeInvoke<string>("fetch_subscription", { url, allowInsecure }, "");
+export const fetchSubscription = (url: string) =>
+  safeInvoke<string>("fetch_subscription", { url }, "");
 
 /** Poll the Clash API for live traffic + totals. */
 export const getTraffic = (port: number, secret: string) =>
@@ -63,6 +63,22 @@ export const getConnections = (port: number, secret: string) =>
 
 export const setSystemProxy = (enable: boolean, port: number) =>
   safeInvoke<void>("set_system_proxy", { enable, port }, undefined);
+
+/**
+ * Arm the OS-level kill-switch. `serverHosts` are the active server's
+ * hostname(s)/IP(s) that must stay reachable; everything else outbound is
+ * dropped so a tunnel drop can't leak the user's real traffic. Requires admin.
+ */
+export const enableKillSwitch = (serverHosts: string[]) =>
+  safeInvoke<void>("enable_kill_switch", { serverHosts }, undefined);
+
+/** Disarm the kill-switch and restore normal networking. */
+export const disableKillSwitch = () =>
+  safeInvoke<void>("disable_kill_switch", undefined, undefined);
+
+/** Whether the kill-switch is currently armed in the backend. */
+export const killSwitchStatus = () =>
+  safeInvoke<boolean>("kill_switch_status", undefined, false);
 
 /** Whether the app currently has the privileges required for TUN mode. */
 export const isElevated = () => safeInvoke<boolean>("is_elevated", undefined, false);
@@ -85,6 +101,29 @@ export async function onCoreLog(handler: (line: string) => void): Promise<Unlist
 export async function onCoreStatus(handler: (s: CoreStatus) => void): Promise<UnlistenFn> {
   if (!isTauri) return () => {};
   return listen<CoreStatus>("core://status", (e) => handler(e.payload));
+}
+
+/**
+ * Stable diagnostic codes the backend emits on `core://notice` so the UI can
+ * show a friendly, localized explanation instead of a raw core error string.
+ */
+export type CoreNotice =
+  | "port_in_use"
+  | "auth_failed"
+  | "tls_error"
+  | "dns_error"
+  | "server_unreachable"
+  | "config_invalid"
+  | "need_admin"
+  | "core_restarting"
+  | "core_failed_start"
+  | "core_timeout"
+  | "core_unrecoverable";
+
+/** Subscribe to friendly core diagnostics. */
+export async function onCoreNotice(handler: (code: CoreNotice) => void): Promise<UnlistenFn> {
+  if (!isTauri) return () => {};
+  return listen<CoreNotice>("core://notice", (e) => handler(e.payload));
 }
 
 // \u2500\u2500 Mock helpers for browser-only development \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

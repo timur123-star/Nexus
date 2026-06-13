@@ -16,6 +16,7 @@ import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
 import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
 import { useHealthMonitor } from "./shared/hooks/useHealthMonitor";
+import { useCoreNotices } from "./shared/hooks/useCoreNotices";
 import { useConnectionToasts } from "./shared/hooks/useConnectionToasts";
 import { useSessionHistory } from "./shared/hooks/useSessionHistory";
 import { isTauri } from "./core/ipc";
@@ -37,6 +38,7 @@ export default function App() {
   useCoreEvents();
   useTrafficPoller();
   useHealthMonitor();
+  useCoreNotices();
   useConnectionToasts();
   useSessionHistory();
 

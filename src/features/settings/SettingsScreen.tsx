@@ -308,6 +308,25 @@ export function SettingsScreen() {
             <option value="mixed">mixed</option>
           </select>
         </Row>
+        {proxy.killSwitch && !elevated && (
+          <div className="flex items-center justify-between gap-3 rounded-btn bg-indigo/10 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-xs text-indigo">
+              <ShieldAlert size={16} /> {t("settings.killSwitch.needAdmin")}
+            </div>
+            <button
+              onClick={() => relaunchAsAdmin()}
+              className="shrink-0 rounded-btn bg-indigo px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-soft"
+            >
+              {t("settings.tun.relaunch")}
+            </button>
+          </div>
+        )}
+        <Toggle
+          label={t("settings.killSwitch.label")}
+          hint={t("settings.killSwitch.hint")}
+          checked={proxy.killSwitch}
+          onChange={(v) => setProxy({ killSwitch: v })}
+        />
         <Toggle
           label={t("settings.fakeip.label")}
           hint={t("settings.fakeip.hint")}
@@ -364,21 +383,6 @@ export function SettingsScreen() {
         />
       </Section>
 
-      <Section title={t("settings.security.title")}>
-        <Toggle
-          label={t("settings.killSwitch.label")}
-          hint={t("settings.killSwitch.hint")}
-          checked={proxy.killSwitch}
-          onChange={(v) => setProxy({ killSwitch: v })}
-        />
-        <Toggle
-          label={t("settings.insecureSubs.label")}
-          hint={t("settings.insecureSubs.hint")}
-          checked={proxy.allowInsecureSubs}
-          onChange={(v) => setProxy({ allowInsecureSubs: v })}
-        />
-      </Section>
-
       <Section title={t("settings.clash.title")}>
         <Row label={t("settings.clash.port")}>
           <input
@@ -411,7 +415,6 @@ export function SettingsScreen() {
             <option value="system">{t("settings.theme.system")}</option>
             <option value="dark">{t("settings.theme.dark")}</option>
             <option value="light">{t("settings.theme.light")}</option>
-            <option value="oled">OLED</option>
           </select>
         </Row>
         <Row label={ACCENT_LABEL[app.language] ?? ACCENT_LABEL.en}>
@@ -455,12 +458,6 @@ export function SettingsScreen() {
           label={t("settings.app.minimizeToTray")}
           checked={app.minimizeToTray}
           onChange={(v) => setApp({ minimizeToTray: v })}
-        />
-        <Toggle
-          label={t("settings.app.autoSortByPing")}
-          hint={t("settings.app.autoSortByPingHint")}
-          checked={app.autoSortByPing}
-          onChange={(v) => setApp({ autoSortByPing: v })}
         />
       </Section>
 

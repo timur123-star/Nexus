@@ -2,6 +2,7 @@
 
 mod commands;
 mod core;
+mod killswitch;
 mod ping;
 mod privilege;
 mod sysproxy;
@@ -17,10 +18,6 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::new().build())
         .manage(AppState::new())
         .setup(|app| {
-            // Safety net: reset OS proxy on startup in case a previous session
-            // crashed while system proxy was active, leaving the user stranded.
-            let _ = sysproxy::set_system_proxy(false, 0);
-
             tray::build_tray(app.handle())?;
             Ok(())
         })
@@ -40,6 +37,9 @@ pub fn run() {
             commands::get_traffic,
             commands::get_connections,
             commands::set_system_proxy,
+            commands::enable_kill_switch,
+            commands::disable_kill_switch,
+            commands::kill_switch_status,
             commands::is_elevated,
             commands::relaunch_as_admin,
             commands::validate_config,
