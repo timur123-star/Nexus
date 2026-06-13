@@ -74,6 +74,12 @@ function configureMonaco() {
   configureJsonSchemas();
 }
 
+// Configure Monaco eagerly, at module load — BEFORE any <Editor> mounts and
+// triggers loader.init(). If we waited for a component effect, the child
+// <Editor> effect would run first, init the loader against the unreachable CDN
+// and hang forever on the loading label inside the packaged desktop app.
+configureMonaco();
+
 function resolveLight(theme: "system" | "dark" | "light"): boolean {
   if (theme === "light") return true;
   if (theme === "dark") return false;
@@ -135,10 +141,6 @@ export function CodeEditor({
   const lang = useSettingsStore((s) => s.app.language);
   const themePref = useSettingsStore((s) => s.app.theme);
   const [isLight, setIsLight] = useState(() => resolveLight(themePref));
-
-  useEffect(() => {
-    configureMonaco();
-  }, []);
 
   // Keep the editor theme in step with the app theme, following the OS
   // preference while in system mode.
