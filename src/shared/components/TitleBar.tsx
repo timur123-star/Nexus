@@ -7,7 +7,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn, latencyLabel } from "../lib/utils";
 import { useServerStore } from "../../store/useServerStore";
 import { useT } from "../../core/i18n/useT";
-import logoMark from "../../assets/logo-mark.png";
+import logoLockup from "../../assets/logo-lockup.png";
 import type { ConnectionStatus } from "../../core/types";
 import type { MessageKey } from "../../core/i18n";
 
@@ -62,15 +62,13 @@ export function TitleBar() {
       data-tauri-drag-region
       className="relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-border/60 px-3 select-none"
     >
-      <div data-tauri-drag-region className="flex items-center gap-2 text-text">
+      <div data-tauri-drag-region className="flex items-center text-text">
         <img
-          src={logoMark}
+          src={logoLockup}
           alt="NexusShield"
-          className="h-[22px] w-[22px] object-contain drop-shadow-[0_0_6px_rgba(220,38,38,0.5)]"
+          draggable={false}
+          className="h-[30px] w-auto select-none object-contain drop-shadow-[0_0_9px_rgba(220,38,38,0.5)]"
         />
-        <span className="text-[13px] font-semibold tracking-wide">
-          Nexus<span className="text-indigo">Shield</span>
-        </span>
       </div>
 
       <div data-tauri-drag-region className="flex items-center gap-2 text-xs text-text-dim">

@@ -17,10 +17,12 @@ export type ShieldState = "connected" | "busy" | "idle";
  * aggressive colour-surge the brief asks for without swapping artwork.
  */
 
+// The emblem always stays the crimson reference artwork (1-to-1 with Timur's
+// shield). State is conveyed by glow/rings + the status text, not by recolouring.
 const SHIELD_STATE = {
-  idle: { filter: "grayscale(1) brightness(0.7) contrast(1.05) drop-shadow(0 6px 16px rgba(0,0,0,0.6))" },
-  busy: { filter: "grayscale(0.4) brightness(0.9) contrast(1.05) drop-shadow(0 0 22px rgba(220,38,38,0.4))" },
-  connected: { filter: "grayscale(0) brightness(1.08) saturate(1.25) drop-shadow(0 0 34px rgba(220,38,38,0.65))" },
+  idle: { filter: "brightness(0.96) contrast(1.03) drop-shadow(0 8px 22px rgba(0,0,0,0.6))" },
+  busy: { filter: "brightness(1.02) contrast(1.04) drop-shadow(0 0 26px rgba(220,38,38,0.5))" },
+  connected: { filter: "brightness(1.1) saturate(1.22) drop-shadow(0 0 40px rgba(220,38,38,0.72))" },
 } as const;
 const shieldTransition = { duration: 1.1, ease: [0.16, 1, 0.3, 1] as const };
 
@@ -79,7 +81,7 @@ export function ShieldConnectButton({
           aria-hidden
           className={cn(
             "pointer-events-none absolute h-44 w-44 rounded-full blur-2xl",
-            connected ? "bg-indigo/40" : "bg-slate-500/20",
+            connected ? "bg-indigo/45" : busy ? "bg-indigo/30" : "bg-indigo/15",
           )}
           animate={reduce ? { opacity: connected ? 0.5 : 0.2 } : connected ? onGlow : idleGlow}
           transition={reduce ? { duration: 0.4 } : connected ? onGlowTransition : idleGlowTransition}
@@ -135,22 +137,22 @@ export function ShieldConnectButton({
         />
       </motion.button>
 
-      {/* Label block. */}
-      <div className="flex flex-col items-center gap-1">
+      {/* Status text — the headline state word (Подключено / Отключено / …). */}
+      <div className="flex flex-col items-center gap-1.5">
         <motion.span
           key={label}
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           className={cn(
-            "text-2xl font-bold uppercase tracking-[0.18em]",
-            connected ? "text-indigo-soft" : busy ? "text-warn" : "text-text-dim",
+            "text-3xl font-semibold tracking-tight",
+            connected ? "text-indigo-soft" : busy ? "text-warn" : "text-text",
           )}
-          style={connected ? { textShadow: "0 0 22px rgba(220,38,38,0.6)" } : undefined}
+          style={connected ? { textShadow: "0 0 24px rgba(220,38,38,0.55)" } : undefined}
         >
           {label}
         </motion.span>
-        {sublabel && <span className="font-mono text-sm text-text-dim">{sublabel}</span>}
+        {sublabel && <span className="text-sm font-medium text-text-dim">{sublabel}</span>}
       </div>
     </div>
   );
