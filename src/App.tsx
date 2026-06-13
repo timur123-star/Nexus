@@ -17,6 +17,7 @@ import { useConnectionToasts } from "./shared/hooks/useConnectionToasts";
 import { isTauri } from "./core/ipc";
 import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
+import { useSettingsStore } from "./store/useSettingsStore";
 import { startSubscriptionScheduler } from "./core/subscriptions/scheduler";
 import { pageVariants } from "./shared/lib/motion";
 
@@ -24,11 +25,36 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("connection");
   const [importOpen, setImportOpen] = useState(false);
   const servers = useServerStore((s) => s.servers);
+  const theme = useSettingsStore((s) => s.app.theme);
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem("ns-onboarded") === "1");
 
   useCoreEvents();
   useTrafficPoller();
   useConnectionToasts();
+
+  // Apply the chosen theme to the document root. The light palette lives under
+  // `:root.light` in index.css, so without this the selector in Settings did
+  // nothing. In "system" mode we follow (and keep following) the OS preference.
+  useEffect(() => {
+    const root = document.documentElement;
+    const applyLight = (light: boolean) => root.classList.toggle("light", light);
+
+    if (theme === "light") {
+      applyLight(true);
+      return;
+    }
+    if (theme === "dark") {
+      applyLight(false);
+      return;
+    }
+
+    // system
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    applyLight(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => applyLight(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [theme]);
 
   // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import.
   useEffect(() => {

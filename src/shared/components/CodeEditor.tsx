@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Editor, { loader, type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -27,6 +27,27 @@ const nexusDarkTheme: monaco.editor.IStandaloneThemeData = {
   },
 };
 
+// Light counterpart matching the NexusShield light design tokens.
+const nexusLightTheme: monaco.editor.IStandaloneThemeData = {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "string.key.json", foreground: "3b49c8" },
+    { token: "string.value.json", foreground: "0e8f74" },
+    { token: "number", foreground: "b5651d" },
+    { token: "keyword.json", foreground: "8a3ffb" },
+  ],
+  colors: {
+    "editor.background": "#FFFFFF",
+    "editor.foreground": "#1A1F2E",
+    "editorLineNumber.foreground": "#9AA3B8",
+    "editor.lineHighlightBackground": "#F4F6FB",
+    "editor.selectionBackground": "#5B6AF026",
+    "editorCursor.foreground": "#5B6AF0",
+    "editorIndentGuide.background": "#E1E6F0",
+  },
+};
+
 // Self-host Monaco's workers so the editor works fully offline in the
 // packaged desktop app (no CDN dependency).
 let configured = false;
@@ -41,6 +62,13 @@ function configureMonaco() {
   };
   loader.config({ monaco });
   monaco.editor.defineTheme("nexus-dark", nexusDarkTheme);
+  monaco.editor.defineTheme("nexus-light", nexusLightTheme);
+}
+
+function resolveLight(theme: "system" | "dark" | "light"): boolean {
+  if (theme === "light") return true;
+  if (theme === "dark") return false;
+  return window.matchMedia("(prefers-color-scheme: light)").matches;
 }
 
 // Self-contained loading label so the editor doesn't show Russian in other UIs.
@@ -80,13 +108,31 @@ export function CodeEditor({
   readOnly?: boolean;
 }) {
   const lang = useSettingsStore((s) => s.app.language);
+  const themePref = useSettingsStore((s) => s.app.theme);
+  const [isLight, setIsLight] = useState(() => resolveLight(themePref));
 
   useEffect(() => {
     configureMonaco();
   }, []);
 
+  // Keep the editor theme in step with the app theme, following the OS
+  // preference while in system mode.
+  useEffect(() => {
+    if (themePref !== "system") {
+      setIsLight(themePref === "light");
+      return;
+    }
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    setIsLight(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsLight(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [themePref]);
+
+  const monacoTheme = isLight ? "nexus-light" : "nexus-dark";
+
   const handleMount: OnMount = (_editor, m) => {
-    m.editor.setTheme("nexus-dark");
+    m.editor.setTheme(monacoTheme);
   };
 
   const options = { ...EDITOR_OPTIONS, readOnly };
@@ -100,7 +146,7 @@ export function CodeEditor({
     <Editor
       value={value}
       language={language}
-      theme="nexus-dark"
+      theme={monacoTheme}
       onMount={handleMount}
       onChange={(v) => onChange?.(v ?? "")}
       options={options}

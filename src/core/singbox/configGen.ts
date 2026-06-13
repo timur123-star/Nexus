@@ -236,7 +236,9 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         ...(s.flow ? { flow: s.flow } : {}),
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
-        ...(multiplex ? { multiplex } : {}),
+        // xtls-rprx-vision is incompatible with multiplex in sing-box; emitting
+        // both makes the outbound invalid, so drop mux whenever a flow is set.
+        ...(multiplex && !s.flow ? { multiplex } : {}),
       };
     case "vmess":
       return {
@@ -326,6 +328,7 @@ function buildTransportBlock(t: TransportSettings): object | null {
     case "grpc":
       return { type: "grpc", service_name: t.serviceName || "" };
     case "h2":
+    case "http":
       return { type: "http", path: t.path || "/", ...(t.host ? { host: [t.host] } : {}) };
     default:
       return null; // tcp / quic -- no transport block
