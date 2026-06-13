@@ -214,7 +214,7 @@ export function LogsScreen() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4 p-5">
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 p-5">
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="grid h-9 w-9 place-items-center rounded-btn bg-indigo/15 text-indigo">

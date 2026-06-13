@@ -142,7 +142,7 @@ export function StatsScreen() {
   const coreLabel = activeCore ? (activeCore === "xray" ? "Xray" : "sing-box") : null;
 
   return (
-    <div className="flex h-full flex-col gap-4 p-5">
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-4 p-5">
       {/* Session panel */}
       <div className="glass flex items-center justify-between rounded-card px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">

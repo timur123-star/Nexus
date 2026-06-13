@@ -213,7 +213,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   }
 
   return (
-    <div className="flex h-full flex-col p-5">
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col p-5">
       {/* Toolbar */}
       <div className="mb-4 flex items-center gap-2">
         <div className="glass flex flex-1 items-center gap-2 rounded-btn px-3 py-2">
