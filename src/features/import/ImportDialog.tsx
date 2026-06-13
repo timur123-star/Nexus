@@ -18,6 +18,11 @@ const FORMAT_KEY: Record<ReturnType<typeof detectFormat>, MessageKey> = {
   unknown: "import.fmt.unknown",
 };
 
+// True for Ctrl+Enter (Win/Linux) or Cmd+Enter (macOS) inside a field.
+function isSubmitChord(e: React.KeyboardEvent): boolean {
+  return (e.ctrlKey || e.metaKey) && e.key === "Enter";
+}
+
 export function ImportDialog({ onClose }: { onClose: () => void }) {
   const { addFromBlob, addSubscription } = useServerStore();
   const t = useT();
@@ -92,7 +97,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
   }
 
   async function handleAddSubscription() {
-    if (!subUrl.trim()) return;
+    if (!subUrl.trim() || busy) return;
     setBusy(true);
     setResult(null);
     try {
@@ -135,10 +140,17 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
         {tab === "link" ? (
           <>
             <textarea
+              autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (isSubmitChord(e)) {
+                  e.preventDefault();
+                  handleImportLinks();
+                }
+              }}
               rows={6}
-              placeholder="vless://… / vmess://… / trojan://… / ss://…"
+              placeholder="vless://\u2026 / vmess://\u2026 / trojan://\u2026 / ss://\u2026"
               className="w-full resize-none rounded-btn border border-border bg-bg/40 p-3 font-mono text-xs text-text outline-none focus:border-indigo"
             />
             <div className="mt-2 flex flex-col gap-2">
@@ -179,8 +191,15 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
           <>
             <Field label={t("import.fieldName")}>
               <input
+                autoFocus
                 value={subName}
                 onChange={(e) => setSubName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (isSubmitChord(e) || e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSubscription();
+                  }
+                }}
                 placeholder={t("import.subNamePlaceholder")}
                 className="ns-input"
               />
@@ -189,6 +208,12 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               <input
                 value={subUrl}
                 onChange={(e) => setSubUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (isSubmitChord(e) || e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSubscription();
+                  }
+                }}
                 placeholder="https://example.com/sub"
                 className="ns-input font-mono"
               />
