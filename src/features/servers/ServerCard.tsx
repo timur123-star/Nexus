@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Star, MoreVertical, Activity, Copy, Trash2, Power, Loader2, GripVertical, CheckSquare, Square } from "lucide-react";
+import { Star, MoreVertical, Activity, Copy, Trash2, Power, Loader2, GripVertical, CheckSquare, Square, Share2 } from "lucide-react";
 import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -8,6 +8,7 @@ import { cn, latencyColor, latencyLabel } from "../../shared/lib/utils";
 import { Flag } from "../../shared/components/Flag";
 import { useT } from "../../core/i18n/useT";
 import { PROTOCOL_LABEL } from "./protocolMeta";
+import { ShareDialog } from "./ShareDialog";
 
 const activeDotAnimate = { opacity: [1, 0.3, 1], scale: [1, 1.5, 1] };
 const activeDotTransition = { duration: 1.6, repeat: Infinity, ease: "easeInOut" };
@@ -30,6 +31,7 @@ export function ServerCard({
   const { toggleFavorite, duplicateServer, removeServer, pingOne } = useServerStore();
   const { toggle, activeServerId, status } = useConnectionStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [pinging, setPinging] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const t = useT();
@@ -185,12 +187,17 @@ export function ServerCard({
             <MenuRow icon={Copy} onClick={() => duplicateServer(server.id)}>
               {t("servers.duplicate")}
             </MenuRow>
+            <MenuRow icon={Share2} onClick={() => setShareOpen(true)}>
+              {t("servers.share")}
+            </MenuRow>
             <MenuRow icon={Trash2} danger onClick={() => removeServer(server.id)}>
               {t("common.delete")}
             </MenuRow>
           </div>
         )}
       </div>
+
+      {shareOpen && <ShareDialog server={server} onClose={() => setShareOpen(false)} />}
     </div>
   );
 }
