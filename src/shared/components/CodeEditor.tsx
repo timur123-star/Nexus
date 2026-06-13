@@ -4,7 +4,13 @@ import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import {
+  configureJsonSchemas,
+  SINGBOX_SCHEMA_PATH,
+  XRAY_SCHEMA_PATH,
+} from "../../core/configSchemas";
 import type { Lang } from "../../core/i18n";
+import type { CoreKind } from "../../core/types";
 
 // Custom theme matching the NexusShield dark design tokens.
 const nexusDarkTheme: monaco.editor.IStandaloneThemeData = {
@@ -63,6 +69,9 @@ function configureMonaco() {
   loader.config({ monaco });
   monaco.editor.defineTheme("nexus-dark", nexusDarkTheme);
   monaco.editor.defineTheme("nexus-light", nexusLightTheme);
+  // Teach the JSON language service about the sing-box / xray config shapes so
+  // the editor offers autocompletion, hover docs and inline validation.
+  configureJsonSchemas();
 }
 
 function resolveLight(theme: "system" | "dark" | "light"): boolean {
@@ -94,18 +103,34 @@ const EDITOR_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions = {
   renderLineHighlight: "all",
   scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
   automaticLayout: true,
+  // Smart-editing affordances backed by the registered JSON schemas.
+  quickSuggestions: { other: true, comments: false, strings: true },
+  suggestOnTriggerCharacters: true,
+  formatOnPaste: true,
+  // Render suggestion/hover widgets in the body so the editor's rounded,
+  // overflow-hidden container never clips them.
+  fixedOverflowWidgets: true,
 };
+
+function schemaPathFor(kind?: CoreKind | null): string | undefined {
+  if (kind === "xray") return XRAY_SCHEMA_PATH;
+  if (kind === "sing-box") return SINGBOX_SCHEMA_PATH;
+  return undefined;
+}
 
 export function CodeEditor({
   value,
   onChange,
   language = "json",
   readOnly = false,
+  schemaKind = null,
 }: {
   value: string;
   onChange?: (v: string) => void;
   language?: string;
   readOnly?: boolean;
+  /** When set (and language is json), binds the matching core schema to the model. */
+  schemaKind?: CoreKind | null;
 }) {
   const lang = useSettingsStore((s) => s.app.language);
   const themePref = useSettingsStore((s) => s.app.theme);
@@ -130,6 +155,9 @@ export function CodeEditor({
   }, [themePref]);
 
   const monacoTheme = isLight ? "nexus-light" : "nexus-dark";
+  // Binding a schema path makes Monaco attach the right core schema via
+  // fileMatch. Without it the editor stays a plain JSON editor.
+  const path = language === "json" ? schemaPathFor(schemaKind) : undefined;
 
   const handleMount: OnMount = (_editor, m) => {
     m.editor.setTheme(monacoTheme);
@@ -146,6 +174,7 @@ export function CodeEditor({
     <Editor
       value={value}
       language={language}
+      path={path}
       theme={monacoTheme}
       onMount={handleMount}
       onChange={(v) => onChange?.(v ?? "")}

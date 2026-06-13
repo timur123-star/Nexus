@@ -7,6 +7,7 @@ import { Toaster } from "./shared/components/Toaster";
 import { ConnectionScreen } from "./features/connection/ConnectionScreen";
 import { ServersScreen } from "./features/servers/ServersScreen";
 import { StatsScreen } from "./features/stats/StatsScreen";
+import { HistoryScreen } from "./features/history/HistoryScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { EditorScreen } from "./features/editor/EditorScreen";
 import { ImportDialog } from "./features/import/ImportDialog";
@@ -14,23 +15,27 @@ import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
 import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
 import { useConnectionToasts } from "./shared/hooks/useConnectionToasts";
+import { useSessionHistory } from "./shared/hooks/useSessionHistory";
 import { isTauri } from "./core/ipc";
 import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { startSubscriptionScheduler } from "./core/subscriptions/scheduler";
 import { pageVariants } from "./shared/lib/motion";
+import { applyAccent } from "./shared/lib/accents";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("connection");
   const [importOpen, setImportOpen] = useState(false);
   const servers = useServerStore((s) => s.servers);
   const theme = useSettingsStore((s) => s.app.theme);
+  const accent = useSettingsStore((s) => s.app.accent);
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem("ns-onboarded") === "1");
 
   useCoreEvents();
   useTrafficPoller();
   useConnectionToasts();
+  useSessionHistory();
 
   // Apply the chosen theme to the document root. The light palette lives under
   // `:root.light` in index.css, so without this the selector in Settings did
@@ -55,6 +60,11 @@ export default function App() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [theme]);
+
+  // Re-tint the primary accent whenever the user picks a different preset.
+  useEffect(() => {
+    applyAccent(accent);
+  }, [accent]);
 
   // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import.
   useEffect(() => {
@@ -125,6 +135,7 @@ export default function App() {
               {screen === "connection" && <ConnectionScreen onBrowse={() => setScreen("servers")} />}
               {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
               {screen === "stats" && <StatsScreen />}
+              {screen === "history" && <HistoryScreen />}
               {screen === "editor" && <EditorScreen />}
               {screen === "settings" && <SettingsScreen />}
             </motion.div>

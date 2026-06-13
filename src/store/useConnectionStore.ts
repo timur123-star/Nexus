@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ConnectionStatus, ServerProfile, TrafficSample } from "../core/types";
+import type { ConnectionStatus, CoreKind, ServerProfile, TrafficSample } from "../core/types";
 import { getCore, ALL_CORES } from "../core/proxy";
 import { coreStart, coreStop, setSystemProxy, type CoreStatus, type TrafficStats } from "../core/ipc";
 import { useSettingsStore } from "./useSettingsStore";
@@ -11,6 +11,9 @@ interface ConnectionState {
   status: ConnectionStatus;
   activeServerId: string | null;
   activeServer: ServerProfile | null;
+  /** The core actually running the active connection (may differ from the
+   * user's preferred core after an auto-fallback). Null when disconnected. */
+  activeCore: CoreKind | null;
   connectedAt: number | null;
   error: string | null;
   /** True while the user wants to stay connected; drives auto-reconnect. */
@@ -94,6 +97,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     status: "disconnected",
     activeServerId: null,
     activeServer: null,
+    activeCore: null,
     connectedAt: null,
     error: null,
     autoReconnect: false,
@@ -118,6 +122,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
             `\u041d\u0438 \u043e\u0434\u043d\u043e \u044f\u0434\u0440\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
           );
         }
+        set({ activeCore: core.kind });
         const config = core.generateConfig(server, {
           mixedPort: proxy.mixedPort,
           clashApiPort: proxy.clashApiPort,
@@ -141,6 +146,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         set({
           status: "error",
           autoReconnect: false,
+          activeCore: null,
           error: e instanceof Error ? e.message : String(e),
         });
       }
@@ -158,6 +164,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           status: "disconnected",
           activeServerId: null,
           activeServer: null,
+          activeCore: null,
           connectedAt: null,
           traffic: ZERO,
           samples: [],
@@ -196,7 +203,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           if (state.autoReconnect) {
             scheduleReconnect();
           } else {
-            set({ status: "disconnected", connectedAt: null });
+            set({ status: "disconnected", connectedAt: null, activeCore: null });
           }
           break;
         case "error":

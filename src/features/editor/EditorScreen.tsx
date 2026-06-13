@@ -139,7 +139,7 @@ export function EditorScreen() {
       )}
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-border">
-        <CodeEditor value={text} onChange={handleChange} language="json" />
+        <CodeEditor value={text} onChange={handleChange} language="json" schemaKind={generated.core} />
       </div>
     </div>
   );

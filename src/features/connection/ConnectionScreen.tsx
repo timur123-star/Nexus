@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Globe2, Clock, ChevronRight, Rocket } from "lucide-react";
+import { Zap, Globe2, Clock, ChevronRight, Rocket, Download, Upload, Cpu } from "lucide-react";
 import type { ConnectionStatus } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
+import { useSettingsStore } from "../../store/useSettingsStore";
 import { toast } from "../../store/useToastStore";
 import { Sparkline } from "../../shared/components/Sparkline";
 import { ConnectButton } from "../../shared/components/ConnectButton";
@@ -28,6 +29,22 @@ const STATUS_LABEL_KEY: Record<ConnectionStatus, MessageKey> = {
   reconnecting: "conn.reconnecting",
   error: "conn.error",
   disconnected: "conn.disconnected",
+};
+
+/**
+ * Dashboard-only labels. Kept as a local en/ru map (other languages fall back
+ * to English) so the global i18n catalogue — and its strict key-parity test —
+ * stays untouched while we iterate on this screen.
+ */
+interface DashStrings {
+  downloaded: string;
+  uploaded: string;
+  core: string;
+  peak: string;
+}
+const DASH_STRINGS: Record<string, DashStrings> = {
+  en: { downloaded: "Downloaded", uploaded: "Uploaded", core: "Core", peak: "peak" },
+  ru: { downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a" },
 };
 
 const dotPulseAnimate = { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] };
@@ -63,10 +80,14 @@ function StatusDot({ status }: { status: ConnectionStatus }) {
 
 export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const t = useT();
+  const lang = useSettingsStore((s) => s.app.language);
+  const proxyCore = useSettingsStore((s) => s.proxy.coreKind);
+  const L = DASH_STRINGS[lang] ?? DASH_STRINGS.en;
   const servers = useServerStore((s) => s.servers);
   const pingOne = useServerStore((s) => s.pingOne);
   const pingAllAndBest = useServerStore((s) => s.pingAllAndBest);
-  const { status, activeServerId, connectedAt, traffic, samples, toggle, connect, error } = useConnectionStore();
+  const { status, activeServerId, activeCore, connectedAt, traffic, samples, toggle, connect, error } =
+    useConnectionStore();
 
   const active =
     servers.find((s) => s.id === activeServerId) ??
@@ -120,12 +141,17 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
 
   const downSeries = samples.map((s) => s.down);
   const upSeries = samples.map((s) => s.up);
+  const peakDown = downSeries.length ? Math.max(...downSeries) : 0;
+  const peakUp = upSeries.length ? Math.max(...upSeries) : 0;
   const connectState = connected ? "connected" : busy ? "busy" : "idle";
   const connectLabels = {
     connected: t("common.disconnect"),
-    busy: "…",
+    busy: "\u2026",
     idle: t("common.connect"),
   };
+  const shownCore = (connected || busy) && activeCore ? activeCore : proxyCore;
+  const coreLabel = shownCore === "xray" ? "Xray" : "sing-box";
+  const dash = "\u2014";
 
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center gap-6 p-8">
@@ -188,17 +214,40 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <ThroughputTile
             label={t("conn.download")}
-            arrow="↓"
+            arrow="\u2193"
             value={formatBytes(traffic.down, true)}
+            caption={connected && peakDown > 0 ? `${L.peak} ${formatBytes(peakDown, true)}` : undefined}
             series={downSeries}
             color="var(--color-teal)"
           />
           <ThroughputTile
             label={t("conn.upload")}
-            arrow="↑"
+            arrow="\u2191"
             value={formatBytes(traffic.up, true)}
+            caption={connected && peakUp > 0 ? `${L.peak} ${formatBytes(peakUp, true)}` : undefined}
             series={upSeries}
             color="var(--color-indigo)"
+          />
+        </div>
+
+        {/* Session summary */}
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <Metric
+            icon={Clock}
+            label={t("conn.uptime")}
+            value={connected ? uptime || `0${unitS}` : dash}
+          />
+          <Metric
+            icon={Download}
+            label={L.downloaded}
+            value={connected ? formatBytes(traffic.totalDown) : dash}
+            mono
+          />
+          <Metric
+            icon={Upload}
+            label={L.uploaded}
+            value={connected ? formatBytes(traffic.totalUp) : dash}
+            mono
           />
         </div>
 
@@ -209,7 +258,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         )}
       </motion.div>
 
-      {/* Mini metrics */}
+      {/* Connection details */}
       <motion.div
         custom={1}
         variants={fadeInUp}
@@ -219,7 +268,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
       >
         <Metric icon={Globe2} label={t("conn.address")} value={active.address} mono />
         <Metric icon={Zap} label={t("conn.port")} value={String(active.port)} mono />
-        <Metric icon={Clock} label={t("conn.uptime")} value={connected ? uptime || `0${unitS}` : "—"} />
+        <Metric icon={Cpu} label={L.core} value={coreLabel} mono />
       </motion.div>
 
       <button
@@ -236,12 +285,14 @@ function ThroughputTile({
   label,
   arrow,
   value,
+  caption,
   series,
   color,
 }: {
   label: string;
   arrow: string;
   value: string;
+  caption?: string;
   series: number[];
   color: string;
 }) {
@@ -261,7 +312,8 @@ function ThroughputTile({
           {value}
         </motion.span>
       </div>
-      <div className="mt-2">
+      <div className="mt-0.5 h-3.5 text-right text-[10px] text-text-faint">{caption ?? ""}</div>
+      <div className="mt-1">
         <Sparkline data={series} width={240} height={28} color={color} responsive />
       </div>
     </div>

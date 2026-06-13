@@ -3,6 +3,7 @@ import { AppWindow, Folder, Plus, RotateCcw, Route, Save, ShieldAlert, ShieldChe
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { openLogsDir, isElevated, relaunchAsAdmin } from "../../core/ipc";
 import { cn } from "../../shared/lib/utils";
+import { ACCENTS } from "../../shared/lib/accents";
 import { useT } from "../../core/i18n/useT";
 import type { Lang, MessageKey } from "../../core/i18n";
 import type { CoreKind, RoutingMode, RoutingProfile, RoutingRuleMatch, RoutingTarget } from "../../core/types";
@@ -28,6 +29,15 @@ const MATCH_PLACEHOLDER: Record<RoutingRuleMatch, string> = {
   domain_keyword: "google",
   ip_cidr: "10.0.0.0/8",
   process_name: "telegram.exe",
+};
+
+// Localised label for the accent picker. Inline so messages.ts (and its i18n
+// parity test) stays untouched.
+const ACCENT_LABEL: Record<Lang, string> = {
+  en: "Accent color",
+  ru: "Акцентный цвет",
+  fa: "رنگ تأکیدی",
+  zh: "强调色",
 };
 
 // Localised strings for the routing-profiles block. Kept inline (rather than in
@@ -386,6 +396,26 @@ export function SettingsScreen() {
             <option value="dark">{t("settings.theme.dark")}</option>
             <option value="light">{t("settings.theme.light")}</option>
           </select>
+        </Row>
+        <Row label={ACCENT_LABEL[app.language] ?? ACCENT_LABEL.en}>
+          <div className="flex gap-1.5">
+            {ACCENTS.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setApp({ accent: a.id })}
+                title={a.id}
+                aria-label={a.id}
+                className={cn(
+                  "h-6 w-6 rounded-full transition-transform",
+                  app.accent === a.id
+                    ? "ring-2 ring-text/70 ring-offset-2 ring-offset-bg scale-110"
+                    : "hover:scale-110",
+                )}
+                style={ { backgroundColor: a.base } }
+              />
+            ))}
+          </div>
         </Row>
         <Row label={t("settings.app.language")}>
           <select
