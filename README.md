@@ -29,7 +29,7 @@ Two engines, six protocols, a glassmorphism UI — no terminal required.
 
 ## About this project
 
-**NexusShield** is a portfolio project by **Timur Ketau** ([timur123-star](https://github.com/timur123-star) · [gradumacademy.ru](https://gradumacademy.ru/)) — a production-grade, cross-platform VPN / proxy desktop client built from scratch.
+**NexusShield** is a portfolio project by **TIMUR VALERIEVICH** ([timur123-star](https://github.com/timur123-star) · [gradumacademy.ru](https://gradumacademy.ru/)) — a production-grade, cross-platform VPN / proxy desktop client built from scratch.
 
 It wraps the two leading proxy engines — **Xray-core** and **sing-box** — behind a single, unified UI. Instead of editing JSON configs by hand, the user imports a server link, a subscription or a QR code, picks a node, and connects. NexusShield generates the engine config, raises a TUN tunnel or a system proxy with the right privileges per OS, and shows live traffic, connections, DNS and core logs — all in one window.
 
@@ -37,7 +37,7 @@ Everything here was designed and engineered manually: the dual-core abstraction,
 
 > **Disclaimer.** The servers, locations and latency values shown in the screenshots are demo data for the portfolio. NexusShield is a client only — it ships no servers and no credentials.
 >
-> Designed and built by **Timur Ketau** · [gradumacademy.ru](https://gradumacademy.ru/)
+> Designed and built by **TIMUR VALERIEVICH** · [gradumacademy.ru](https://gradumacademy.ru/)
 
 ---
 
@@ -188,7 +188,7 @@ CI runs the frontend typecheck + tests and `cargo check` on every push.
 
 ## Author
 
-**Timur Ketau** — [github.com/timur123-star](https://github.com/timur123-star) · [gradumacademy.ru](https://gradumacademy.ru/)
+**TIMUR VALERIEVICH** — [github.com/timur123-star](https://github.com/timur123-star) · [gradumacademy.ru](https://gradumacademy.ru/)
 
 This repository is part of my engineering portfolio.
 

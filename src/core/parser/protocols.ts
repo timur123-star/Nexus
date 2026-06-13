@@ -286,6 +286,171 @@ export function parseTuic(link: string): ServerProfile {
   );
 }
 
+export function parseHysteria(link: string): ServerProfile {
+  // Hysteria v1 single-port: hysteria://host:port?auth=...&peer=sni&insecure=1
+  //   &upmbps=...&downmbps=...&obfs=...&protocol=udp#name
+  const u = safeUrl(link, "hysteria");
+  const q = parseQuery(u.search);
+  const tls = buildTls(
+    { sni: q.peer || q.sni, alpn: q.alpn, insecure: q.insecure || q.allowInsecure },
+    "tls",
+  );
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "hysteria",
+      address: u.hostname,
+      port: parsePort(u.port),
+      password: decodeURIComponent(u.username || ""),
+      transport: { type: "quic" },
+      tls,
+      extra: {
+        auth: q.auth || q.auth_str || decodeURIComponent(u.username || ""),
+        obfs: q.obfs,
+        upMbps: q.upmbps ? Number(q.upmbps) : undefined,
+        downMbps: q.downmbps ? Number(q.downmbps) : undefined,
+      },
+    },
+    link,
+  );
+}
+
+export function parseAnytls(link: string): ServerProfile {
+  // anytls://password@host:port?sni=...&insecure=1#name
+  const u = safeUrl(link, "anytls");
+  if (!u.username) throw new ParseError("anytls: missing password", link);
+  const q = parseQuery(u.search);
+  const tls = buildTls(
+    { sni: q.sni || q.peer, alpn: q.alpn, insecure: q.insecure || q.allowInsecure },
+    "tls",
+  );
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "anytls",
+      address: u.hostname,
+      port: parsePort(u.port),
+      password: decodeURIComponent(u.username),
+      transport: { type: "tcp" },
+      tls,
+    },
+    link,
+  );
+}
+
+export function parseSocks(link: string): ServerProfile {
+  // socks://[base64(user:pass) | user:pass]@host:port#name  (also socks5://)
+  const normalized = link.replace(/^socks5:\/\//, "socks://");
+  const hashIdx = normalized.indexOf("#");
+  const remark = hashIdx >= 0 ? decodeRemark(normalized.slice(hashIdx), "") : "";
+  const core = (hashIdx >= 0 ? normalized.slice(0, hashIdx) : normalized).slice("socks://".length);
+
+  let username = "";
+  let password = "";
+  let hostPart = core;
+  if (core.includes("@")) {
+    const at = core.lastIndexOf("@");
+    const userinfo = core.slice(0, at);
+    hostPart = core.slice(at + 1);
+    // userinfo may be base64 (Nekobox) or plain user:pass.
+    const decoded = userinfo.includes(":") ? userinfo : safeB64(userinfo);
+    [username, password] = splitFirst(decoded, ":");
+  }
+  // Strip any trailing query (rarely used for socks).
+  const qIdx = hostPart.indexOf("?");
+  const hp = qIdx >= 0 ? hostPart.slice(0, qIdx) : hostPart;
+  const [host, port] = splitHostPort(hp);
+  if (!host || !port) throw new ParseError("socks: missing host/port", link);
+  return finalize(
+    {
+      name: remark || `${host}:${port}`,
+      protocol: "socks",
+      address: host,
+      port,
+      username: username || undefined,
+      password: password || undefined,
+      transport: { type: "tcp" },
+      tls: { enabled: false, security: "none" },
+    },
+    link,
+  );
+}
+
+export function parseWireguard(link: string): ServerProfile {
+  // wireguard://<privateKey>@host:port?publickey=<peerPub>&presharedkey=<psk>
+  //   &address=172.16.0.2/32,fd01::2/128&reserved=0,0,0&mtu=1420#name
+  // (wg:// is an accepted alias.)
+  const normalized = link.replace(/^wg:\/\//, "wireguard://");
+  const u = safeUrl(normalized, "wireguard");
+  const rawQ = parseQuery(u.search);
+  // WireGuard share links vary in key casing (publickey / PublicKey / pubkey).
+  const q: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawQ)) q[k.toLowerCase()] = v;
+  const privateKey = decodeURIComponent(u.username || q.privatekey || q.secretkey || "");
+  if (!privateKey) throw new ParseError("wireguard: missing private key", link);
+  const peerPublicKey = q.publickey || q.pubkey || q.peer_public_key || q.public_key || "";
+  if (!peerPublicKey) throw new ParseError("wireguard: missing peer public key", link);
+
+  const addressRaw = q.address || q.ip || "172.16.0.2/32";
+  const localAddress = addressRaw
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean)
+    .map((a) => (a.includes("/") ? a : `${a}/32`));
+
+  const reserved = parseReserved(q.reserved);
+  const mtu = q.mtu ? Number(q.mtu) : undefined;
+
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "wireguard",
+      address: u.hostname,
+      port: parsePort(u.port),
+      transport: { type: "tcp" }, // not used for WireGuard, kept for type-shape
+      tls: { enabled: false, security: "none" },
+      wireguard: {
+        privateKey,
+        peerPublicKey,
+        preSharedKey: q.presharedkey || q.pre_shared_key || undefined,
+        localAddress: localAddress.length ? localAddress : ["172.16.0.2/32"],
+        reserved,
+        mtu: Number.isFinite(mtu) ? mtu : undefined,
+      },
+    },
+    link,
+  );
+}
+
+/** Parse a WireGuard `reserved` value — either "1,2,3" or a base64 of 3 bytes. */
+function parseReserved(raw: string | undefined): number[] | undefined {
+  if (!raw) return undefined;
+  if (raw.includes(",")) {
+    const nums = raw
+      .split(",")
+      .map((n) => Number(n.trim()))
+      .filter((n) => Number.isInteger(n));
+    return nums.length ? nums : undefined;
+  }
+  // base64 → bytes
+  try {
+    const bytes = decodeBase64(raw);
+    const arr = Array.from(bytes, (c) => c.charCodeAt(0));
+    return arr.length ? arr : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** decodeBase64 that returns "" instead of throwing (for optional userinfo). */
+function safeB64(s: string): string {
+  try {
+    return decodeBase64(s);
+  } catch {
+    return s;
+  }
+}
+
 // ── tiny string helpers ────────────────────────────────────
 function splitFirst(s: string, sep: string): [string, string] {
   const i = s.indexOf(sep);
@@ -327,8 +492,14 @@ export const SCHEME_PARSERS: Record<string, (link: string) => ServerProfile> = {
   ss: parseShadowsocks,
   hysteria2: parseHysteria2,
   hy2: parseHysteria2,
+  hysteria: parseHysteria,
   tuic: parseTuic,
+  wireguard: parseWireguard,
+  wg: parseWireguard,
+  socks: parseSocks,
+  socks5: parseSocks,
+  anytls: parseAnytls,
 };
 
 export const SUPPORTED_SCHEMES = Object.keys(SCHEME_PARSERS) as readonly string[];
-export type SupportedScheme = Protocol | "hy2";
+export type SupportedScheme = Protocol | "hy2" | "wg" | "socks5";

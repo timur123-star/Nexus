@@ -260,7 +260,7 @@ pub fn open_logs_dir(app: AppHandle) -> Result<(), String> {
 
 #[cfg(windows)]
 fn open_path(path: &std::path::Path) {
-    let _ = std::process::Command::new("explorer").arg(path).spawn();
+    let _ = crate::proc::silent_command("explorer").arg(path).spawn();
 }
 
 #[cfg(not(windows))]

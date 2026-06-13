@@ -12,7 +12,11 @@ export type Protocol =
   | "trojan"
   | "shadowsocks"
   | "hysteria2"
-  | "tuic";
+  | "hysteria"
+  | "tuic"
+  | "wireguard"
+  | "socks"
+  | "anytls";
 
 /** Proxy core that actually runs the connection. */
 export type CoreKind = "sing-box" | "xray";
@@ -66,15 +70,33 @@ export interface ServerProfile {
 
   /** Credentials — meaning depends on protocol. */
   uuid?: string; // vless / vmess / tuic
-  password?: string; // trojan / ss / tuic / hysteria2
+  password?: string; // trojan / ss / tuic / hysteria(2) / anytls
   method?: string; // shadowsocks cipher
   alterId?: number; // vmess (legacy)
   flow?: string; // vless xtls flow, e.g. "xtls-rprx-vision"
+  /** SOCKS / HTTP proxy auth username (password reuses the `password` field). */
+  username?: string;
 
   transport: TransportSettings;
   tls: TlsSettings;
 
-  /** Hysteria2 / tuic congestion + obfuscation knobs. */
+  /** WireGuard tunnel parameters (protocol === "wireguard"). */
+  wireguard?: {
+    /** Client private key (base64). */
+    privateKey: string;
+    /** Peer (server) public key (base64). */
+    peerPublicKey: string;
+    /** Optional pre-shared key (base64). */
+    preSharedKey?: string;
+    /** Tunnel-local addresses, e.g. ["172.16.0.2/32", "fd01::2/128"]. */
+    localAddress: string[];
+    /** 3-byte reserved field (Cloudflare WARP). */
+    reserved?: number[];
+    /** Tunnel MTU. */
+    mtu?: number;
+  };
+
+  /** Hysteria / hysteria2 / tuic congestion + obfuscation knobs. */
   extra?: {
     obfs?: string;
     obfsPassword?: string;
@@ -82,6 +104,8 @@ export interface ServerProfile {
     downMbps?: number;
     congestionControl?: string; // tuic: "bbr" | "cubic" | "new_reno"
     udpRelayMode?: string; // tuic
+    /** Hysteria v1 auth string + obfs (legacy single-port). */
+    auth?: string;
   };
 
   /** Organisational metadata. */

@@ -122,6 +122,41 @@ export function serverToShareLink(s: ServerProfile): string {
       const qs = p.toString();
       return `tuic://${encodeURIComponent(s.uuid ?? "")}:${encodeURIComponent(s.password ?? "")}@${hostPort(s)}${qs ? `?${qs}` : ""}${frag(s.name)}`;
     }
+    case "hysteria": {
+      const p = new URLSearchParams();
+      if (s.extra?.auth) p.set("auth", s.extra.auth);
+      if (s.tls.sni) p.set("peer", s.tls.sni);
+      if (s.tls.allowInsecure) p.set("insecure", "1");
+      if (s.extra?.obfs) p.set("obfs", s.extra.obfs);
+      if (s.extra?.upMbps) p.set("upmbps", String(s.extra.upMbps));
+      if (s.extra?.downMbps) p.set("downmbps", String(s.extra.downMbps));
+      const qs = p.toString();
+      return `hysteria://${hostPort(s)}${qs ? `?${qs}` : ""}${frag(s.name)}`;
+    }
+    case "anytls": {
+      const p = new URLSearchParams();
+      if (s.tls.sni) p.set("sni", s.tls.sni);
+      if (s.tls.allowInsecure) p.set("insecure", "1");
+      const qs = p.toString();
+      return `anytls://${encodeURIComponent(s.password ?? "")}@${hostPort(s)}${qs ? `?${qs}` : ""}${frag(s.name)}`;
+    }
+    case "socks": {
+      const auth = s.username
+        ? `${encodeURIComponent(s.username)}:${encodeURIComponent(s.password ?? "")}@`
+        : "";
+      return `socks://${auth}${hostPort(s)}${frag(s.name)}`;
+    }
+    case "wireguard": {
+      const wg = s.wireguard;
+      const p = new URLSearchParams();
+      if (wg?.peerPublicKey) p.set("publickey", wg.peerPublicKey);
+      if (wg?.preSharedKey) p.set("presharedkey", wg.preSharedKey);
+      if (wg?.localAddress?.length) p.set("address", wg.localAddress.join(","));
+      if (wg?.reserved?.length) p.set("reserved", wg.reserved.join(","));
+      if (wg?.mtu) p.set("mtu", String(wg.mtu));
+      const qs = p.toString();
+      return `wireguard://${encodeURIComponent(wg?.privateKey ?? "")}@${hostPort(s)}${qs ? `?${qs}` : ""}${frag(s.name)}`;
+    }
     default: {
       // Exhaustiveness guard — a new Protocol must add a case above.
       const _never: never = s.protocol;

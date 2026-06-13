@@ -315,6 +315,47 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         udp_relay_mode: s.extra?.udpRelayMode || "native",
         ...(tls ? { tls } : { tls: { enabled: true } }),
       };
+    case "hysteria":
+      return {
+        type: "hysteria",
+        ...common,
+        ...(s.extra?.auth || s.password
+          ? { auth_str: s.extra?.auth || s.password }
+          : {}),
+        ...(s.extra?.upMbps ? { up_mbps: s.extra.upMbps } : {}),
+        ...(s.extra?.downMbps ? { down_mbps: s.extra.downMbps } : {}),
+        ...(s.extra?.obfs ? { obfs: s.extra.obfs } : {}),
+        ...(tls ? { tls } : { tls: { enabled: true } }),
+      };
+    case "anytls":
+      return {
+        type: "anytls",
+        ...common,
+        password: s.password,
+        ...(tls ? { tls } : { tls: { enabled: true } }),
+      };
+    case "socks":
+      // sing-box socks outbound does not support multiplex/TLS.
+      return {
+        type: "socks",
+        ...common,
+        version: "5",
+        ...(s.username ? { username: s.username } : {}),
+        ...(s.password ? { password: s.password } : {}),
+      };
+    case "wireguard": {
+      const wg = s.wireguard;
+      return {
+        type: "wireguard",
+        ...common,
+        local_address: wg?.localAddress ?? ["172.16.0.2/32"],
+        private_key: wg?.privateKey ?? "",
+        peer_public_key: wg?.peerPublicKey ?? "",
+        ...(wg?.preSharedKey ? { pre_shared_key: wg.preSharedKey } : {}),
+        ...(wg?.reserved && wg.reserved.length ? { reserved: wg.reserved } : {}),
+        ...(wg?.mtu ? { mtu: wg.mtu } : {}),
+      };
+    }
   }
 }
 

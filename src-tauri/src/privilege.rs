@@ -11,7 +11,7 @@ pub fn is_elevated() -> bool {
     #[cfg(windows)]
     {
         // `net session` succeeds only with administrative rights.
-        std::process::Command::new("net")
+        crate::proc::silent_command("net")
             .arg("session")
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
@@ -43,7 +43,7 @@ pub fn relaunch_as_admin(app: &AppHandle) -> Result<(), String> {
     {
         // UAC prompt via PowerShell Start-Process -Verb RunAs.
         let escaped = exe_str.replace('\'', "''");
-        std::process::Command::new("powershell")
+        crate::proc::silent_command("powershell")
             .args([
                 "-NoProfile",
                 "-WindowStyle",

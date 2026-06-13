@@ -32,7 +32,12 @@ const BLOCK_TAG = "block";
 const FRAGMENT_TAG = "fragment";
 
 export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions): object {
-  if (server.protocol === "hysteria2" || server.protocol === "tuic") {
+  if (
+    server.protocol === "hysteria2" ||
+    server.protocol === "hysteria" ||
+    server.protocol === "tuic" ||
+    server.protocol === "anytls"
+  ) {
     throw new Error(
       `Протокол ${server.protocol} поддерживается только ядром sing-box`,
     );
@@ -95,6 +100,46 @@ interface OutboundExtras {
 }
 
 function buildXrayOutbound(s: ServerProfile, extra: OutboundExtras): object {
+  // WireGuard and SOCKS are dialer outbounds with their own settings shape and
+  // no streamSettings/TLS/mux block — handle them before the v2ray-family path.
+  if (s.protocol === "wireguard") {
+    const wg = s.wireguard;
+    return {
+      tag: PROXY_TAG,
+      protocol: "wireguard",
+      settings: {
+        secretKey: wg?.privateKey ?? "",
+        address: wg?.localAddress ?? ["172.16.0.2/32"],
+        peers: [
+          {
+            publicKey: wg?.peerPublicKey ?? "",
+            endpoint: `${s.address}:${s.port}`,
+            ...(wg?.preSharedKey ? { preSharedKey: wg.preSharedKey } : {}),
+          },
+        ],
+        ...(wg?.reserved && wg.reserved.length ? { reserved: wg.reserved } : {}),
+        ...(wg?.mtu ? { mtu: wg.mtu } : {}),
+      },
+    };
+  }
+  if (s.protocol === "socks") {
+    return {
+      tag: PROXY_TAG,
+      protocol: "socks",
+      settings: {
+        servers: [
+          {
+            address: s.address,
+            port: s.port,
+            ...(s.username || s.password
+              ? { users: [{ user: s.username ?? "", pass: s.password ?? "" }] }
+              : {}),
+          },
+        ],
+      },
+    };
+  }
+
   const streamSettings = buildXrayStream(s, extra.fragment);
   // xtls-rprx-vision cannot be combined with mux; Xray rejects the pair, so
   // suppress mux for vless outbounds that carry a flow.

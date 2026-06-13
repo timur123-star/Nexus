@@ -184,12 +184,7 @@ fn spawn_process(app: &AppHandle, spec: &LaunchSpec) -> Result<Child, String> {
 
     // On Windows, suppress the flashing console window that would otherwise pop
     // up every time we launch the (console-subsystem) core binary.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
+    crate::proc::hide_console(&mut command);
 
     let mut child = command.spawn().map_err(|e| {
         format!(

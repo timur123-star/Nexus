@@ -250,3 +250,72 @@ describe("parseShareLink — xhttp + post-quantum reality (3x-ui modern nodes)",
     expect(s.transport.xhttpExtra).toEqual({ xPaddingBytes: "100-1000" });
   });
 });
+
+describe("parseShareLink — wireguard / socks / hysteria(v1) / anytls", () => {
+  it("parses a WireGuard link with address, reserved and mtu", () => {
+    const link =
+      "wireguard://cPrivKeyBase64%3D@engage.cloudflareclient.com:2408" +
+      "?publickey=PeerPubKey%3D&address=172.16.0.2/32,fd01:5ca1:ab1e:80fa::1/128" +
+      "&reserved=1,2,3&mtu=1280#WARP";
+    const s = parseShareLink(link);
+    expect(s.protocol).toBe("wireguard");
+    expect(s.address).toBe("engage.cloudflareclient.com");
+    expect(s.port).toBe(2408);
+    expect(s.wireguard?.privateKey).toBe("cPrivKeyBase64=");
+    expect(s.wireguard?.peerPublicKey).toBe("PeerPubKey=");
+    expect(s.wireguard?.localAddress).toEqual([
+      "172.16.0.2/32",
+      "fd01:5ca1:ab1e:80fa::1/128",
+    ]);
+    expect(s.wireguard?.reserved).toEqual([1, 2, 3]);
+    expect(s.wireguard?.mtu).toBe(1280);
+    expect(s.name).toBe("WARP");
+  });
+
+  it("accepts the wg:// alias and defaults a bare address to /32", () => {
+    const s = parseShareLink("wg://priv@1.2.3.4:51820?publickey=pub&address=10.0.0.2#WG");
+    expect(s.protocol).toBe("wireguard");
+    expect(s.wireguard?.localAddress).toEqual(["10.0.0.2/32"]);
+  });
+
+  it("throws when WireGuard is missing the peer public key", () => {
+    expect(() => parseShareLink("wireguard://priv@1.2.3.4:51820#x")).toThrow(/public key/);
+  });
+
+  it("parses a SOCKS5 link with base64 userinfo", () => {
+    const userinfo = Buffer.from("alice:s3cret").toString("base64");
+    const s = parseShareLink(`socks://${userinfo}@1.2.3.4:1080#Proxy`);
+    expect(s.protocol).toBe("socks");
+    expect(s.username).toBe("alice");
+    expect(s.password).toBe("s3cret");
+    expect(s.port).toBe(1080);
+  });
+
+  it("parses a socks5:// link without auth", () => {
+    const s = parseShareLink("socks5://9.9.9.9:1080#NoAuth");
+    expect(s.protocol).toBe("socks");
+    expect(s.username).toBeUndefined();
+    expect(s.address).toBe("9.9.9.9");
+  });
+
+  it("parses a Hysteria v1 link with auth + bandwidth", () => {
+    const s = parseShareLink(
+      "hysteria://h.example.com:443?auth=mytoken&peer=h.example.com&insecure=1&upmbps=50&downmbps=200&obfs=xplus#HY1",
+    );
+    expect(s.protocol).toBe("hysteria");
+    expect(s.extra?.auth).toBe("mytoken");
+    expect(s.tls.sni).toBe("h.example.com");
+    expect(s.tls.allowInsecure).toBe(true);
+    expect(s.extra?.upMbps).toBe(50);
+    expect(s.extra?.downMbps).toBe(200);
+    expect(s.extra?.obfs).toBe("xplus");
+  });
+
+  it("parses an AnyTLS link", () => {
+    const s = parseShareLink("anytls://pw123@a.example.com:8443?sni=a.example.com&insecure=1#ANY");
+    expect(s.protocol).toBe("anytls");
+    expect(s.password).toBe("pw123");
+    expect(s.tls.sni).toBe("a.example.com");
+    expect(s.tls.allowInsecure).toBe(true);
+  });
+});

@@ -284,7 +284,10 @@ fn run(cmd: &str, args: &[&str]) -> Result<(), String> {
 
 #[cfg(windows)]
 fn run(cmd: &str, args: &[&str]) -> Result<(), String> {
-    let status = std::process::Command::new(cmd)
+    // `silent_command` applies CREATE_NO_WINDOW so arming/disarming the
+    // kill-switch (which shells out to netsh repeatedly) doesn't flash a
+    // console window for every rule.
+    let status = crate::proc::silent_command(cmd)
         .args(args)
         .status()
         .map_err(|e| format!("{cmd}: {e}"))?;

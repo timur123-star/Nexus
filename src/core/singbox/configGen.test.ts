@@ -113,3 +113,84 @@ describe("generateSingboxConfig rejects Xray-only features", () => {
     ).toThrow(/quantum/i);
   });
 });
+
+describe("generateSingboxConfig new protocols", () => {
+  it("builds a WireGuard outbound with local_address + keys", () => {
+    const cfg: any = generateSingboxConfig(
+      server({
+        protocol: "wireguard",
+        uuid: undefined,
+        tls: { enabled: false, security: "none" },
+        wireguard: {
+          privateKey: "PRIV",
+          peerPublicKey: "PEER",
+          localAddress: ["172.16.0.2/32"],
+          reserved: [1, 2, 3],
+          mtu: 1280,
+        },
+      }),
+      baseOpts,
+    );
+    const out = cfg.outbounds[0];
+    expect(out.type).toBe("wireguard");
+    expect(out.private_key).toBe("PRIV");
+    expect(out.peer_public_key).toBe("PEER");
+    expect(out.local_address).toEqual(["172.16.0.2/32"]);
+    expect(out.reserved).toEqual([1, 2, 3]);
+    expect(out.mtu).toBe(1280);
+  });
+
+  it("builds a SOCKS5 outbound with credentials and no tls/mux", () => {
+    const cfg: any = generateSingboxConfig(
+      server({
+        protocol: "socks",
+        uuid: undefined,
+        username: "alice",
+        password: "pw",
+        tls: { enabled: false, security: "none" },
+      }),
+      baseOpts,
+    );
+    const out = cfg.outbounds[0];
+    expect(out.type).toBe("socks");
+    expect(out.version).toBe("5");
+    expect(out.username).toBe("alice");
+    expect(out.password).toBe("pw");
+    expect("tls" in out).toBe(false);
+  });
+
+  it("builds a Hysteria v1 outbound with auth_str + bandwidth", () => {
+    const cfg: any = generateSingboxConfig(
+      server({
+        protocol: "hysteria",
+        uuid: undefined,
+        tls: { enabled: true, security: "tls", sni: "h.example.com" },
+        extra: { auth: "tok", upMbps: 50, downMbps: 200, obfs: "xplus" },
+      }),
+      baseOpts,
+    );
+    const out = cfg.outbounds[0];
+    expect(out.type).toBe("hysteria");
+    expect(out.auth_str).toBe("tok");
+    expect(out.up_mbps).toBe(50);
+    expect(out.down_mbps).toBe(200);
+    expect(out.obfs).toBe("xplus");
+    expect(out.tls.enabled).toBe(true);
+  });
+
+  it("builds an AnyTLS outbound with password + tls", () => {
+    const cfg: any = generateSingboxConfig(
+      server({
+        protocol: "anytls",
+        uuid: undefined,
+        password: "pw123",
+        tls: { enabled: true, security: "tls", sni: "a.example.com" },
+      }),
+      baseOpts,
+    );
+    const out = cfg.outbounds[0];
+    expect(out.type).toBe("anytls");
+    expect(out.password).toBe("pw123");
+    expect(out.tls.enabled).toBe(true);
+  });
+});

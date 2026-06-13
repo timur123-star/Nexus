@@ -12,6 +12,8 @@ const XRAY_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
   "vmess",
   "trojan",
   "shadowsocks",
+  "wireguard",
+  "socks",
 ]);
 
 export const xrayCore: IProxyCore = {

@@ -129,3 +129,65 @@ describe("generateXrayConfig — xhttp + post-quantum reality", () => {
     expect(rs.mldsa65Verify).toBe("PQVKEY");
   });
 });
+
+describe("generateXrayConfig — wireguard / socks", () => {
+  function srv(overrides: Partial<ServerProfile>): ServerProfile {
+    return { ...server, ...(overrides as ServerProfile) };
+  }
+
+  it("builds a wireguard outbound (secretKey + peers + reserved)", () => {
+    const cfg: any = generateXrayConfig(
+      srv({
+        protocol: "wireguard",
+        uuid: undefined,
+        tls: { enabled: false, security: "none" },
+        transport: { type: "tcp" },
+        wireguard: {
+          privateKey: "PRIV",
+          peerPublicKey: "PEER",
+          localAddress: ["172.16.0.2/32"],
+          reserved: [1, 2, 3],
+          mtu: 1280,
+        },
+      }),
+      baseOpts,
+    );
+    const proxy = cfg.outbounds.find((o: any) => o.tag === "proxy");
+    expect(proxy.protocol).toBe("wireguard");
+    expect(proxy.settings.secretKey).toBe("PRIV");
+    expect(proxy.settings.peers[0].publicKey).toBe("PEER");
+    expect(proxy.settings.peers[0].endpoint).toBe("example.com:443");
+    expect(proxy.settings.address).toEqual(["172.16.0.2/32"]);
+    expect(proxy.settings.reserved).toEqual([1, 2, 3]);
+    expect(proxy.settings.mtu).toBe(1280);
+    expect("streamSettings" in proxy).toBe(false);
+  });
+
+  it("builds a socks outbound with users", () => {
+    const cfg: any = generateXrayConfig(
+      srv({
+        protocol: "socks",
+        uuid: undefined,
+        username: "alice",
+        password: "pw",
+        tls: { enabled: false, security: "none" },
+        transport: { type: "tcp" },
+      }),
+      baseOpts,
+    );
+    const proxy = cfg.outbounds.find((o: any) => o.tag === "proxy");
+    expect(proxy.protocol).toBe("socks");
+    expect(proxy.settings.servers[0].address).toBe("example.com");
+    expect(proxy.settings.servers[0].users[0].user).toBe("alice");
+    expect(proxy.settings.servers[0].users[0].pass).toBe("pw");
+  });
+
+  it("rejects sing-box-only protocols (hysteria / anytls)", () => {
+    expect(() =>
+      generateXrayConfig(srv({ protocol: "anytls", uuid: undefined }), baseOpts),
+    ).toThrow(/sing-box/);
+    expect(() =>
+      generateXrayConfig(srv({ protocol: "hysteria", uuid: undefined }), baseOpts),
+    ).toThrow(/sing-box/);
+  });
+});

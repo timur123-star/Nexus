@@ -5,6 +5,7 @@ mod core;
 mod killswitch;
 mod ping;
 mod privilege;
+mod proc;
 mod sysproxy;
 mod tray;
 

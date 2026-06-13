@@ -6,7 +6,11 @@ export const PROTOCOL_LABEL: Record<Protocol, string> = {
   trojan: "Trojan",
   shadowsocks: "SS",
   hysteria2: "Hysteria2",
+  hysteria: "Hysteria",
   tuic: "TUIC",
+  wireguard: "WireGuard",
+  socks: "SOCKS5",
+  anytls: "AnyTLS",
 };
 
 /** Accent colour per protocol for chips — kept visually distinct for quick
@@ -17,7 +21,11 @@ export const PROTOCOL_COLOR: Record<Protocol, string> = {
   trojan: "#fb923c",
   shadowsocks: "#f5b14c",
   hysteria2: "#ec4899",
+  hysteria: "#f472b6",
   tuic: "#a78bfa",
+  wireguard: "#34d399",
+  socks: "#60a5fa",
+  anytls: "#2dd4bf",
 };
 
 export const ALL_PROTOCOLS: Protocol[] = [
@@ -26,5 +34,9 @@ export const ALL_PROTOCOLS: Protocol[] = [
   "trojan",
   "shadowsocks",
   "hysteria2",
+  "hysteria",
   "tuic",
+  "wireguard",
+  "socks",
+  "anytls",
 ];
