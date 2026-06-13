@@ -20,6 +20,8 @@ interface ServerState {
 
   // ping
   pingOne: (id: string) => Promise<void>;
+  /** Ping a specific set of servers with limited concurrency. */
+  pingMany: (ids: string[]) => Promise<void>;
   pingAll: () => Promise<void>;
   /** Ping every server, then return the reachable one with the lowest latency. */
   pingAllAndBest: () => Promise<ServerProfile | null>;
@@ -38,6 +40,9 @@ function now(): number {
 function makeSubId(): string {
   return `sub_${now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
+
+/** Number of concurrent latency probes; keeps us from opening hundreds of sockets. */
+const PING_WORKERS = 8;
 
 export const useServerStore = create<ServerState>()(
   persist(
@@ -103,10 +108,10 @@ export const useServerStore = create<ServerState>()(
         get().updateServer(id, { latencyMs: ms });
       },
 
-      pingAll: async () => {
-        const all = get().servers;
+      pingMany: async (ids) => {
+        const wanted = new Set(ids);
         // Probe with limited concurrency so we don't open hundreds of sockets.
-        const queue = [...all];
+        const queue = get().servers.filter((s) => wanted.has(s.id));
         const worker = async () => {
           while (queue.length) {
             const srv = queue.shift()!;
@@ -114,7 +119,11 @@ export const useServerStore = create<ServerState>()(
             get().updateServer(srv.id, { latencyMs: ms });
           }
         };
-        await Promise.all(Array.from({ length: 8 }, worker));
+        await Promise.all(Array.from({ length: PING_WORKERS }, worker));
+      },
+
+      pingAll: async () => {
+        await get().pingMany(get().servers.map((s) => s.id));
       },
 
       pingAllAndBest: async () => {

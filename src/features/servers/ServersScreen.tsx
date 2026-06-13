@@ -1,5 +1,16 @@
 import { useMemo, useRef, useState } from "react";
-import { Search, Plus, Activity, ArrowDownUp, Rocket, FolderTree, ChevronRight } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Activity,
+  ArrowDownUp,
+  Rocket,
+  FolderTree,
+  ChevronRight,
+  RefreshCw,
+  ChevronsDownUp,
+  ChevronsUpDown,
+} from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -17,11 +28,49 @@ type Sort = "ping" | "name" | "recent";
 const MANUAL_GROUP_ID = "__manual__";
 
 // Inline localisation for the grouping UI — keeps the feature self-contained.
-const GROUP_STRINGS: Record<Lang, { groupToggle: string; manual: string }> = {
-  en: { groupToggle: "Group by subscription", manual: "No subscription" },
-  ru: { groupToggle: "\u0413\u0440\u0443\u043f\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u043e \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0430\u043c", manual: "\u0411\u0435\u0437 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438" },
-  fa: { groupToggle: "\u06af\u0631\u0648\u0647\u200c\u0628\u0646\u062f\u06cc \u0628\u0631 \u0627\u0633\u0627\u0633 \u0627\u0634\u062a\u0631\u0627\u06a9", manual: "\u0628\u062f\u0648\u0646 \u0627\u0634\u062a\u0631\u0627\u06a9" },
-  zh: { groupToggle: "\u6309\u8ba2\u9605\u5206\u7ec4", manual: "\u65e0\u8ba2\u9605" },
+const GROUP_STRINGS: Record<
+  Lang,
+  {
+    groupToggle: string;
+    manual: string;
+    refresh: string;
+    pingGroup: string;
+    collapseAll: string;
+    expandAll: string;
+  }
+> = {
+  en: {
+    groupToggle: "Group by subscription",
+    manual: "No subscription",
+    refresh: "Update subscription",
+    pingGroup: "Ping group",
+    collapseAll: "Collapse all",
+    expandAll: "Expand all",
+  },
+  ru: {
+    groupToggle: "Группировать по подпискам",
+    manual: "Без подписки",
+    refresh: "Обновить подписку",
+    pingGroup: "Пинг группы",
+    collapseAll: "Свернуть все",
+    expandAll: "Развернуть все",
+  },
+  fa: {
+    groupToggle: "گروه‌بندی بر اساس اشتراک",
+    manual: "بدون اشتراک",
+    refresh: "به‌روزرسانی اشتراک",
+    pingGroup: "پینگ گروه",
+    collapseAll: "بستن همه",
+    expandAll: "باز کردن همه",
+  },
+  zh: {
+    groupToggle: "按订阅分组",
+    manual: "无订阅",
+    refresh: "更新订阅",
+    pingGroup: "测试分组",
+    collapseAll: "全部折叠",
+    expandAll: "全部展开",
+  },
 };
 
 export function ServersScreen({ onImport }: { onImport: () => void }) {
@@ -29,6 +78,8 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   const subscriptions = useServerStore((s) => s.subscriptions);
   const reorder = useServerStore((s) => s.reorder);
   const pingAll = useServerStore((s) => s.pingAll);
+  const pingMany = useServerStore((s) => s.pingMany);
+  const refreshSubscription = useServerStore((s) => s.refreshSubscription);
   const pingAllAndBest = useServerStore((s) => s.pingAllAndBest);
   const connect = useConnectionStore((s) => s.connect);
   const lang = useSettingsStore((s) => s.app.language);
@@ -42,6 +93,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   const [auto, setAuto] = useState(false);
   const [grouped, setGrouped] = useState(true);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [groupPinging, setGroupPinging] = useState<Record<string, boolean>>({});
   const dragId = useRef<string | null>(null);
 
   const filterSort = (list: ServerProfile[]): ServerProfile[] => {
@@ -78,10 +130,30 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
 
   // Grouping only makes sense when not actively searching across everything.
   const showGroups = grouped && !query.trim();
+  const allCollapsed = groups.length > 0 && groups.every((g) => collapsed[g.id]);
 
   function handleDrop(id: string) {
     if (dragId.current && dragId.current !== id) reorder(dragId.current, id);
     dragId.current = null;
+  }
+
+  function toggleAll() {
+    const next: Record<string, boolean> = {};
+    for (const g of groups) next[g.id] = !allCollapsed;
+    setCollapsed(next);
+  }
+
+  async function handlePingGroup(groupId: string) {
+    const ids = servers
+      .filter((s) => (groupId === MANUAL_GROUP_ID ? !s.subscriptionId : s.subscriptionId === groupId))
+      .map((s) => s.id);
+    if (ids.length === 0) return;
+    setGroupPinging((m) => ({ ...m, [groupId]: true }));
+    try {
+      await pingMany(ids);
+    } finally {
+      setGroupPinging((m) => ({ ...m, [groupId]: false }));
+    }
   }
 
   async function handlePingAll() {
@@ -159,6 +231,15 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
           </Chip>
         ))}
         <div className="flex-1" />
+        {showGroups && groups.length > 0 && (
+          <button
+            onClick={toggleAll}
+            title={allCollapsed ? gs.expandAll : gs.collapseAll}
+            className="flex shrink-0 items-center gap-1 rounded-btn px-2 py-1 text-xs text-text-dim transition-colors hover:text-text"
+          >
+            {allCollapsed ? <ChevronsUpDown size={13} /> : <ChevronsDownUp size={13} />}
+          </button>
+        )}
         <button
           onClick={() => setGrouped((g) => !g)}
           title={gs.groupToggle}
@@ -188,19 +269,56 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
         {visible.length > 0 && showGroups
           ? groups.map((g) => {
               const isCollapsed = !!collapsed[g.id];
+              const sub = subscriptions.find((x) => x.id === g.id);
+              const total = g.servers.length;
+              const reachable = g.servers.filter((s) => (s.latencyMs ?? -1) >= 0).length;
+              const tested = g.servers.some((s) => s.latencyMs != null);
+              const updating = sub?.status === "updating";
+              const gp = !!groupPinging[g.id];
               return (
                 <div key={g.id} className="flex flex-col gap-2">
-                  <button
-                    onClick={() => setCollapsed((c) => ({ ...c, [g.id]: !c[g.id] }))}
-                    className="flex items-center gap-1.5 px-1 py-1 text-xs font-semibold text-text-dim transition-colors hover:text-text"
-                  >
-                    <ChevronRight
-                      size={14}
-                      className={cn("transition-transform", !isCollapsed && "rotate-90")}
-                    />
-                    <span className="truncate">{g.name}</span>
-                    <span className="text-text-faint">{g.servers.length}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 px-1 py-1">
+                    <button
+                      onClick={() => setCollapsed((c) => ({ ...c, [g.id]: !c[g.id] }))}
+                      className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-text-dim transition-colors hover:text-text"
+                    >
+                      <ChevronRight
+                        size={14}
+                        className={cn("shrink-0 transition-transform", !isCollapsed && "rotate-90")}
+                      />
+                      <span className="truncate">{g.name}</span>
+                      <span className="shrink-0 text-text-faint">{total}</span>
+                    </button>
+                    {tested && (
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 font-mono text-[10px]",
+                          reachable > 0 ? "text-ok" : "text-text-faint",
+                        )}
+                      >
+                        {reachable}/{total}
+                      </span>
+                    )}
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => handlePingGroup(g.id)}
+                      disabled={gp}
+                      title={gs.pingGroup}
+                      className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint transition-colors hover:text-text disabled:opacity-50"
+                    >
+                      <Activity size={13} className={cn(gp && "animate-spin-slow")} />
+                    </button>
+                    {sub && (
+                      <button
+                        onClick={() => refreshSubscription(g.id)}
+                        disabled={updating}
+                        title={gs.refresh}
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded text-text-faint transition-colors hover:text-text disabled:opacity-50"
+                      >
+                        <RefreshCw size={13} className={cn(updating && "animate-spin")} />
+                      </button>
+                    )}
+                  </div>
                   {!isCollapsed &&
                     g.servers.map((s) => (
                       <ServerCard
