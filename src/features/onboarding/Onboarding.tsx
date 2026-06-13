@@ -3,6 +3,7 @@ import { Shield, Plus, Route, Power, ArrowRight } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../shared/lib/utils";
 import { useT } from "../../core/i18n/useT";
+import type { MessageKey } from "../../core/i18n";
 import type { RoutingMode } from "../../core/types";
 
 /**
@@ -48,11 +49,11 @@ export function Onboarding({
               key={m}
               onClick={() => setProxy({ routingMode: m })}
               className={cn(
-                "rounded-btn border px-4 py-2 text-sm capitalize",
+                "rounded-btn border px-4 py-2 text-sm",
                 mode === m ? "border-indigo bg-indigo/10 text-indigo" : "border-border text-text-dim",
               )}
             >
-              {m}
+              {t(`settings.routing.${m}.title` as MessageKey)}
             </button>
           ))}
         </div>
