@@ -101,6 +101,8 @@ export interface Subscription {
   name: string;
   url: string;
   updateIntervalHours: number;
+  /** Optional per-subscription User-Agent override for the fetch request. */
+  userAgent?: string;
   lastUpdatedAt?: number;
   serverCount: number;
   status: "ok" | "error" | "updating" | "never";

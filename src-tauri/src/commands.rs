@@ -67,19 +67,30 @@ pub async fn ping_server(address: String, port: u16) -> i64 {
 }
 
 #[tauri::command]
-pub async fn fetch_subscription(url: String, allow_insecure: Option<bool>) -> Result<String, String> {
+pub async fn fetch_subscription(
+    url: String,
+    allow_insecure: Option<bool>,
+    user_agent: Option<String>,
+) -> Result<String, String> {
     // Security: only allow http(s) schemes to prevent SSRF via file:// etc.
     let lower = url.to_lowercase();
     if !lower.starts_with("https://") && !lower.starts_with("http://") {
         return Err("only http:// and https:// URLs are allowed".into());
     }
 
+    // Many subscription panels (Hiddify, Marzban, etc.) return different content
+    // — or a 404 — depending on the client User-Agent. Default to a widely
+    // accepted client string; let the UI override it per-subscription.
+    let ua = user_agent
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "Hiddify/4.1.1".to_string());
+
     // TLS certificate validation is enabled by default. Users can opt into
     // skipping it for providers with self-signed certs via a per-subscription
     // toggle in the UI. This is safer than the old blanket disable.
     let skip_tls = allow_insecure.unwrap_or(false);
     let client = reqwest::Client::builder()
-        .user_agent("NexusShield/0.1 (sing-box)")
+        .user_agent(ua)
         .timeout(std::time::Duration::from_secs(20))
         .danger_accept_invalid_certs(skip_tls)
         .build()

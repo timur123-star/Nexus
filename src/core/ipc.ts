@@ -51,8 +51,8 @@ export const pingServer = (address: string, port: number) =>
   safeInvoke<number>("ping_server", { address, port }, mockPing());
 
 /** Download a subscription body (raw text, possibly base64). */
-export const fetchSubscription = (url: string, allowInsecure = false) =>
-  safeInvoke<string>("fetch_subscription", { url, allowInsecure }, "");
+export const fetchSubscription = (url: string, allowInsecure = false, userAgent?: string) =>
+  safeInvoke<string>("fetch_subscription", { url, allowInsecure, userAgent }, "");
 
 /** Poll the Clash API for live traffic + totals. */
 export const getTraffic = (port: number, secret: string) =>

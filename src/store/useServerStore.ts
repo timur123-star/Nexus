@@ -32,7 +32,12 @@ interface ServerState {
   pingAllAndBest: () => Promise<ServerProfile | null>;
 
   // subscriptions
-  addSubscription: (name: string, url: string, intervalHours: number) => Promise<void>;
+  addSubscription: (
+    name: string,
+    url: string,
+    intervalHours: number,
+    userAgent?: string,
+  ) => Promise<void>;
   refreshSubscription: (id: string) => Promise<void>;
   removeSubscription: (id: string, removeServers: boolean) => void;
 }
@@ -163,12 +168,13 @@ export const useServerStore = create<ServerState>()(
         );
       },
 
-      addSubscription: async (name, url, intervalHours) => {
+      addSubscription: async (name, url, intervalHours, userAgent) => {
         const sub: Subscription = {
           id: makeSubId(),
           name,
           url,
           updateIntervalHours: intervalHours,
+          userAgent: userAgent?.trim() ? userAgent.trim() : undefined,
           serverCount: 0,
           status: "never",
         };
@@ -185,8 +191,13 @@ export const useServerStore = create<ServerState>()(
           ),
         }));
         try {
-          const allowInsecure = useSettingsStore.getState().proxy.allowInsecureSubs;
-          const body = await fetchSubscription(sub.url, allowInsecure);
+          const settings = useSettingsStore.getState();
+          const allowInsecure = settings.proxy.allowInsecureSubs;
+          // Per-subscription UA wins; otherwise fall back to the global default.
+          const userAgent = sub.userAgent?.trim()
+            ? sub.userAgent.trim()
+            : settings.app.subscriptionUserAgent;
+          const body = await fetchSubscription(sub.url, allowInsecure, userAgent);
           const { servers } = parseMany(body);
           set((s) => {
             // Server ids are deterministic, so the same endpoint keeps the same

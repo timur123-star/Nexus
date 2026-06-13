@@ -61,6 +61,12 @@ export interface AppSettings {
   autoStart: boolean;
   minimizeToTray: boolean;
   subscriptionUpdateHours: number;
+  /**
+   * Default User-Agent sent when fetching subscriptions. Many panels (Hiddify,
+   * Marzban, etc.) gate the returned content on this string. A per-subscription
+   * override takes precedence over this default.
+   */
+  subscriptionUserAgent: string;
   /** Sort server list automatically after ping. */
   autoSortByPing: boolean;
 }
@@ -155,6 +161,7 @@ export const DEFAULT_APP: AppSettings = {
   autoStart: false,
   minimizeToTray: true,
   subscriptionUpdateHours: 12,
+  subscriptionUserAgent: "Hiddify/4.1.1",
   autoSortByPing: false,
 };
 

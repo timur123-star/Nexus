@@ -139,6 +139,54 @@ const APP_STRINGS: Record<Lang, { title: string; intro: string; routeVia: string
   },
 };
 
+// Inline labels for the advanced transport tweaks (fragment / mux) and the
+// subscription User-Agent, kept out of the global i18n dictionary so its strict
+// key-parity test stays untouched. ru/en fully covered, fa/zh provided.
+const ADV_STRINGS: Record<
+  Lang,
+  {
+    muxProtocol: string;
+    fragPackets: string;
+    fragLength: string;
+    fragInterval: string;
+    subUa: string;
+    subUaHint: string;
+  }
+> = {
+  en: {
+    muxProtocol: "Mux protocol",
+    fragPackets: "Fragment packets",
+    fragLength: "Fragment size",
+    fragInterval: "Fragment interval (ms)",
+    subUa: "Subscription User-Agent",
+    subUaHint: "Sent when fetching subscriptions. Many panels (Hiddify, Marzban) return different content per client.",
+  },
+  ru: {
+    muxProtocol: "Протокол Mux",
+    fragPackets: "Пакеты фрагментации",
+    fragLength: "Размер фрагмента",
+    fragInterval: "Интервал фрагментации (мс)",
+    subUa: "User-Agent для подписок",
+    subUaHint: "Отправляется при загрузке подписок. Многие панели (Hiddify, Marzban) отдают разный контент в зависимости от клиента.",
+  },
+  fa: {
+    muxProtocol: "پروتکل Mux",
+    fragPackets: "بسته‌های فرگمنت",
+    fragLength: "اندازه فرگمنت",
+    fragInterval: "فاصله فرگمنت (ms)",
+    subUa: "User-Agent اشتراک",
+    subUaHint: "هنگام دریافت اشتراک ارسال می‌شود. بسیاری از پنل‌ها (Hiddify, Marzban) محتوای متفاوتی بازمی‌گردانند.",
+  },
+  zh: {
+    muxProtocol: "Mux 协议",
+    fragPackets: "分片数据包",
+    fragLength: "分片大小",
+    fragInterval: "分片间隔 (ms)",
+    subUa: "订阅 User-Agent",
+    subUaHint: "获取订阅时发送。许多面板（Hiddify、Marzban）会根据客户端返回不同内容。",
+  },
+};
+
 function sameRules(a: RoutingProfile["customRules"], b: RoutingProfile["customRules"]): boolean {
   if (a.length !== b.length) return false;
   return a.every((r, i) => r.match === b[i].match && r.value === b[i].value && r.target === b[i].target);
@@ -148,6 +196,7 @@ export function SettingsScreen() {
   const { proxy, app, setProxy, setApp, reset } = useSettingsStore();
   const [elevated, setElevated] = useState(true);
   const t = useT();
+  const adv = ADV_STRINGS[app.language] ?? ADV_STRINGS.en;
 
   useEffect(() => {
     isElevated().then(setElevated);
@@ -339,12 +388,55 @@ export function SettingsScreen() {
           checked={proxy.mux.enabled}
           onChange={(v) => setProxy({ mux: { ...proxy.mux, enabled: v } })}
         />
+        {proxy.mux.enabled && (
+          <Row label={adv.muxProtocol}>
+            <CustomSelect
+              className="w-40"
+              align="right"
+              value={proxy.mux.protocol}
+              options={[
+                { value: "smux", label: "smux" },
+                { value: "yamux", label: "yamux" },
+                { value: "h2mux", label: "h2mux" },
+              ]}
+              onChange={(v) => setProxy({ mux: { ...proxy.mux, protocol: v as typeof proxy.mux.protocol } })}
+            />
+          </Row>
+        )}
         <Toggle
           label={t("settings.fragment.label")}
           hint={t("settings.fragment.hint")}
           checked={proxy.fragment.enabled}
           onChange={(v) => setProxy({ fragment: { ...proxy.fragment, enabled: v } })}
         />
+        {proxy.fragment.enabled && (
+          <>
+            <Row label={adv.fragPackets}>
+              <input
+                className="ns-input w-40 font-mono"
+                placeholder="tlshello"
+                value={proxy.fragment.packets}
+                onChange={(e) => setProxy({ fragment: { ...proxy.fragment, packets: e.target.value } })}
+              />
+            </Row>
+            <Row label={adv.fragLength}>
+              <input
+                className="ns-input w-40 font-mono"
+                placeholder="10-20"
+                value={proxy.fragment.length}
+                onChange={(e) => setProxy({ fragment: { ...proxy.fragment, length: e.target.value } })}
+              />
+            </Row>
+            <Row label={adv.fragInterval}>
+              <input
+                className="ns-input w-40 font-mono"
+                placeholder="10-20"
+                value={proxy.fragment.interval}
+                onChange={(e) => setProxy({ fragment: { ...proxy.fragment, interval: e.target.value } })}
+              />
+            </Row>
+          </>
+        )}
       </Section>
 
       <Section title={t("settings.security.title")}>
@@ -382,6 +474,15 @@ export function SettingsScreen() {
 
       <Section title={t("settings.subs.title")}>
         <SubscriptionList />
+        <Row label={adv.subUa}>
+          <input
+            className="ns-input font-mono"
+            placeholder="Hiddify/4.1.1"
+            value={app.subscriptionUserAgent}
+            onChange={(e) => setApp({ subscriptionUserAgent: e.target.value })}
+          />
+        </Row>
+        <p className="-mt-1 text-[11px] text-text-faint">{adv.subUaHint}</p>
       </Section>
 
       <Section title={t("settings.app.title")}>
