@@ -27,6 +27,9 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     data: "Data used",
     totalTime: "Time connected",
     empty: "No sessions yet. Connect to start tracking.",
+    emptyTitle: "Session history is empty",
+    emptyLine1: "Your past connections will appear here.",
+    emptyLine2: "Connect to a server to start tracking.",
     clearAll: "Clear all",
     all: "All",
     remove: "Remove",
@@ -38,6 +41,9 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     data: "Трафик",
     totalTime: "Время онлайн",
     empty: "Сессий пока нет. Подключитесь, чтобы начать.",
+    emptyTitle: "История сессий пуста",
+    emptyLine1: "Здесь будут отображаться ваши прошлые подключения.",
+    emptyLine2: "Подключитесь к серверу, чтобы начать отслеживание.",
     clearAll: "Очистить",
     all: "Все",
     remove: "Удалить",
@@ -49,6 +55,9 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     data: "داده مصرفی",
     totalTime: "زمان اتصال",
     empty: "هنوز نشستی نیست. برای شروع وصل شوید.",
+    emptyTitle: "تاریخچهٔ نشست‌ها خالی است",
+    emptyLine1: "اتصال‌های گذشتهٔ شما اینجا نمایش داده می‌شود.",
+    emptyLine2: "برای شروع ردیابی به یک سرور وصل شوید.",
     clearAll: "پاک کردن",
     all: "همه",
     remove: "حذف",
@@ -60,6 +69,9 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     data: "流量",
     totalTime: "在线时长",
     empty: "暂无会话。连接后开始记录。",
+    emptyTitle: "会话历史为空",
+    emptyLine1: "您过往的连接将显示在此处。",
+    emptyLine2: "连接到服务器即可开始记录。",
     clearAll: "清空",
     all: "全部",
     remove: "删除",
@@ -181,9 +193,11 @@ export function HistoryScreen() {
       </div>
 
       {visible.length === 0 ? (
-        <div className="glass rounded-card p-10 text-center">
-          <History size={28} className="mx-auto mb-3 text-text-faint" />
-          <p className="text-sm text-text-dim">{hs.empty}</p>
+        <div className="glass grid place-items-center rounded-card px-6 py-16 text-center">
+          <EmptyOrb />
+          <h3 className="mt-6 text-base font-semibold text-text">{hs.emptyTitle}</h3>
+          <p className="mt-2 text-sm text-text-faint">{hs.emptyLine1}</p>
+          <p className="text-sm text-text-faint">{hs.emptyLine2}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -233,6 +247,38 @@ export function HistoryScreen() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Glowing concentric-ring empty-state emblem with a history clock at its centre. */
+function EmptyOrb() {
+  const ticks = Array.from({ length: 48 });
+  return (
+    <div className="relative grid h-40 w-40 place-items-center">
+      {/* Soft outer glow */}
+      <div className="absolute inset-0 rounded-full bg-indigo/15 blur-2xl" />
+      {/* Rotating tick ring */}
+      <motion.div
+        className="absolute inset-2"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+      >
+        {ticks.map((_, i) => (
+          <span
+            key={i}
+            className="absolute left-1/2 top-1/2 h-1.5 w-px -translate-x-1/2 origin-[center_72px] bg-indigo/40"
+            style={{ transform: `translate(-50%, -50%) rotate(${(360 / ticks.length) * i}deg) translateY(-72px)` }}
+          />
+        ))}
+      </motion.div>
+      {/* Static rings */}
+      <div className="absolute inset-6 rounded-full border border-indigo/30" />
+      <div className="absolute inset-10 rounded-full border border-indigo/50 shadow-[0_0_24px_rgba(220,38,38,0.35)]" />
+      {/* Core */}
+      <div className="relative grid h-16 w-16 place-items-center rounded-full bg-indigo/15 text-indigo shadow-[0_0_30px_rgba(220,38,38,0.45)]">
+        <History size={30} />
+      </div>
     </div>
   );
 }

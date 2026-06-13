@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertCircle, Download, RefreshCw, Copy, Check } from "lucide-react";
+import { CheckCircle2, AlertCircle, Download, RefreshCw, Copy, Check, Maximize2, Palette, Sun } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -7,9 +7,39 @@ import { toast } from "../../store/useToastStore";
 import { getCore, ALL_CORES } from "../../core/proxy";
 import { validateConfig } from "../../core/ipc";
 import { CodeEditor } from "../../shared/components/CodeEditor";
+import { CustomSelect } from "../../shared/components/CustomSelect";
 import { useT } from "../../core/i18n/useT";
 import type { CoreKind } from "../../core/types";
 import type { Lang } from "../../core/i18n";
+
+type EditorTheme = "nexus-dark" | "nexus-light";
+
+// Editor toolbar + status-bar labels, inline so the global parity test stays untouched.
+const ED_STRINGS: Record<Lang, {
+  theme: string; dark: string; light: string;
+  line: string; col: string; syntaxOk: string; syntaxBad: string; length: string; lines: string;
+}> = {
+  en: {
+    theme: "Theme", dark: "Nexus Dark", light: "Nexus Light",
+    line: "Line", col: "Col", syntaxOk: "Syntax OK", syntaxBad: "Syntax error",
+    length: "Length", lines: "Lines",
+  },
+  ru: {
+    theme: "Тема", dark: "Nexus Dark", light: "Nexus Light",
+    line: "Строка", col: "Столбец", syntaxOk: "Синтаксис корректен", syntaxBad: "Ошибка синтаксиса",
+    length: "Длина", lines: "Строк",
+  },
+  fa: {
+    theme: "تم", dark: "Nexus Dark", light: "Nexus Light",
+    line: "خط", col: "ستون", syntaxOk: "نحو درست است", syntaxBad: "خطای نحوی",
+    length: "طول", lines: "خطوط",
+  },
+  zh: {
+    theme: "主题", dark: "Nexus Dark", light: "Nexus Light",
+    line: "行", col: "列", syntaxOk: "语法正确", syntaxBad: "语法错误",
+    length: "长度", lines: "行数",
+  },
+};
 
 // Inline label so the global dictionary (and its parity test) stays untouched.
 const MODIFIED_LABEL: Record<Lang, string> = {
@@ -76,10 +106,24 @@ export function EditorScreen() {
     }
   }, [active, proxy]);
 
+  const E = ED_STRINGS[lang] ?? ED_STRINGS.en;
   const [text, setText] = useState(generated.text);
   const [dirty, setDirty] = useState(false);
   const [check, setCheck] = useState<{ ok: boolean; error?: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [editorTheme, setEditorTheme] = useState<EditorTheme>("nexus-dark");
+
+  // Live, cheap syntax check for the status bar (independent of the core validator).
+  const syntaxOk = useMemo(() => {
+    try {
+      JSON.parse(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [text]);
+  const lineCount = useMemo(() => text.split("\n").length, [text]);
+  const sizeKb = useMemo(() => (new Blob([text]).size / 1024).toFixed(2), [text]);
 
   // Follow the generated config (active server / settings changes) until the
   // user starts editing by hand. Their manual edits are then preserved until
@@ -193,8 +237,73 @@ export function EditorScreen() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-border">
-        <CodeEditor value={text} onChange={handleChange} language="json" schemaKind={generated.core} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-card border border-border">
+        {/* Editor toolbar */}
+        <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-bg-elev/30 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-text-faint">
+              <Palette size={13} className="text-indigo" /> {E.theme}:
+            </span>
+            <CustomSelect
+              className="w-40"
+              value={editorTheme}
+              options={[
+                { value: "nexus-dark", label: E.dark },
+                { value: "nexus-light", label: E.light },
+              ]}
+              onChange={(v) => setEditorTheme(v as EditorTheme)}
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setEditorTheme((t) => (t === "nexus-dark" ? "nexus-light" : "nexus-dark"))}
+              title={E.theme}
+              className="grid h-8 w-8 place-items-center rounded-btn border border-border text-text-faint transition-colors hover:text-text"
+            >
+              <Sun size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
+              title={E.theme}
+              className="grid h-8 w-8 place-items-center rounded-btn border border-border text-text-faint transition-colors hover:text-text"
+            >
+              <Maximize2 size={14} />
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <CodeEditor
+            value={text}
+            onChange={handleChange}
+            language="json"
+            schemaKind={generated.core}
+            themeId={editorTheme}
+          />
+        </div>
+
+        {/* Status bar */}
+        <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-bg-elev/40 px-3 py-1.5 text-[11px] text-text-faint">
+          <div className="flex items-center gap-3">
+            <span>{E.line} 1, {E.col} 1</span>
+            <span className="text-border">|</span>
+            <span>UTF-8</span>
+            <span className="text-border">|</span>
+            <span className="uppercase">JSON</span>
+            <span className="text-border">|</span>
+            <span className={syntaxOk ? "flex items-center gap-1 text-ok" : "flex items-center gap-1 text-bad"}>
+              {syntaxOk ? <Check size={12} /> : <AlertCircle size={12} />}
+              {syntaxOk ? E.syntaxOk : E.syntaxBad}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 font-mono">
+            <span>{E.length}: {sizeKb} KB</span>
+            <span className="text-border">|</span>
+            <span>{E.lines}: {lineCount}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

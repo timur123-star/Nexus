@@ -4,7 +4,7 @@ import { Trash2, ArrowDown, ArrowUp, FolderOpen, Clock, Cpu, Info } from "lucide
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { getConnections, openLogsDir, type ConnectionEntry } from "../../core/ipc";
-import { Sparkline } from "../../shared/components/Sparkline";
+import { TrafficGraph } from "./TrafficGraph";
 import { SpeedTestPanel } from "./SpeedTestPanel";
 import { coreLogRing } from "../../shared/hooks/useCoreEvents";
 import { formatBytes, formatUptime, cn } from "../../shared/lib/utils";
@@ -201,12 +201,7 @@ export function StatsScreen() {
             </span>
           </div>
         </div>
-        <div className="relative">
-          <Sparkline data={downSeries} width={900} height={90} color="var(--color-teal)" responsive />
-          <div className="absolute inset-0">
-            <Sparkline data={upSeries} width={900} height={90} color="var(--color-indigo)" fill={false} responsive />
-          </div>
-        </div>
+        <TrafficGraph downSeries={downSeries} upSeries={upSeries} active={connected} />
         <div className="mt-2 flex items-center justify-between text-[11px] text-text-faint">
           <span className="flex items-center gap-1">
             <span className="text-text-dim">{S.peak}</span>

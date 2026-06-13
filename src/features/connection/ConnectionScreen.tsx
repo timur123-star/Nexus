@@ -158,38 +158,17 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const dash = "\u2014";
   const encryption = active.tls.security !== "none" ? active.tls.security.toUpperCase() : "AES-256";
   const statusText = connected ? L.stable : t(STATUS_LABEL_KEY[status]);
-  const actionLabel = busy ? L.connecting : connected ? L.disconnect : L.connect;
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 px-6 py-4">
-      {/* Hero: emblem connect control + action button + server pill */}
-      <div className="flex flex-col items-center gap-3">
+      {/* Hero: emblem connect control (the emblem itself toggles) + server pill */}
+      <div className="flex flex-col items-center gap-4">
         <ShieldConnectButton
           state={shieldState}
-          onClick={() => toggle(active)}
+          onClick={() => !busy && toggle(active)}
           label={shieldLabel}
           sublabel={shieldSub}
         />
-
-        {/* Primary action button (Подключиться / Отключиться). */}
-        <motion.button
-          type="button"
-          onClick={() => toggle(active)}
-          disabled={busy}
-          whileHover={busy ? undefined : { scale: 1.02 }}
-          whileTap={busy ? undefined : { scale: 0.97 }}
-          className={cn(
-            "relative min-w-[230px] rounded-btn border px-10 py-3 text-sm font-semibold uppercase tracking-[0.18em] transition-colors disabled:cursor-wait",
-            connected
-              ? "border-indigo/70 bg-indigo/10 text-white shadow-[0_0_22px_rgba(220,38,38,0.35)] hover:bg-indigo/20"
-              : busy
-                ? "border-indigo/40 bg-indigo/5 text-indigo-soft"
-                : "border-indigo/60 bg-indigo/15 text-white shadow-[0_0_22px_rgba(220,38,38,0.3)] hover:bg-indigo/25",
-          )}
-        >
-          {actionLabel}
-          {busy && "\u2026"}
-        </motion.button>
 
         {/* Active server selector pill. */}
         <button

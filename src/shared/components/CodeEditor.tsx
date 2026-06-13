@@ -130,6 +130,7 @@ export function CodeEditor({
   language = "json",
   readOnly = false,
   schemaKind = null,
+  themeId,
 }: {
   value: string;
   onChange?: (v: string) => void;
@@ -137,6 +138,8 @@ export function CodeEditor({
   readOnly?: boolean;
   /** When set (and language is json), binds the matching core schema to the model. */
   schemaKind?: CoreKind | null;
+  /** Explicit Monaco theme override; falls back to the app theme when unset. */
+  themeId?: "nexus-dark" | "nexus-light";
 }) {
   const lang = useSettingsStore((s) => s.app.language);
   const themePref = useSettingsStore((s) => s.app.theme);
@@ -156,7 +159,7 @@ export function CodeEditor({
     return () => mq.removeEventListener("change", onChange);
   }, [themePref]);
 
-  const monacoTheme = isLight ? "nexus-light" : "nexus-dark";
+  const monacoTheme = themeId ?? (isLight ? "nexus-light" : "nexus-dark");
   // Binding a schema path makes Monaco attach the right core schema via
   // fileMatch. Without it the editor stays a plain JSON editor.
   const path = language === "json" ? schemaPathFor(schemaKind) : undefined;
