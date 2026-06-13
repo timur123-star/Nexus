@@ -20,12 +20,14 @@ import { useConnectionStore } from "./store/useConnectionStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { startSubscriptionScheduler } from "./core/subscriptions/scheduler";
 import { pageVariants } from "./shared/lib/motion";
+import { applyAccent } from "./shared/lib/accents";
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("connection");
   const [importOpen, setImportOpen] = useState(false);
   const servers = useServerStore((s) => s.servers);
   const theme = useSettingsStore((s) => s.app.theme);
+  const accent = useSettingsStore((s) => s.app.accent);
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem("ns-onboarded") === "1");
 
   useCoreEvents();
@@ -55,6 +57,11 @@ export default function App() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, [theme]);
+
+  // Re-tint the primary accent whenever the user picks a different preset.
+  useEffect(() => {
+    applyAccent(accent);
+  }, [accent]);
 
   // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import.
   useEffect(() => {

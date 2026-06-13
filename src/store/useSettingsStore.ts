@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CoreKind, RoutingMode, RoutingProfile, RoutingRule } from "../core/types";
 import { persistentStorage } from "../core/db";
+import { DEFAULT_ACCENT } from "../shared/lib/accents";
 
 export interface ProxySettings {
   /** Which proxy engine runs connections. */
@@ -41,6 +42,8 @@ export interface ProxySettings {
 
 export interface AppSettings {
   theme: "system" | "dark" | "light";
+  /** Accent preset id (see src/shared/lib/accents.ts). */
+  accent: string;
   language: "ru" | "en" | "fa" | "zh";
   autoStart: boolean;
   minimizeToTray: boolean;
@@ -107,6 +110,7 @@ export const DEFAULT_PROXY: ProxySettings = {
 
 export const DEFAULT_APP: AppSettings = {
   theme: "system",
+  accent: DEFAULT_ACCENT,
   language: "ru",
   autoStart: false,
   minimizeToTray: true,
@@ -126,8 +130,8 @@ export const useSettingsStore = create<SettingsState>()(
       name: "nexusshield-settings",
       storage: createJSONStorage(() => persistentStorage),
       // Merge persisted state over defaults so new fields (e.g. coreKind,
-      // routingProfiles) are always present for users upgrading from an older
-      // version.
+      // routingProfiles, accent) are always present for users upgrading from an
+      // older version.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
         const persistedProxy = (p.proxy ?? {}) as Partial<ProxySettings>;
