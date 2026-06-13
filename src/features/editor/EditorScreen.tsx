@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertCircle, Download, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertCircle, Download, RefreshCw, Copy, Check } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { toast } from "../../store/useToastStore";
 import { getCore, ALL_CORES } from "../../core/proxy";
 import { validateConfig } from "../../core/ipc";
 import { CodeEditor } from "../../shared/components/CodeEditor";
@@ -18,12 +19,29 @@ const MODIFIED_LABEL: Record<Lang, string> = {
   zh: "已修改",
 };
 
+// Copy button + its success/failure toast, 4-language inline.
+const COPY_STRINGS: Record<Lang, { copy: string; copied: string; failed: string }> = {
+  en: { copy: "Copy", copied: "Config copied to clipboard", failed: "Couldn't copy config" },
+  ru: {
+    copy: "Копировать",
+    copied: "Конфиг скопирован в буфер",
+    failed: "Не удалось скопировать",
+  },
+  fa: {
+    copy: "کپی",
+    copied: "پیکربندی کپی شد",
+    failed: "کپی نشد",
+  },
+  zh: { copy: "复制", copied: "配置已复制到剪贴板", failed: "复制失败" },
+};
+
 export function EditorScreen() {
   const t = useT();
   const servers = useServerStore((s) => s.servers);
   const activeId = useConnectionStore((s) => s.activeServerId);
   const proxy = useSettingsStore((s) => s.proxy);
   const lang = useSettingsStore((s) => s.app.language);
+  const C = COPY_STRINGS[lang] ?? COPY_STRINGS.en;
 
   const active = servers.find((s) => s.id === activeId) ?? servers[0];
 
@@ -61,6 +79,7 @@ export function EditorScreen() {
   const [text, setText] = useState(generated.text);
   const [dirty, setDirty] = useState(false);
   const [check, setCheck] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Follow the generated config (active server / settings changes) until the
   // user starts editing by hand. Their manual edits are then preserved until
@@ -83,6 +102,17 @@ export function EditorScreen() {
 
   async function handleValidate() {
     setCheck(await validateConfig(text));
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(C.copied);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error(C.failed);
+    }
   }
 
   function handleExport() {
@@ -123,6 +153,13 @@ export function EditorScreen() {
             className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw size={14} /> {t("editor.regenerate")}
+          </button>
+          <button
+            onClick={handleCopy}
+            title={C.copy}
+            className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim transition-colors hover:text-text"
+          >
+            {copied ? <Check size={14} className="text-ok" /> : <Copy size={14} />} {C.copy}
           </button>
           <button
             onClick={handleValidate}
