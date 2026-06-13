@@ -8,6 +8,7 @@ import { ConnectionScreen } from "./features/connection/ConnectionScreen";
 import { ServersScreen } from "./features/servers/ServersScreen";
 import { StatsScreen } from "./features/stats/StatsScreen";
 import { HistoryScreen } from "./features/history/HistoryScreen";
+import { LogsScreen } from "./features/logs/LogsScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { EditorScreen } from "./features/editor/EditorScreen";
 import { ImportDialog } from "./features/import/ImportDialog";
@@ -136,6 +137,7 @@ export default function App() {
               {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
               {screen === "stats" && <StatsScreen />}
               {screen === "history" && <HistoryScreen />}
+              {screen === "logs" && <LogsScreen />}
               {screen === "editor" && <EditorScreen />}
               {screen === "settings" && <SettingsScreen />}
             </motion.div>
