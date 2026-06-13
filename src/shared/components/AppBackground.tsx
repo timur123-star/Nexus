@@ -18,9 +18,9 @@ import worldMap from "../../assets/world-map.png";
 
 // Visual presets per phase. brightness/saturate drive the grey↔red colour.
 const MAP_STATE = {
-  off: { filter: "grayscale(1) brightness(0.6) contrast(1.08)", opacity: 0.4, scale: 1.05 },
-  charging: { filter: "grayscale(0.45) brightness(0.85) saturate(1.1)", opacity: 0.55, scale: 1.08 },
-  on: { filter: "grayscale(0) brightness(1.1) saturate(1.35) contrast(1.08)", opacity: 0.7, scale: 1.1 },
+  off: { filter: "grayscale(1) brightness(0.55) contrast(1.08)", opacity: 0.34, scale: 1 },
+  charging: { filter: "grayscale(0.45) brightness(0.82) saturate(1.1)", opacity: 0.5, scale: 1.03 },
+  on: { filter: "grayscale(0) brightness(1.08) saturate(1.35) contrast(1.05)", opacity: 0.62, scale: 1.06 },
 } as const;
 
 const mapTransition = { duration: 1.4, ease: [0.16, 1, 0.3, 1] as const };
@@ -46,18 +46,12 @@ export function AppBackground() {
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      {/* World map — the colour-shifting hero layer. Pulled in close to the
-          camera and centred so the connect emblem sits right on top of it. */}
+      {/* World map — the colour-shifting hero layer. */}
       <motion.img
         src={worldMap}
         alt=""
-        className="absolute left-1/2 top-1/2 w-[185%] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-cover md:w-[150%] lg:w-[128%]"
-        style={{
-          maskImage:
-            "radial-gradient(125% 105% at 50% 38%, #000 42%, rgba(0,0,0,0.55) 70%, transparent 92%)",
-          WebkitMaskImage:
-            "radial-gradient(125% 105% at 50% 38%, #000 42%, rgba(0,0,0,0.55) 70%, transparent 92%)",
-        }}
+        className="absolute left-1/2 top-0 w-[185%] max-w-none -translate-x-1/2 select-none object-cover md:w-[150%]"
+        style={{ maskImage: "linear-gradient(to bottom, #000 0%, #000 66%, transparent 97%)", WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 66%, transparent 97%)" }}
         animate={reduce ? { opacity: map.opacity } : map}
         transition={mapTransition}
       />
@@ -107,7 +101,7 @@ export function AppBackground() {
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(5,5,6,0.35) 0%, transparent 18%, transparent 40%, rgba(5,5,6,0.7) 80%, rgba(5,5,6,0.95) 100%)",
+            "linear-gradient(to bottom, transparent 30%, rgba(5,5,6,0.55) 78%, rgba(5,5,6,0.9) 100%)",
         }}
       />
     </div>

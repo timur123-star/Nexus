@@ -60,14 +60,14 @@ export function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="relative z-10 flex h-11 shrink-0 items-center justify-between border-b border-border/60 px-3 select-none"
+      className="relative z-10 flex h-14 shrink-0 items-center justify-between border-b border-border/60 px-3 select-none"
     >
       <div data-tauri-drag-region className="flex items-center text-text">
         <img
           src={logoLockup}
           alt="NexusShield"
           draggable={false}
-          className="h-[30px] w-auto select-none object-contain drop-shadow-[0_0_9px_rgba(220,38,38,0.5)]"
+          className="h-9 w-auto select-none object-contain drop-shadow-[0_0_10px_rgba(220,38,38,0.35)]"
         />
       </div>
 

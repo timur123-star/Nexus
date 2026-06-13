@@ -149,13 +149,9 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const peakDown = downSeries.length ? Math.max(...downSeries) : 0;
   const peakUp = upSeries.length ? Math.max(...upSeries) : 0;
   const shieldState = connected ? "connected" : busy ? "busy" : "idle";
-  // Headline shows the STATUS word (Подключено / Подключение… / Отключено).
-  const shieldLabel = t(STATUS_LABEL_KEY[status] ?? "conn.disconnected");
-  const shieldSub = connected
-    ? `${t("common.disconnect")} · ${uptime || `0${unitS}`}`
-    : busy
-      ? "\u2026"
-      : L.tapConnect;
+  // Nameplate shows the live connection STATE (Подключено / Подключение / Отключено).
+  const shieldLabel = t(STATUS_LABEL_KEY[status]).replace("\u2026", "");
+  const shieldSub = connected ? uptime || `0${unitS}` : busy ? "\u2026" : L.tapConnect;
   const shownCore = (connected || busy) && activeCore ? activeCore : proxyCore;
   const coreLabel = shownCore === "xray" ? "Xray" : "sing-box";
   const dash = "\u2014";
@@ -164,18 +160,36 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col items-center gap-6 px-6 py-8">
-      {/* Protection sub-line — small, non-boxed (status headline lives on the shield). */}
+      {/* Protection banner */}
       <motion.div
         custom={0}
         variants={fadeInUp}
         initial="initial"
         animate="enter"
-        className="flex items-center gap-2 text-sm"
+        className="glass flex w-full items-center justify-between rounded-panel px-5 py-3.5"
       >
-        <ShieldCheck size={16} className={connected ? "text-ok" : "text-text-dim"} />
-        <span className={cn("font-medium", connected ? "text-ok" : "text-text-dim")}>
-          {connected ? L.protectedTitle : L.exposedTitle}
-        </span>
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid h-9 w-9 place-items-center rounded-full transition-colors",
+              connected ? "bg-ok/15 text-ok" : "bg-text-faint/10 text-text-dim",
+            )}
+          >
+            <ShieldCheck size={18} />
+          </span>
+          <div className="leading-tight">
+            <div className={cn("text-sm font-semibold", connected ? "text-ok" : "text-text")}>
+              {connected ? L.protectedTitle : L.exposedTitle}
+            </div>
+            <div className="text-xs text-text-dim">{connected ? L.protectedSub : L.exposedSub}</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] uppercase tracking-wider text-text-faint">{t("conn.uptime")}</div>
+          <div className="font-mono text-sm font-semibold text-text">
+            {connected ? uptime || `0${unitS}` : dash}
+          </div>
+        </div>
       </motion.div>
 
       {/* Hero: server identity + shield */}
