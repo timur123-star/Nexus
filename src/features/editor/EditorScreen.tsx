@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, AlertCircle, Download, RefreshCw } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -49,7 +49,27 @@ export function EditorScreen() {
   }, [active, proxy]);
 
   const [text, setText] = useState(generated.text);
+  const [dirty, setDirty] = useState(false);
   const [check, setCheck] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  // Follow the generated config (active server / settings changes) until the
+  // user starts editing by hand. Their manual edits are then preserved until
+  // they explicitly press Regenerate.
+  useEffect(() => {
+    if (!dirty) setText(generated.text);
+  }, [generated.text, dirty]);
+
+  const handleChange = (v: string) => {
+    setText(v);
+    setDirty(true);
+    setCheck(null);
+  };
+
+  const handleRegenerate = () => {
+    setText(generated.text);
+    setDirty(false);
+    setCheck(null);
+  };
 
   async function handleValidate() {
     setCheck(await validateConfig(text));
@@ -81,7 +101,7 @@ export function EditorScreen() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setText(generated.text)}
+            onClick={handleRegenerate}
             className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
           >
             <RefreshCw size={14} /> {t("editor.regenerate")}
@@ -119,7 +139,7 @@ export function EditorScreen() {
       )}
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-card border border-border">
-        <CodeEditor value={text} onChange={setText} language="json" />
+        <CodeEditor value={text} onChange={handleChange} language="json" />
       </div>
     </div>
   );
