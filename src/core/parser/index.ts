@@ -33,6 +33,31 @@ export interface ParseResult {
 }
 
 /**
+ * A config-level identity for de-duplication. Two entries that resolve to the
+ * exact same outbound (ignoring only the human remark / name) collapse to one,
+ * but servers that share a domain+port+credential yet differ by transport,
+ * path, host, SNI, security or flow — as CDN / 3x-ui subscriptions routinely
+ * do — are kept as distinct endpoints.
+ */
+function identityKey(s: ServerProfile): string {
+  return [
+    s.protocol,
+    s.address,
+    s.port,
+    s.uuid ?? "",
+    s.password ?? "",
+    s.method ?? "",
+    s.transport.type,
+    s.transport.path ?? "",
+    s.transport.host ?? "",
+    s.transport.serviceName ?? "",
+    s.tls.security,
+    s.tls.sni ?? "",
+    s.flow ?? "",
+  ].join("|");
+}
+
+/**
  * Parse an arbitrary blob into servers. Handles:
  *  - a single share link
  *  - many links separated by newlines / whitespace
@@ -70,7 +95,7 @@ export function parseMany(text: string): ParseResult {
     }
     try {
       const server = parseShareLink(line);
-      const dupKey = `${server.protocol}|${server.address}|${server.port}|${server.uuid ?? server.password ?? ""}`;
+      const dupKey = identityKey(server);
       if (seen.has(dupKey)) continue;
       seen.add(dupKey);
       servers.push(server);
