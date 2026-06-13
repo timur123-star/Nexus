@@ -412,7 +412,7 @@ export function SettingsScreen() {
                     ? "ring-2 ring-text/70 ring-offset-2 ring-offset-bg scale-110"
                     : "hover:scale-110",
                 )}
-                style= backgroundColor: a.base 
+                style={ { backgroundColor: a.base } }
               />
             ))}
           </div>
