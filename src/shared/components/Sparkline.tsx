@@ -16,6 +16,10 @@ export function Sparkline({
   fill?: boolean;
   strokeWidth?: number;
 }) {
+  // All hooks must run unconditionally and in a stable order, so compute the
+  // gradient id and the path geometry before any early return.
+  const gid = useMemo(() => `sg-${Math.random().toString(36).slice(2, 8)}`, []);
+
   const { line, area } = useMemo(() => {
     if (data.length < 2) return { line: "", area: "" };
     const max = Math.max(...data, 1);
@@ -33,8 +37,6 @@ export function Sparkline({
   if (!line) {
     return <svg width={width} height={height} className="opacity-30" />;
   }
-
-  const gid = useMemo(() => `sg-${Math.random().toString(36).slice(2, 8)}`, []);
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
