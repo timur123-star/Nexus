@@ -326,6 +326,7 @@ function buildTransportBlock(t: TransportSettings): object | null {
     case "grpc":
       return { type: "grpc", service_name: t.serviceName || "" };
     case "h2":
+    case "http":
       return { type: "http", path: t.path || "/", ...(t.host ? { host: [t.host] } : {}) };
     default:
       return null; // tcp / quic -- no transport block
