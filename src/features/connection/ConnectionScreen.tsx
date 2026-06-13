@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Globe2, Clock, ChevronRight } from "lucide-react";
+import { Zap, Globe2, Clock, ChevronRight, Rocket } from "lucide-react";
 import type { ConnectionStatus } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
+import { toast } from "../../store/useToastStore";
 import { Sparkline } from "../../shared/components/Sparkline";
 import { ConnectButton } from "../../shared/components/ConnectButton";
 import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../../shared/lib/utils";
@@ -64,7 +65,8 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const t = useT();
   const servers = useServerStore((s) => s.servers);
   const pingOne = useServerStore((s) => s.pingOne);
-  const { status, activeServerId, connectedAt, traffic, samples, toggle, error } = useConnectionStore();
+  const pingAllAndBest = useServerStore((s) => s.pingAllAndBest);
+  const { status, activeServerId, connectedAt, traffic, samples, toggle, connect, error } = useConnectionStore();
 
   const active =
     servers.find((s) => s.id === activeServerId) ??
@@ -72,6 +74,23 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
 
   const connected = status === "connected";
   const busy = status === "connecting" || status === "reconnecting";
+
+  const [autoBusy, setAutoBusy] = useState(false);
+  const handleAutoBest = async () => {
+    if (autoBusy) return;
+    setAutoBusy(true);
+    try {
+      const best = await pingAllAndBest();
+      if (!best) {
+        toast.warning(t("servers.autoNone"));
+        return;
+      }
+      toast.success(t("servers.autoConnecting", { name: best.name }));
+      await connect(best);
+    } finally {
+      setAutoBusy(false);
+    }
+  };
 
   const unitH = t("common.unit.h");
   const unitM = t("common.unit.m");
@@ -143,12 +162,26 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         </div>
 
         {/* Connect button with pulse ring */}
-        <div className="my-7 flex justify-center">
+        <div className="mb-3 mt-7 flex justify-center">
           <ConnectButton
             state={connectState}
             onClick={() => toggle(active)}
             labels={connectLabels}
           />
+        </div>
+
+        {/* Quick auto-best action */}
+        <div className="mb-5 flex justify-center">
+          <button
+            type="button"
+            onClick={handleAutoBest}
+            disabled={autoBusy || busy}
+            title={t("servers.autoBest")}
+            className="flex items-center gap-1.5 rounded-btn border border-border px-3 py-1.5 text-xs text-text-dim transition-colors hover:border-indigo/40 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Rocket size={13} className={cn(autoBusy && "animate-pulse")} />
+            {t("servers.autoBest")}
+          </button>
         </div>
 
         {/* Live throughput */}
