@@ -177,7 +177,12 @@ export default function App() {
               exit="exit"
               className="h-full"
             >
-              {screen === "connection" && <ConnectionScreen onBrowse={() => setScreen("servers")} />}
+              {screen === "connection" && (
+                <ConnectionScreen
+                  onBrowse={() => setScreen("servers")}
+                  onImport={() => setImportOpen(true)}
+                />
+              )}
               {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
               {screen === "stats" && <StatsScreen />}
               {screen === "history" && <HistoryScreen />}

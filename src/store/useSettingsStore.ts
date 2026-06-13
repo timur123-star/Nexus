@@ -10,6 +10,15 @@ export interface ProxySettings {
   mixedPort: number;
   allowLan: boolean;
   systemProxy: boolean;
+  /**
+   * How traffic is captured on the host, surfaced as the home-screen mode pill
+   * (Hiddify-style). The single source of truth — `systemProxy` and
+   * `tun.enabled` are derived from it so the engine wiring stays unchanged:
+   *   "proxy"  → local SOCKS/HTTP only (configure your app manually)
+   *   "system" → set the OS system proxy to our mixed port
+   *   "tun"    → full VPN tunnel (TUN device, needs elevated privileges)
+   */
+  connectionMode: "proxy" | "system" | "tun";
   routingMode: RoutingMode;
   /** Reject the QUIC protocol so browsers fall back to TCP/TLS and stay routed. */
   blockQuic: boolean;
@@ -123,6 +132,7 @@ export const DEFAULT_PROXY: ProxySettings = {
   mixedPort: 2080,
   allowLan: false,
   systemProxy: true,
+  connectionMode: "system",
   routingMode: "rule",
   blockQuic: false,
   customRules: [],
@@ -160,6 +170,20 @@ export const useSettingsStore = create<SettingsState>()(
             proxy.mixedPort = sanitizePort(patch.mixedPort, s.proxy.mixedPort);
           if (patch.clashApiPort !== undefined)
             proxy.clashApiPort = sanitizePort(patch.clashApiPort, s.proxy.clashApiPort);
+          // The mode pill is the single source of truth: derive the engine
+          // toggles from it so switching mode actually changes capture method.
+          if (patch.connectionMode !== undefined) {
+            proxy.systemProxy = patch.connectionMode === "system";
+            proxy.tun = { ...proxy.tun, enabled: patch.connectionMode === "tun" };
+          } else if (patch.systemProxy !== undefined || patch.tun !== undefined) {
+            // Keep the home-screen mode pill coherent when the legacy Settings
+            // toggles flip systemProxy / TUN directly.
+            proxy.connectionMode = proxy.tun.enabled
+              ? "tun"
+              : proxy.systemProxy
+                ? "system"
+                : "proxy";
+          }
           return { proxy };
         }),
       setApp: (patch) => set((s) => ({ app: { ...s.app, ...patch } })),
@@ -185,6 +209,15 @@ export const useSettingsStore = create<SettingsState>()(
               persistedProxy.routingProfiles && persistedProxy.routingProfiles.length > 0
                 ? persistedProxy.routingProfiles
                 : current.proxy.routingProfiles,
+            // Back-fill the mode pill from the legacy booleans for users who
+            // upgrade from a build that had no `connectionMode`.
+            connectionMode:
+              persistedProxy.connectionMode ??
+              (persistedProxy.tun?.enabled
+                ? "tun"
+                : persistedProxy.systemProxy === false
+                  ? "proxy"
+                  : "system"),
           },
           app: { ...current.app, ...(p.app ?? {}) },
         };

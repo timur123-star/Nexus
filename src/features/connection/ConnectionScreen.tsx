@@ -12,11 +12,16 @@ import {
   Crosshair,
   Plus,
   Star,
+  ClipboardPaste,
+  Network,
+  ShieldCheck,
 } from "lucide-react";
 import type { ConnectionStatus, ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { useToastStore } from "../../store/useToastStore";
+import { detectFormat } from "../../core/parser";
 import { Sparkline } from "../../shared/components/Sparkline";
 import { ShieldConnectButton } from "../../shared/components/ShieldConnectButton";
 import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../../shared/lib/utils";
@@ -54,6 +59,16 @@ interface DashStrings {
   disconnect: string;
   connecting: string;
   quickConnect: string;
+  modeProxy: string;
+  modeSystem: string;
+  modeTun: string;
+  pasteClipboard: string;
+  addManual: string;
+  pasteEmpty: string;
+  pasteFail: string;
+  subAdded: string;
+  importedN: string;
+  importNone: string;
 }
 const DASH_STRINGS: Record<Lang, DashStrings> = {
   en: {
@@ -62,6 +77,10 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     ipAddress: "IP Address", protocol: "Protocol", encryption: "Encryption", connStatus: "Status",
     stable: "Stable", tapConnect: "Tap to connect",
     connect: "Connect", disconnect: "Disconnect", connecting: "Connecting", quickConnect: "Quick connect",
+    modeProxy: "Proxy", modeSystem: "System proxy", modeTun: "VPN",
+    pasteClipboard: "Paste from clipboard", addManual: "Add manually",
+    pasteEmpty: "Clipboard is empty", pasteFail: "Couldn't read the clipboard",
+    subAdded: "Subscription added", importedN: "Imported", importNone: "No configs found in the clipboard",
   },
   ru: {
     downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a",
@@ -69,6 +88,10 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     ipAddress: "IP-адрес", protocol: "Протокол", encryption: "Шифрование", connStatus: "Статус",
     stable: "Стабильно", tapConnect: "Нажмите, чтобы подключиться",
     connect: "Подключиться", disconnect: "Отключиться", connecting: "Подключение", quickConnect: "Быстрое подключение",
+    modeProxy: "Прокси", modeSystem: "Системный прокси", modeTun: "VPN",
+    pasteClipboard: "Вставить из буфера", addManual: "Добавить вручную",
+    pasteEmpty: "Буфер обмена пуст", pasteFail: "Не удалось прочитать буфер обмена",
+    subAdded: "Подписка добавлена", importedN: "Импортировано", importNone: "В буфере не найдено конфигов",
   },
   fa: {
     downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج",
@@ -76,6 +99,10 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     ipAddress: "آدرس IP", protocol: "پروتکل", encryption: "رمزنگاری", connStatus: "وضعیت",
     stable: "پایدار", tapConnect: "برای اتصال ضربه بزنید",
     connect: "اتصال", disconnect: "قطع اتصال", connecting: "در حال اتصال", quickConnect: "اتصال سریع",
+    modeProxy: "پروکسی", modeSystem: "پروکسی سیستم", modeTun: "VPN",
+    pasteClipboard: "جای‌گذاری از کلیپ‌بورد", addManual: "افزودن دستی",
+    pasteEmpty: "کلیپ‌بورد خالی است", pasteFail: "خواندن کلیپ‌بورد ناموفق بود",
+    subAdded: "اشتراک اضافه شد", importedN: "وارد شد", importNone: "هیچ پیکربندی در کلیپ‌بورد یافت نشد",
   },
   zh: {
     downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值",
@@ -83,6 +110,10 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     ipAddress: "IP 地址", protocol: "协议", encryption: "加密", connStatus: "状态",
     stable: "稳定", tapConnect: "点击连接",
     connect: "连接", disconnect: "断开", connecting: "连接中", quickConnect: "快速连接",
+    modeProxy: "代理", modeSystem: "系统代理", modeTun: "VPN",
+    pasteClipboard: "从剪贴板粘贴", addManual: "手动添加",
+    pasteEmpty: "剪贴板为空", pasteFail: "无法读取剪贴板",
+    subAdded: "已添加订阅", importedN: "已导入", importNone: "剪贴板中未找到配置",
   },
 };
 
@@ -92,13 +123,26 @@ const valueTransition = { duration: 0.25, ease: "easeOut" };
 const floatAnimate = { y: [0, -8, 0] };
 const floatTransition = { duration: 4, repeat: Infinity, ease: "easeInOut" };
 
-export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
+export function ConnectionScreen({
+  onBrowse,
+  onImport,
+}: {
+  onBrowse: () => void;
+  onImport?: () => void;
+}) {
   const t = useT();
   const lang = useSettingsStore((s) => s.app.language);
   const proxyCore = useSettingsStore((s) => s.proxy.coreKind);
+  const connectionMode = useSettingsStore((s) => s.proxy.connectionMode);
+  const setProxy = useSettingsStore((s) => s.setProxy);
+  const subIntervalHours = useSettingsStore((s) => s.app.subscriptionUpdateHours);
   const L = DASH_STRINGS[lang] ?? DASH_STRINGS.en;
   const servers = useServerStore((s) => s.servers);
+  const addFromBlob = useServerStore((s) => s.addFromBlob);
+  const addSubscription = useServerStore((s) => s.addSubscription);
   const pingOne = useServerStore((s) => s.pingOne);
+  const pushToast = useToastStore((s) => s.push);
+  const [pasteBusy, setPasteBusy] = useState(false);
   const { status, activeServerId, activeCore, connectedAt, traffic, samples, toggle, connect } =
     useConnectionStore();
 
@@ -141,8 +185,57 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
     return () => clearInterval(id);
   }, [active?.id]);
 
+  async function pasteFromClipboard() {
+    if (pasteBusy) return;
+    setPasteBusy(true);
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (!text) {
+        pushToast({ kind: "warning", message: L.pasteEmpty });
+        return;
+      }
+      // Auto-detect: a single http(s) URL is a subscription; anything else
+      // (share links / base64 body / link list) is imported directly.
+      const fmt = detectFormat(text);
+      const isSubUrl =
+        /^https?:\/\//i.test(text) && !/\s/.test(text) && fmt !== "share-link";
+      if (isSubUrl) {
+        let host = "Подписка";
+        try {
+          host = new URL(text).hostname || host;
+        } catch {
+          /* keep default */
+        }
+        await addSubscription(host, text, subIntervalHours);
+        pushToast({ kind: "success", message: L.subAdded });
+      } else {
+        const { added, errors } = addFromBlob(text);
+        if (added > 0) {
+          pushToast({
+            kind: "success",
+            message: `${L.importedN}: ${added}${errors ? ` · ${errors} ✕` : ""}`,
+          });
+        } else {
+          pushToast({ kind: "error", message: L.importNone });
+        }
+      }
+    } catch {
+      pushToast({ kind: "error", message: L.pasteFail });
+    } finally {
+      setPasteBusy(false);
+    }
+  }
+
   if (!active) {
-    return <EmptyState onBrowse={onBrowse} />;
+    return (
+      <EmptyState
+        onBrowse={onBrowse}
+        onPaste={pasteFromClipboard}
+        onAdd={onImport ?? onBrowse}
+        pasteBusy={pasteBusy}
+        L={L}
+      />
+    );
   }
 
   const downSeries = samples.map((s) => s.down);
@@ -163,6 +256,13 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-4 px-6 py-4">
       {/* Hero: emblem connect control (the emblem itself toggles) + server pill */}
       <div className="flex flex-col items-center gap-4">
+        <ModeSwitcher
+          mode={connectionMode}
+          onChange={(m) => setProxy({ connectionMode: m })}
+          disabled={connected || busy}
+          L={L}
+        />
+
         <ShieldConnectButton
           state={shieldState}
           onClick={() => !busy && toggle(active)}
@@ -189,6 +289,14 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
           </div>
           <ChevronRight size={18} className="text-text-faint" />
         </button>
+
+        {/* Quick import: paste-from-clipboard (auto-detects link/sub) + manual add */}
+        <ImportBar
+          onPaste={pasteFromClipboard}
+          onAdd={onImport ?? onBrowse}
+          pasteBusy={pasteBusy}
+          L={L}
+        />
       </div>
 
       {/* Bottom panel ─────────────────────────────────────────────── */}
@@ -252,6 +360,95 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
           <Cpu size={11} /> {L.xrayLive}
         </p>
       )}
+    </div>
+  );
+}
+
+function ModeSwitcher({
+  mode,
+  onChange,
+  disabled,
+  L,
+}: {
+  mode: "proxy" | "system" | "tun";
+  onChange: (m: "proxy" | "system" | "tun") => void;
+  disabled?: boolean;
+  L: DashStrings;
+}) {
+  const items: { id: "proxy" | "system" | "tun"; label: string; icon: React.ElementType }[] = [
+    { id: "proxy", label: L.modeProxy, icon: Network },
+    { id: "system", label: L.modeSystem, icon: Globe2 },
+    { id: "tun", label: L.modeTun, icon: ShieldCheck },
+  ];
+  return (
+    <div
+      className={cn(
+        "glass relative flex items-center gap-1 rounded-full p-1",
+        disabled && "pointer-events-none opacity-50",
+      )}
+      role="tablist"
+      aria-label={L.connStatus}
+    >
+      {items.map((it) => {
+        const selected = it.id === mode;
+        const Icon = it.icon;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            disabled={disabled}
+            onClick={() => onChange(it.id)}
+            className="relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition-colors"
+          >
+            {selected && (
+              <motion.span
+                layoutId="mode-pill"
+                className="absolute inset-0 rounded-full bg-indigo/15 ring-1 ring-indigo/40"
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
+            <Icon size={13} className={cn("relative z-[1]", selected ? "text-indigo" : "text-text-faint")} />
+            <span className={cn("relative z-[1]", selected ? "text-text" : "text-text-dim")}>{it.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ImportBar({
+  onPaste,
+  onAdd,
+  pasteBusy,
+  L,
+}: {
+  onPaste: () => void;
+  onAdd: () => void;
+  pasteBusy: boolean;
+  L: DashStrings;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={onPaste}
+        disabled={pasteBusy}
+        className="glass ns-lift flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-medium text-text transition-colors hover:border-indigo/40 disabled:opacity-60"
+      >
+        <ClipboardPaste size={14} className="text-indigo" />
+        {L.pasteClipboard}
+      </button>
+      <button
+        type="button"
+        onClick={onAdd}
+        title={L.addManual}
+        aria-label={L.addManual}
+        className="glass ns-lift grid h-9 w-9 place-items-center rounded-full text-text-dim transition-colors hover:border-indigo/40 hover:text-text"
+      >
+        <Plus size={16} />
+      </button>
     </div>
   );
 }
@@ -371,7 +568,19 @@ function QuickConnectTile({
   );
 }
 
-function EmptyState({ onBrowse }: { onBrowse: () => void }) {
+function EmptyState({
+  onBrowse,
+  onPaste,
+  onAdd,
+  pasteBusy,
+  L,
+}: {
+  onBrowse: () => void;
+  onPaste: () => void;
+  onAdd: () => void;
+  pasteBusy: boolean;
+  L: DashStrings;
+}) {
   const t = useT();
   return (
     <div className="grid h-full place-items-center p-8 text-center">
@@ -381,12 +590,25 @@ function EmptyState({ onBrowse }: { onBrowse: () => void }) {
         </motion.div>
         <h2 className="mt-4 text-lg font-semibold text-text">{t("conn.noServers")}</h2>
         <p className="mt-1 text-sm text-text-dim">{t("conn.noServersHint")}</p>
-        <button
-          onClick={onBrowse}
-          className="mt-5 rounded-btn bg-indigo px-4 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
-        >
-          {t("conn.goToServers")}
-        </button>
+        <div className="mt-5 flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={onPaste}
+            disabled={pasteBusy}
+            className="flex items-center gap-2 rounded-btn bg-indigo px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-soft disabled:opacity-60"
+          >
+            <ClipboardPaste size={15} /> {L.pasteClipboard}
+          </button>
+          <div className="flex items-center gap-4 text-sm">
+            <button onClick={onAdd} className="text-text-dim transition-colors hover:text-text">
+              {L.addManual}
+            </button>
+            <span className="text-text-faint">·</span>
+            <button onClick={onBrowse} className="text-text-dim transition-colors hover:text-text">
+              {t("conn.goToServers")}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
