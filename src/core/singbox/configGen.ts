@@ -30,7 +30,7 @@ export interface GenOptions {
   customRules?: RoutingRule[];
   /** Reject QUIC so browsers fall back to TCP/TLS and remain routed. */
   blockQuic?: boolean;
-  /** Stream multiplexing (mux) — applied to TCP-based protocols only. */
+  /** Stream multiplexing (mux) applied to TCP-based protocols only. */
   mux?: ProxySettings["mux"];
   /** TLS fragmentation. Native to Xray; sing-box configs intentionally ignore it. */
   fragment?: ProxySettings["fragment"];
@@ -233,7 +233,7 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         type: "vless",
         ...common,
         uuid: s.uuid,
-        flow: s.flow || "",
+        ...(s.flow ? { flow: s.flow } : {}),
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
         ...(multiplex ? { multiplex } : {}),
@@ -291,17 +291,24 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
 
 function buildTlsBlock(s: ServerProfile): object | null {
   if (!s.tls.enabled) return null;
+  const isReality = s.tls.security === "reality";
   const tls: Record<string, unknown> = {
     enabled: true,
     server_name: s.tls.sni || s.address,
     insecure: !!s.tls.allowInsecure,
   };
   if (s.tls.alpn?.length) tls.alpn = s.tls.alpn;
-  if (s.tls.fingerprint) tls.utls = { enabled: true, fingerprint: s.tls.fingerprint };
-  if (s.tls.security === "reality") {
+  // sing-box REQUIRES a utls block for Reality. Many 3x-ui share links omit the
+  // `fp` param, so we must still emit utls (defaulting to "chrome") whenever
+  // Reality is in use; otherwise the outbound is invalid and only plain-TLS
+  // protocols (e.g. Trojan) connect.
+  if (s.tls.fingerprint || isReality) {
+    tls.utls = { enabled: true, fingerprint: s.tls.fingerprint || "chrome" };
+  }
+  if (isReality) {
     tls.reality = {
       enabled: true,
-      public_key: s.tls.publicKey,
+      public_key: s.tls.publicKey || "",
       short_id: s.tls.shortId || "",
     };
   }
