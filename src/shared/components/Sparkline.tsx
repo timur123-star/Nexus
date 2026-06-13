@@ -42,15 +42,30 @@ export function Sparkline({
   const svgWidth = responsive ? "100%" : width;
   const preserveAspectRatio = responsive ? "none" : undefined;
 
+  // No data yet: instead of a blank box, draw a subtle dashed baseline so the
+  // chart area reads as "idle / resting" rather than broken or empty.
   if (!line) {
+    const baselineY = height - 1;
     return (
       <svg
         width={svgWidth}
         height={height}
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio={preserveAspectRatio}
-        className={responsive ? "block opacity-30" : "opacity-30"}
-      />
+        className={responsive ? "block" : undefined}
+      >
+        <line
+          x1={0}
+          y1={baselineY}
+          x2={width}
+          y2={baselineY}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray="3 6"
+          opacity={0.3}
+        />
+      </svg>
     );
   }
 
