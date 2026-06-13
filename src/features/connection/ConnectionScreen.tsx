@@ -13,7 +13,7 @@ import { fadeInUp } from "../../shared/lib/motion";
 import { flagFor } from "../../shared/lib/flags";
 import { PROTOCOL_LABEL } from "../servers/protocolMeta";
 import { useT } from "../../core/i18n/useT";
-import type { MessageKey } from "../../core/i18n";
+import type { Lang, MessageKey } from "../../core/i18n";
 
 const STATUS_DOT: Record<ConnectionStatus, string> = {
   connected: "bg-ok",
@@ -32,8 +32,8 @@ const STATUS_LABEL_KEY: Record<ConnectionStatus, MessageKey> = {
 };
 
 /**
- * Dashboard-only labels. Kept as a local en/ru map (other languages fall back
- * to English) so the global i18n catalogue — and its strict key-parity test —
+ * Dashboard-only labels. Kept as a local map (other languages fall back to
+ * English) so the global i18n catalogue — and its strict key-parity test —
  * stays untouched while we iterate on this screen.
  */
 interface DashStrings {
@@ -42,9 +42,11 @@ interface DashStrings {
   core: string;
   peak: string;
 }
-const DASH_STRINGS: Record<string, DashStrings> = {
+const DASH_STRINGS: Record<Lang, DashStrings> = {
   en: { downloaded: "Downloaded", uploaded: "Uploaded", core: "Core", peak: "peak" },
   ru: { downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a" },
+  fa: { downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج" },
+  zh: { downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值" },
 };
 
 const dotPulseAnimate = { opacity: [1, 0.35, 1], scale: [1, 1.5, 1] };
