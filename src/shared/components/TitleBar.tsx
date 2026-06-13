@@ -1,5 +1,6 @@
-import { Minus, X, Square } from "lucide-react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useState } from "react";
+import { Minus, X, Square, Minimize2, Maximize2 } from "lucide-react";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { isTauri } from "../../core/ipc";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -25,7 +26,28 @@ export function TitleBar() {
   const minimizeToTray = useSettingsStore((s) => s.app.minimizeToTray);
   const t = useT();
 
+  const [mini, setMini] = useState(false);
   const win = isTauri ? getCurrentWindow() : null;
+
+  // Mini mode: shrink the window to a compact widget for a glanceable, always-
+  // on-top connection view, and restore the previous size on the way back.
+  const toggleMini = async () => {
+    if (!win) return;
+    try {
+      if (!mini) {
+        await win.setSize(new LogicalSize(380, 540));
+        await win.setAlwaysOnTop(true);
+        setMini(true);
+      } else {
+        await win.setSize(new LogicalSize(1040, 720));
+        await win.setAlwaysOnTop(false);
+        setMini(false);
+      }
+    } catch {
+      /* window ops are best-effort */
+    }
+  };
+
   const dotColor =
     status === "connected" ? "bg-ok" : status === "connecting" ? "bg-warn" : status === "error" ? "bg-bad" : "bg-text-faint";
 
@@ -60,6 +82,9 @@ export function TitleBar() {
       </div>
 
       <div className="flex items-center gap-1">
+        <WinBtn onClick={() => void toggleMini()} label="mini">
+          {mini ? <Maximize2 size={13} /> : <Minimize2 size={13} />}
+        </WinBtn>
         <WinBtn onClick={() => win?.minimize()} label="minimize">
           <Minus size={15} />
         </WinBtn>

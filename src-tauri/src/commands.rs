@@ -260,3 +260,111 @@ fn open_path(path: &std::path::Path) {
     let opener = "xdg-open";
     let _ = std::process::Command::new(opener).arg(path).spawn();
 }
+
+/// Result of a real download/upload/latency speed test run through the active
+/// local proxy. All values are 0 on a failed run.
+#[derive(Serialize, Default)]
+pub struct SpeedTestResult {
+    #[serde(rename = "downMbps")]
+    down_mbps: f64,
+    #[serde(rename = "upMbps")]
+    up_mbps: f64,
+    #[serde(rename = "latencyMs")]
+    latency_ms: f64,
+    #[serde(rename = "jitterMs")]
+    jitter_ms: f64,
+}
+
+/// Build a reqwest client that tunnels through the local mixed proxy so the
+/// measurement reflects the *tunneled* throughput, not the bare connection.
+/// When `proxy_port` is 0 we measure the direct connection instead.
+fn speedtest_client(proxy_port: u16) -> Result<reqwest::Client, String> {
+    let mut builder = reqwest::Client::builder()
+        .user_agent("NexusShield/0.1 (speedtest)")
+        .timeout(std::time::Duration::from_secs(30));
+    if proxy_port != 0 {
+        let proxy = reqwest::Proxy::all(format!("http://127.0.0.1:{proxy_port}"))
+            .map_err(|e| e.to_string())?;
+        builder = builder.proxy(proxy);
+    }
+    builder.build().map_err(|e| e.to_string())
+}
+
+/// Measure download throughput, upload throughput, latency and jitter through
+/// the active proxy. Uses Cloudflare's open speed endpoints (no API key). The
+/// frontend passes the live `mixedPort` so the test reflects the real tunnel.
+#[tauri::command]
+pub async fn speed_test(proxy_port: u16) -> Result<SpeedTestResult, String> {
+    let client = speedtest_client(proxy_port)?;
+
+    // ── Latency + jitter: several tiny requests, measure round-trip spread. ──
+    let mut latencies: Vec<f64> = Vec::new();
+    for _ in 0..5 {
+        let t = Instant::now();
+        let r = client
+            .get("https://speed.cloudflare.com/__down?bytes=0")
+            .send()
+            .await;
+        if let Ok(resp) = r {
+            let _ = resp.bytes().await;
+            latencies.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+    }
+    let latency_ms = if latencies.is_empty() {
+        0.0
+    } else {
+        latencies.iter().sum::<f64>() / latencies.len() as f64
+    };
+    // Jitter = mean absolute deviation of consecutive samples.
+    let jitter_ms = if latencies.len() < 2 {
+        0.0
+    } else {
+        let mut diffs = 0.0;
+        for w in latencies.windows(2) {
+            diffs += (w[1] - w[0]).abs();
+        }
+        diffs / (latencies.len() - 1) as f64
+    };
+
+    // ── Download: pull a fixed payload, measure wall-clock throughput. ──
+    let down_bytes: u64 = 25_000_000; // 25 MB
+    let mut down_mbps = 0.0;
+    let t = Instant::now();
+    if let Ok(resp) = client
+        .get(format!("https://speed.cloudflare.com/__down?bytes={down_bytes}"))
+        .send()
+        .await
+    {
+        if let Ok(body) = resp.bytes().await {
+            let secs = t.elapsed().as_secs_f64();
+            if secs > 0.0 {
+                down_mbps = (body.len() as f64 * 8.0) / (secs * 1_000_000.0);
+            }
+        }
+    }
+
+    // ── Upload: POST a payload and measure how fast it drains. ──
+    let up_bytes: usize = 10_000_000; // 10 MB
+    let mut up_mbps = 0.0;
+    let payload = vec![0u8; up_bytes];
+    let t = Instant::now();
+    if let Ok(resp) = client
+        .post("https://speed.cloudflare.com/__up")
+        .body(payload)
+        .send()
+        .await
+    {
+        let _ = resp.bytes().await;
+        let secs = t.elapsed().as_secs_f64();
+        if secs > 0.0 {
+            up_mbps = (up_bytes as f64 * 8.0) / (secs * 1_000_000.0);
+        }
+    }
+
+    Ok(SpeedTestResult {
+        down_mbps,
+        up_mbps,
+        latency_ms,
+        jitter_ms,
+    })
+}

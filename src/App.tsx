@@ -12,6 +12,7 @@ import { LogsScreen } from "./features/logs/LogsScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { EditorScreen } from "./features/editor/EditorScreen";
 import { ImportDialog } from "./features/import/ImportDialog";
+import { CommandPalette } from "./shared/components/CommandPalette";
 import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
 import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
@@ -24,12 +25,24 @@ import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
 import { useSettingsStore } from "./store/useSettingsStore";
 import { startSubscriptionScheduler } from "./core/subscriptions/scheduler";
+import { parseDeepLink } from "./core/deeplink";
+import { toast } from "./store/useToastStore";
 import { pageVariants } from "./shared/lib/motion";
 import { applyAccent } from "./shared/lib/accents";
+
+// Screen-local toasts for deep-link imports — kept out of the global i18n
+// dictionary so they never affect the key-parity test.
+const DEEPLINK_MSG: Record<"ru" | "en" | "fa" | "zh", (n: number) => string> = {
+  ru: (n) => `Импортировано из ссылки: ${n} сервер(ов)`,
+  en: (n) => `Imported from link: ${n} server(s)`,
+  fa: (n) => `از لینک وارد شد: ${n} سرور`,
+  zh: (n) => `已从链接导入：${n} 个服务器`,
+};
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("connection");
   const [importOpen, setImportOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const servers = useServerStore((s) => s.servers);
   const theme = useSettingsStore((s) => s.app.theme);
   const accent = useSettingsStore((s) => s.app.accent);
@@ -71,11 +84,15 @@ export default function App() {
     applyAccent(accent);
   }, [accent]);
 
-  // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import.
+  // Global hotkeys: Ctrl/⌘+K command palette, Ctrl/⌘+Enter toggle connection,
+  // Ctrl/⌘+, settings, Ctrl/⌘+I import.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
-      if (e.key === "k") {
+      if (e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      } else if (e.key === "Enter") {
         e.preventDefault();
         void toggleActive();
       } else if (e.key === ",") {
@@ -101,6 +118,27 @@ export default function App() {
 
   // Auto-refresh subscriptions on their configured schedule.
   useEffect(() => startSubscriptionScheduler(), []);
+
+  // Handle `nexusshield://` deep links forwarded from the native side: parse
+  // the carried payload and import the servers / subscription it describes.
+  useEffect(() => {
+    if (!isTauri) return;
+    const un = listen<string>("deep-link://new", (e) => {
+      const parsed = parseDeepLink(e.payload);
+      if (!parsed) return;
+      const { addFromBlob, addSubscription } = useServerStore.getState();
+      const lang = useSettingsStore.getState().app.language;
+      let added = 0;
+      if (parsed.blob) added += addFromBlob(parsed.blob).added;
+      if (parsed.subscriptionUrl) {
+        void addSubscription(parsed.subscriptionUrl, parsed.subscriptionUrl, 12).catch(() => {});
+      }
+      if (added > 0) toast.success(DEEPLINK_MSG[lang](added));
+    });
+    return () => {
+      un.then((u) => u());
+    };
+  }, []);
 
   async function toggleActive() {
     const { activeServerId, toggle } = useConnectionStore.getState();
@@ -149,6 +187,13 @@ export default function App() {
         </main>
       </div>
       {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigate={setScreen}
+        onImport={() => setImportOpen(true)}
+        onToggleConnection={() => void toggleActive()}
+      />
       <Toaster />
     </div>
   );

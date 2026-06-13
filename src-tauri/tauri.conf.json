@@ -28,6 +28,13 @@
       "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["nexusshield"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

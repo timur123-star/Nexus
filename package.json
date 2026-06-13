@@ -12,7 +12,9 @@
     "fetch-cores": "node scripts/fetch-cores.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",

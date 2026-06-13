@@ -88,6 +88,21 @@ export const relaunchAsAdmin = () => safeInvoke<void>("relaunch_as_admin", undef
 
 export const openLogsDir = () => safeInvoke<void>("open_logs_dir", undefined, undefined);
 
+export interface SpeedTestResult {
+  downMbps: number;
+  upMbps: number;
+  latencyMs: number;
+  jitterMs: number;
+}
+
+/**
+ * Run a real download/upload/latency speed test through the active proxy.
+ * `proxyPort` is the live mixed port; pass 0 to measure the direct connection.
+ * Outside Tauri it returns a plausible mock so the UI is developable in-browser.
+ */
+export const runSpeedTest = (proxyPort: number) =>
+  safeInvoke<SpeedTestResult>("speed_test", { proxyPort }, mockSpeedTest());
+
 export const validateConfig = (config: string) =>
   safeInvoke<{ ok: boolean; error?: string }>("validate_config", { config }, { ok: true });
 
@@ -136,5 +151,13 @@ function mockTraffic(): TrafficStats {
     down: Math.random() * 12_000_000,
     totalUp: 1024 * 1024 * 128,
     totalDown: 1024 * 1024 * 1024,
+  };
+}
+function mockSpeedTest(): SpeedTestResult {
+  return {
+    downMbps: 80 + Math.random() * 220,
+    upMbps: 20 + Math.random() * 80,
+    latencyMs: 25 + Math.random() * 70,
+    jitterMs: 1 + Math.random() * 12,
   };
 }

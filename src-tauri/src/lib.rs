@@ -9,6 +9,8 @@ mod sysproxy;
 mod tray;
 
 use core::AppState;
+use tauri::Emitter;
+use tauri_plugin_deep_link::DeepLinkExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,6 +18,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(AppState::new())
         .setup(|app| {
             // Safety net: reset OS proxy on startup in case a previous session
@@ -23,6 +26,20 @@ pub fn run() {
             let _ = sysproxy::set_system_proxy(false, 0);
 
             tray::build_tray(app.handle())?;
+
+            // Deep links: register the `nexusshield://` scheme at runtime on the
+            // desktop platforms that need it, then forward any opened URL to the
+            // frontend, which parses it and imports the carried servers.
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                let _ = app.deep_link().register_all();
+            }
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    let _ = handle.emit("deep-link://new", url.to_string());
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -48,6 +65,7 @@ pub fn run() {
             commands::relaunch_as_admin,
             commands::validate_config,
             commands::open_logs_dir,
+            commands::speed_test,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NexusShield");

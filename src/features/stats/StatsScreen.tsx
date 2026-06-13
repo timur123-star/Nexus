@@ -5,6 +5,7 @@ import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { getConnections, openLogsDir, type ConnectionEntry } from "../../core/ipc";
 import { Sparkline } from "../../shared/components/Sparkline";
+import { SpeedTestPanel } from "./SpeedTestPanel";
 import { coreLogRing } from "../../shared/hooks/useCoreEvents";
 import { formatBytes, formatUptime, cn } from "../../shared/lib/utils";
 import { useT } from "../../core/i18n/useT";
@@ -219,6 +220,9 @@ export function StatsScreen() {
           </span>
         </div>
       </div>
+
+      {/* Real download/upload/latency/jitter speed test through the tunnel */}
+      <SpeedTestPanel />
 
       {/* Totals */}
       <div className="grid grid-cols-4 gap-3">
