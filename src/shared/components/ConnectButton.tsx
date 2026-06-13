@@ -21,7 +21,7 @@ const hoverScale = { scale: 1.05 };
 // Slowly rotating conic "energy" halo shown while connected.
 const haloStyle: React.CSSProperties = {
   background:
-    "conic-gradient(from 0deg, transparent 0deg, rgba(30,200,164,0.0) 40deg, rgba(30,200,164,0.55) 110deg, rgba(75,217,187,0.0) 200deg, transparent 360deg)",
+    "conic-gradient(from 0deg, transparent 0deg, rgba(34,197,94,0.0) 40deg, rgba(34,197,94,0.55) 110deg, rgba(74,222,128,0.0) 200deg, transparent 360deg)",
   WebkitMaskImage: "radial-gradient(closest-side, transparent 60%, #000 63%, #000 100%)",
   maskImage: "radial-gradient(closest-side, transparent 60%, #000 63%, #000 100%)",
 };
@@ -56,8 +56,8 @@ export function ConnectButton({
 
   const btnAnimate = {
     boxShadow: connected
-      ? "0 14px 44px -8px rgba(30, 200, 164, 0.45)"
-      : "0 14px 44px -8px rgba(91, 106, 240, 0.45)",
+      ? "0 14px 44px -8px rgba(34, 197, 94, 0.45)"
+      : "0 14px 44px -8px rgba(220, 38, 38, 0.5)",
   };
   const spinAnimate = busy && !reduce ? { rotate: 360 } : { rotate: 0 };
   const spinTransition =

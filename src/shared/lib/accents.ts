@@ -15,17 +15,18 @@ export interface AccentPreset {
 }
 
 export const ACCENTS: AccentPreset[] = [
-  { id: "indigo", base: "#5b6af0", soft: "#7d88f4" },
+  { id: "crimson", base: "#dc2626", soft: "#ef4444" },
+  { id: "scarlet", base: "#e11d48", soft: "#fb7185" },
+  { id: "ember", base: "#f97316", soft: "#fb923c" },
+  { id: "amber", base: "#f59e0b", soft: "#fbbf24" },
   { id: "violet", base: "#8b5cf6", soft: "#a78bfa" },
+  { id: "indigo", base: "#5b6af0", soft: "#7d88f4" },
   { id: "blue", base: "#3b82f6", soft: "#60a5fa" },
   { id: "cyan", base: "#06b6d4", soft: "#22d3ee" },
   { id: "emerald", base: "#10b981", soft: "#34d399" },
-  { id: "amber", base: "#f59e0b", soft: "#fbbf24" },
-  { id: "rose", base: "#fb7185", soft: "#fda4af" },
-  { id: "pink", base: "#ec4899", soft: "#f472b6" },
 ];
 
-export const DEFAULT_ACCENT = "indigo";
+export const DEFAULT_ACCENT = "crimson";
 
 /** Re-tint the primary accent by overriding the brand CSS variables. */
 export function applyAccent(id: string): void {

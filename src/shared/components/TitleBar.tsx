@@ -1,4 +1,4 @@
-import { Minus, X, Square, Shield } from "lucide-react";
+import { Minus, X, Square } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../../core/ipc";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -6,6 +6,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn, latencyLabel } from "../lib/utils";
 import { useServerStore } from "../../store/useServerStore";
 import { useT } from "../../core/i18n/useT";
+import logoMark from "../../assets/logo-mark.png";
 import type { ConnectionStatus } from "../../core/types";
 import type { MessageKey } from "../../core/i18n";
 
@@ -40,8 +41,14 @@ export function TitleBar() {
       className="flex h-11 shrink-0 items-center justify-between border-b border-border/60 px-3 select-none"
     >
       <div data-tauri-drag-region className="flex items-center gap-2 text-text">
-        <Shield size={17} className="text-indigo" />
-        <span className="text-[13px] font-semibold tracking-wide">NexusShield</span>
+        <img
+          src={logoMark}
+          alt="NexusShield"
+          className="h-[22px] w-[22px] object-contain drop-shadow-[0_0_6px_rgba(220,38,38,0.5)]"
+        />
+        <span className="text-[13px] font-semibold tracking-wide">
+          Nexus<span className="text-indigo">Shield</span>
+        </span>
       </div>
 
       <div data-tauri-drag-region className="flex items-center gap-2 text-xs text-text-dim">
