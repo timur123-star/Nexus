@@ -57,3 +57,42 @@ describe("generateSingboxConfig VLESS Reality", () => {
     expect("flow" in noFlow.outbounds[0]).toBe(false);
   });
 });
+
+describe("generateSingboxConfig Shadowsocks plugin", () => {
+  function ss(overrides: any = {}): any {
+    return server({
+      protocol: "shadowsocks",
+      method: "aes-128-gcm",
+      password: "pw",
+      uuid: undefined,
+      transport: { type: "tcp" },
+      tls: { enabled: false, security: "none" },
+      ...overrides,
+    });
+  }
+
+  it("splits the SIP002 plugin string into plugin + plugin_opts", () => {
+    const cfg: any = generateSingboxConfig(
+      ss({ extra: { obfs: "obfs-local;obfs=http;obfs-host=example.com" } }),
+      baseOpts,
+    );
+    const out = cfg.outbounds[0];
+    expect(out.type).toBe("shadowsocks");
+    expect(out.plugin).toBe("obfs-local");
+    expect(out.plugin_opts).toBe("obfs=http;obfs-host=example.com");
+  });
+
+  it("emits plugin without opts when none are present", () => {
+    const cfg: any = generateSingboxConfig(ss({ extra: { obfs: "v2ray-plugin" } }), baseOpts);
+    const out = cfg.outbounds[0];
+    expect(out.plugin).toBe("v2ray-plugin");
+    expect("plugin_opts" in out).toBe(false);
+  });
+
+  it("omits plugin fields entirely for a plain shadowsocks server", () => {
+    const cfg: any = generateSingboxConfig(ss(), baseOpts);
+    const out = cfg.outbounds[0];
+    expect("plugin" in out).toBe(false);
+    expect("plugin_opts" in out).toBe(false);
+  });
+});

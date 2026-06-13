@@ -221,6 +221,23 @@ function buildMultiplex(mux: GenOptions["mux"]): object | null {
   };
 }
 
+/**
+ * Shadowsocks SIP002 carries an optional plugin in the form
+ * "name;opt=val;opt=val" (the parser keeps this raw string in extra.obfs).
+ * sing-box wants it split into a `plugin` name and a `plugin_opts` string, so
+ * a server that needs simple-obfs / v2ray-plugin actually negotiates instead
+ * of silently connecting plugin-less and failing.
+ */
+function buildShadowsocksPlugin(raw: string | undefined): object {
+  const value = raw?.trim();
+  if (!value) return {};
+  const semi = value.indexOf(";");
+  const name = (semi >= 0 ? value.slice(0, semi) : value).trim();
+  const opts = semi >= 0 ? value.slice(semi + 1).trim() : "";
+  if (!name) return {};
+  return { plugin: name, ...(opts ? { plugin_opts: opts } : {}) };
+}
+
 function buildOutbound(s: ServerProfile, opts: GenOptions): object {
   const common = { tag: PROXY_TAG, server: s.address, server_port: s.port };
   const tls = buildTlsBlock(s);
@@ -266,6 +283,7 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         ...common,
         method: s.method,
         password: s.password,
+        ...buildShadowsocksPlugin(s.extra?.obfs),
         ...(multiplex ? { multiplex } : {}),
       };
     case "hysteria2":
