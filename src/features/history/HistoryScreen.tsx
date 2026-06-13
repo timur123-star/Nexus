@@ -82,9 +82,10 @@ export function HistoryScreen() {
     [sessions, filter],
   );
 
+  // Totals follow the active filter so the summary cards always match the list.
   const totals = useMemo(
     () =>
-      sessions.reduce(
+      visible.reduce(
         (acc, s) => {
           acc.down += s.bytesDown;
           acc.time += s.durationMs;
@@ -92,7 +93,7 @@ export function HistoryScreen() {
         },
         { down: 0, time: 0 },
       ),
-    [sessions],
+    [visible],
   );
 
   const fmtDate = (ts: number): string =>
@@ -131,7 +132,7 @@ export function HistoryScreen() {
       </header>
 
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard icon={Activity} label={hs.sessions} value={String(sessions.length)} />
+        <SummaryCard icon={Activity} label={hs.sessions} value={String(visible.length)} />
         <SummaryCard icon={ArrowDown} label={hs.totalDown} value={formatBytes(totals.down)} />
         <SummaryCard icon={Clock} label={hs.totalTime} value={formatUptime(totals.time, units)} />
       </div>

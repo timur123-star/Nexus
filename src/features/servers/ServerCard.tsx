@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Star, MoreVertical, Activity, Copy, Trash2, Power } from "lucide-react";
+import { Star, MoreVertical, Activity, Copy, Trash2, Power, GripVertical } from "lucide-react";
 import type { ServerProfile } from "../../core/types";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -24,22 +24,49 @@ export function ServerCard({
   const { toggleFavorite, duplicateServer, removeServer, pingOne } = useServerStore();
   const { toggle, activeServerId, status } = useConnectionStore();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pinging, setPinging] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const t = useT();
 
   const isActive = activeServerId === server.id && status === "connected";
+
+  const handlePing = async () => {
+    if (pinging) return;
+    setPinging(true);
+    try {
+      await pingOne(server.id);
+    } finally {
+      setPinging(false);
+    }
+  };
 
   return (
     <div
       draggable
       onDragStart={() => onDragStart(server.id)}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={() => onDrop(server.id)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!dragOver) setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={() => {
+        setDragOver(false);
+        onDrop(server.id);
+      }}
+      onDragEnd={() => setDragOver(false)}
       onDoubleClick={() => toggle(server)}
       className={cn(
         "group glass ns-lift relative flex items-center gap-3 rounded-card px-3.5 py-3 transition-all hover:border-indigo/40",
         isActive && "border-ok/50 bg-ok/5",
+        dragOver && "ring-2 ring-indigo/60",
       )}
     >
+      <GripVertical
+        size={15}
+        aria-hidden
+        className="-ml-1 shrink-0 cursor-grab text-text-faint/40 opacity-0 transition-opacity group-hover:opacity-100"
+      />
+
       <Flag name={server.name} address={server.address} size={28} />
 
       <div className="min-w-0 flex-1">
@@ -71,11 +98,12 @@ export function ServerCard({
 
       {/* Latency */}
       <button
-        onClick={() => pingOne(server.id)}
+        onClick={handlePing}
+        disabled={pinging}
         title={t("servers.latencyTest")}
         className={cn("flex shrink-0 items-center gap-1 font-mono text-xs", latencyColor(server.latencyMs))}
       >
-        <Activity size={13} />
+        <Activity size={13} className={cn(pinging && "animate-spin-slow")} />
         {latencyLabel(server.latencyMs)}
       </button>
 
