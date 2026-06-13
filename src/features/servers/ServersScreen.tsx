@@ -124,7 +124,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
         <button
           onClick={handlePingAll}
           disabled={pinging || auto}
-          className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text disabled:opacity-50"
+          className="glass flex shrink-0 items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text disabled:opacity-50"
         >
           <Activity size={15} className={pinging ? "animate-spin-slow" : ""} />
           {t("servers.pingAll")}
@@ -132,14 +132,14 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
         <button
           onClick={handleAutoBest}
           disabled={pinging || auto || servers.length === 0}
-          className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-teal hover:text-teal disabled:opacity-50"
+          className="glass flex shrink-0 items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-teal hover:text-teal disabled:opacity-50"
         >
           <Rocket size={15} className={auto ? "animate-pulse" : ""} />
           {t("servers.autoBest")}
         </button>
         <button
           onClick={onImport}
-          className="flex items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
+          className="flex shrink-0 items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
         >
           <Plus size={16} /> {t("common.add")}
         </button>
@@ -179,7 +179,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
       </div>
 
       {/* List */}
-      <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {visible.length === 0 && (
           <p className="mt-10 text-center text-sm text-text-faint">
             {servers.length === 0 ? t("servers.emptyList") : t("servers.notFound")}
