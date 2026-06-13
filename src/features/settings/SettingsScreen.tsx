@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Folder, Plus, RotateCcw, Route, Save, ShieldAlert, ShieldCheck, Trash2, X } from "lucide-react";
+import { AppWindow, Folder, Plus, RotateCcw, Route, Save, ShieldAlert, ShieldCheck, Trash2, X } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { openLogsDir, isElevated, relaunchAsAdmin } from "../../core/ipc";
 import { cn } from "../../shared/lib/utils";
@@ -81,6 +81,43 @@ const PROFILE_STRINGS: Record<Lang, Record<string, string>> = {
     defaultName: "配置",
     delete: "删除配置",
     apply: "应用配置",
+  },
+};
+
+// App presets for split tunnelling. Each entry maps to the common process names
+// across Windows/macOS/Linux; toggling adds/removes process_name rules.
+const APP_PRESETS: Array<{ id: string; label: string; processes: string[] }> = [
+  { id: "telegram", label: "Telegram", processes: ["Telegram.exe", "telegram", "Telegram"] },
+  { id: "discord", label: "Discord", processes: ["Discord.exe", "Discord"] },
+  { id: "chrome", label: "Chrome", processes: ["chrome.exe", "Google Chrome"] },
+  { id: "firefox", label: "Firefox", processes: ["firefox.exe", "firefox"] },
+  { id: "edge", label: "Edge", processes: ["msedge.exe", "Microsoft Edge"] },
+  { id: "steam", label: "Steam", processes: ["steam.exe", "steam", "steam_osx"] },
+  { id: "spotify", label: "Spotify", processes: ["Spotify.exe", "Spotify"] },
+  { id: "whatsapp", label: "WhatsApp", processes: ["WhatsApp.exe", "WhatsApp"] },
+  { id: "qbittorrent", label: "qBittorrent", processes: ["qbittorrent.exe", "qbittorrent"] },
+];
+
+const APP_STRINGS: Record<Lang, { title: string; intro: string; routeVia: string }> = {
+  en: {
+    title: "Per-app proxy (split tunneling)",
+    intro: "Pick apps to route through the chosen outbound. Adds process-name rules to the list above. Works best in TUN mode.",
+    routeVia: "Route selected apps via",
+  },
+  ru: {
+    title: "Раздельный прокси по приложениям",
+    intro: "Выберите приложения, чей трафик пойдёт через выбранный выход. Добавляет правила по имени процесса в список выше. Лучше всего работает в TUN-режиме.",
+    routeVia: "Выбранные приложения — через",
+  },
+  fa: {
+    title: "پروکسی بر اساس برنامه",
+    intro: "برنامه‌هایی را انتخاب کنید که از خروجی انتخابی عبور کنند. در حالت TUN بهتر کار می‌کند.",
+    routeVia: "ارسال برنامه‌های انتخابی از طریق",
+  },
+  zh: {
+    title: "应用分流",
+    intro: "选择要经由所选出口的应用。会向上方列表添加进程名规则。在 TUN 模式下效果最佳。",
+    routeVia: "选定应用经由",
   },
 };
 
@@ -219,6 +256,8 @@ export function SettingsScreen() {
       </Section>
 
       <RoutingProfiles />
+
+      <PerAppProxy />
 
       <Section title={t("settings.tun.title")}>
         {proxy.tun.enabled && !elevated && (
@@ -514,6 +553,78 @@ function RoutingProfiles() {
           <Save size={15} /> {ps.save}
         </button>
       )}
+    </Section>
+  );
+}
+
+function PerAppProxy() {
+  const proxy = useSettingsStore((s) => s.proxy);
+  const setProxy = useSettingsStore((s) => s.setProxy);
+  const lang = useSettingsStore((s) => s.app.language);
+  const aps = APP_STRINGS[lang] ?? APP_STRINGS.en;
+  const t = useT();
+  const [target, setTarget] = useState<RoutingTarget>("proxy");
+
+  const appActive = (processes: string[]): boolean =>
+    processes.some((pn) =>
+      proxy.customRules.some((r) => r.match === "process_name" && r.value === pn),
+    );
+
+  const toggleApp = (processes: string[]) => {
+    if (appActive(processes)) {
+      setProxy({
+        customRules: proxy.customRules.filter(
+          (r) => !(r.match === "process_name" && processes.includes(r.value)),
+        ),
+      });
+      return;
+    }
+    const present = new Set(
+      proxy.customRules.filter((r) => r.match === "process_name").map((r) => r.value),
+    );
+    const additions = processes
+      .filter((pn) => !present.has(pn))
+      .map((pn) => ({ match: "process_name" as RoutingRuleMatch, value: pn, target }));
+    setProxy({ customRules: [...proxy.customRules, ...additions] });
+  };
+
+  return (
+    <Section title={aps.title}>
+      <p className="-mt-1 text-[11px] text-text-faint">{aps.intro}</p>
+      <Row label={aps.routeVia}>
+        <select
+          className="ns-input w-40"
+          value={target}
+          onChange={(e) => setTarget(e.target.value as RoutingTarget)}
+        >
+          {TARGET_KEYS.map((tk) => (
+            <option key={tk} value={tk}>
+              {t(`settings.target.${tk}` as MessageKey)}
+            </option>
+          ))}
+        </select>
+      </Row>
+      <div className="flex flex-wrap gap-2">
+        {APP_PRESETS.map((preset) => {
+          const active = appActive(preset.processes);
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => toggleApp(preset.processes)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-btn border px-3 py-1.5 text-sm transition-colors",
+                active
+                  ? "border-indigo bg-indigo/10 text-indigo"
+                  : "border-border text-text-dim hover:text-text",
+              )}
+            >
+              <AppWindow size={14} />
+              <span>{preset.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </Section>
   );
 }
