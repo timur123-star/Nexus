@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
-import { Search, Plus, Activity, ArrowDownUp } from "lucide-react";
+import { Search, Plus, Activity, ArrowDownUp, Rocket } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
+import { useConnectionStore } from "../../store/useConnectionStore";
 import { ServerCard } from "./ServerCard";
 import { ALL_PROTOCOLS, PROTOCOL_LABEL } from "./protocolMeta";
 import { cn } from "../../shared/lib/utils";
@@ -14,12 +15,15 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   const servers = useServerStore((s) => s.servers);
   const reorder = useServerStore((s) => s.reorder);
   const pingAll = useServerStore((s) => s.pingAll);
+  const pingAllAndBest = useServerStore((s) => s.pingAllAndBest);
+  const connect = useConnectionStore((s) => s.connect);
   const t = useT();
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("ping");
   const [pinging, setPinging] = useState(false);
+  const [auto, setAuto] = useState(false);
   const dragId = useRef<string | null>(null);
 
   const visible = useMemo(() => {
@@ -50,6 +54,16 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
     }
   }
 
+  async function handleAutoBest() {
+    setAuto(true);
+    try {
+      const best = await pingAllAndBest();
+      if (best) await connect(best);
+    } finally {
+      setAuto(false);
+    }
+  }
+
   return (
     <div className="flex h-full flex-col p-5">
       {/* Toolbar */}
@@ -65,11 +79,19 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
         </div>
         <button
           onClick={handlePingAll}
-          disabled={pinging}
-          className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
+          disabled={pinging || auto}
+          className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text disabled:opacity-50"
         >
           <Activity size={15} className={pinging ? "animate-spin-slow" : ""} />
           {t("servers.pingAll")}
+        </button>
+        <button
+          onClick={handleAutoBest}
+          disabled={pinging || auto || servers.length === 0}
+          className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-teal hover:text-teal disabled:opacity-50"
+        >
+          <Rocket size={15} className={auto ? "animate-pulse" : ""} />
+          {t("servers.autoBest")}
         </button>
         <button
           onClick={onImport}
