@@ -7,7 +7,7 @@
  *
  * Reference: https://xtls.github.io/config/
  */
-import type { RoutingMode, ServerProfile, TransportSettings } from "../types";
+import type { RoutingMode, RoutingRule, ServerProfile, TransportSettings } from "../types";
 
 export interface XrayGenOptions {
   mixedPort: number; // local HTTP inbound (system-proxy target)
@@ -16,6 +16,10 @@ export interface XrayGenOptions {
   allowLan: boolean;
   /** Optional dedicated SOCKS port; defaults to mixedPort + 1. */
   socksPort?: number;
+  /** User-defined rules, applied before the bundled geo rules. */
+  customRules?: RoutingRule[];
+  /** Reject QUIC (UDP/443) so browsers fall back to TCP/TLS and stay routed. */
+  blockQuic?: boolean;
   /** TLS fragmentation (anti-DPI) via a dedicated freedom outbound + dialerProxy. */
   fragment?: { enabled: boolean; packets: string; length: string; interval: string } | null;
   /** Stream multiplexing on the proxy outbound. */
@@ -30,7 +34,7 @@ const FRAGMENT_TAG = "fragment";
 export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions): object {
   if (server.protocol === "hysteria2" || server.protocol === "tuic") {
     throw new Error(
-      `\u041f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol} \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044f \u0442\u043e\u043b\u044c\u043a\u043e \u044f\u0434\u0440\u043e\u043c sing-box`,
+      `Протокол ${server.protocol} поддерживается только ядром sing-box`,
     );
   }
 
@@ -81,7 +85,7 @@ export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions):
       },
     ],
     outbounds,
-    routing: buildXrayRouting(opts.routingMode),
+    routing: buildXrayRouting(opts.routingMode, opts.customRules, opts.blockQuic),
   };
 }
 
@@ -222,27 +226,63 @@ function mapNetwork(t: TransportSettings["type"]): string {
   }
 }
 
-function buildXrayRouting(mode: RoutingMode): object {
+/**
+ * Map one user rule to an Xray routing rule. Returns null for matches Xray
+ * cannot express — `process_name` is a sing-box-only, app-based matcher.
+ */
+function buildXrayCustomRule(r: RoutingRule): object | null {
+  const value = r.value.trim();
+  if (!value) return null;
+  const outboundTag =
+    r.target === "proxy" ? PROXY_TAG : r.target === "direct" ? DIRECT_TAG : BLOCK_TAG;
+  switch (r.match) {
+    case "domain":
+      return { type: "field", domain: [`full:${value}`], outboundTag };
+    case "domain_suffix":
+      return { type: "field", domain: [`domain:${value}`], outboundTag };
+    case "domain_keyword":
+      return { type: "field", domain: [`keyword:${value}`], outboundTag };
+    case "ip_cidr":
+      return { type: "field", ip: [value], outboundTag };
+    case "process_name":
+      return null; // Xray has no process-based routing
+    default:
+      return null;
+  }
+}
+
+function buildXrayRouting(
+  mode: RoutingMode,
+  customRules?: RoutingRule[],
+  blockQuic?: boolean,
+): object {
+  const rules: object[] = [];
+
+  // Reject QUIC early (UDP/443) so HTTP/3 cannot slip past the rules below.
+  if (blockQuic) {
+    rules.push({ type: "field", network: "udp", port: 443, outboundTag: BLOCK_TAG });
+  }
+
+  // User rules win over the bundled geo rules.
+  for (const r of customRules ?? []) {
+    const mapped = buildXrayCustomRule(r);
+    if (mapped) rules.push(mapped);
+  }
+
   if (mode === "direct") {
-    return {
-      domainStrategy: "AsIs",
-      rules: [{ type: "field", network: "tcp,udp", outboundTag: DIRECT_TAG }],
-    };
+    rules.push({ type: "field", network: "tcp,udp", outboundTag: DIRECT_TAG });
+    return { domainStrategy: "AsIs", rules };
   }
   if (mode === "global") {
-    return {
-      domainStrategy: "IPIfNonMatch",
-      rules: [{ type: "field", network: "tcp,udp", outboundTag: PROXY_TAG }],
-    };
+    rules.push({ type: "field", network: "tcp,udp", outboundTag: PROXY_TAG });
+    return { domainStrategy: "IPIfNonMatch", rules };
   }
   // rule-based
-  return {
-    domainStrategy: "IPIfNonMatch",
-    rules: [
-      { type: "field", domain: ["geosite:category-ads-all"], outboundTag: BLOCK_TAG },
-      { type: "field", domain: ["geosite:cn"], outboundTag: DIRECT_TAG },
-      { type: "field", ip: ["geoip:cn", "geoip:private"], outboundTag: DIRECT_TAG },
-      { type: "field", network: "tcp,udp", outboundTag: PROXY_TAG },
-    ],
-  };
+  rules.push(
+    { type: "field", domain: ["geosite:category-ads-all"], outboundTag: BLOCK_TAG },
+    { type: "field", domain: ["geosite:cn"], outboundTag: DIRECT_TAG },
+    { type: "field", ip: ["geoip:cn", "geoip:private"], outboundTag: DIRECT_TAG },
+    { type: "field", network: "tcp,udp", outboundTag: PROXY_TAG },
+  );
+  return { domainStrategy: "IPIfNonMatch", rules };
 }
