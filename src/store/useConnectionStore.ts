@@ -207,8 +207,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           }
           break;
         case "error":
-          // Restore networking immediately; a dead local proxy must not strand the user.
-          if (proxy.systemProxy) void setSystemProxy(false, proxy.mixedPort).catch(() => {});
+          // Kill switch: when enabled, keep system proxy pointing at our (now-dead)
+          // port so the OS blocks all traffic rather than leaking it unprotected.
+          // Without kill switch, restore networking immediately.
+          if (proxy.systemProxy && !proxy.killSwitch) {
+            void setSystemProxy(false, proxy.mixedPort).catch(() => {});
+          }
           if (state.autoReconnect) {
             scheduleReconnect();
           } else {

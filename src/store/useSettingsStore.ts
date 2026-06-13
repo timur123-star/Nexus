@@ -36,18 +36,24 @@ export interface ProxySettings {
     length: string; // e.g. "10-20"
     interval: string; // e.g. "10-20"
   };
+  /** Block all traffic when VPN disconnects unexpectedly (kill switch). */
+  killSwitch: boolean;
+  /** Accept self-signed TLS certificates when fetching subscriptions. */
+  allowInsecureSubs: boolean;
   clashApiPort: number;
   clashSecret: string;
 }
 
 export interface AppSettings {
-  theme: "system" | "dark" | "light";
+  theme: "system" | "dark" | "light" | "oled";
   /** Accent preset id (see src/shared/lib/accents.ts). */
   accent: string;
   language: "ru" | "en" | "fa" | "zh";
   autoStart: boolean;
   minimizeToTray: boolean;
   subscriptionUpdateHours: number;
+  /** Sort server list automatically after ping. */
+  autoSortByPing: boolean;
 }
 
 interface SettingsState {
@@ -103,6 +109,15 @@ export const BUILTIN_ROUTING_PROFILES: RoutingProfile[] = [
   },
 ];
 
+/** Generate a random secret for the local Clash API to prevent LAN access. */
+function randomClashSecret(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let s = "";
+  const rng = crypto.getRandomValues(new Uint8Array(24));
+  for (const b of rng) s += chars[b % chars.length];
+  return s;
+}
+
 export const DEFAULT_PROXY: ProxySettings = {
   coreKind: "sing-box",
   mixedPort: 2080,
@@ -117,9 +132,10 @@ export const DEFAULT_PROXY: ProxySettings = {
   fakeIp: true,
   mux: { enabled: false, protocol: "smux" },
   fragment: { enabled: false, packets: "tlshello", length: "10-20", interval: "10-20" },
+  killSwitch: false,
+  allowInsecureSubs: false,
   clashApiPort: 9090,
-  // Not a secret in the cryptographic sense — local Clash API guard only.
-  clashSecret: "nexusshield",
+  clashSecret: randomClashSecret(),
 };
 
 export const DEFAULT_APP: AppSettings = {
@@ -129,6 +145,7 @@ export const DEFAULT_APP: AppSettings = {
   autoStart: false,
   minimizeToTray: true,
   subscriptionUpdateHours: 12,
+  autoSortByPing: false,
 };
 
 export const useSettingsStore = create<SettingsState>()(

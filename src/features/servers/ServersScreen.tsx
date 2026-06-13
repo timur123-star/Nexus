@@ -10,6 +10,10 @@ import {
   RefreshCw,
   ChevronsDownUp,
   ChevronsUpDown,
+  CheckSquare,
+  Square,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
@@ -79,6 +83,7 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   const reorder = useServerStore((s) => s.reorder);
   const pingAll = useServerStore((s) => s.pingAll);
   const pingMany = useServerStore((s) => s.pingMany);
+  const removeMany = useServerStore((s) => s.removeMany);
   const refreshSubscription = useServerStore((s) => s.refreshSubscription);
   const pingAllAndBest = useServerStore((s) => s.pingAllAndBest);
   const connect = useConnectionStore((s) => s.connect);
@@ -94,7 +99,34 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
   const [grouped, setGrouped] = useState(true);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [groupPinging, setGroupPinging] = useState<Record<string, boolean>>({});
+  const [batchMode, setBatchMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const dragId = useRef<string | null>(null);
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelected(new Set(visible.map((s) => s.id)));
+  }
+
+  function exitBatchMode() {
+    setBatchMode(false);
+    setSelected(new Set());
+  }
+
+  function batchDelete() {
+    if (selected.size === 0) return;
+    removeMany([...selected]);
+    toast.success(t("servers.selected", { count: selected.size }));
+    exitBatchMode();
+  }
 
   const filterSort = (list: ServerProfile[]): ServerProfile[] => {
     let r = list.filter((s) => {
@@ -210,12 +242,45 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
           {t("servers.autoBest")}
         </button>
         <button
+          onClick={() => (batchMode ? exitBatchMode() : setBatchMode(true))}
+          className={cn(
+            "glass flex shrink-0 items-center gap-1.5 rounded-btn px-3 py-2 text-sm transition-colors",
+            batchMode ? "text-indigo" : "text-text-dim hover:text-text",
+          )}
+        >
+          {batchMode ? <X size={15} /> : <CheckSquare size={15} />}
+          {batchMode ? t("servers.batchCancel") : t("servers.batchSelect")}
+        </button>
+        <button
           onClick={onImport}
           className="flex shrink-0 items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white hover:bg-indigo-soft"
         >
           <Plus size={16} /> {t("common.add")}
         </button>
       </div>
+
+      {/* Batch mode toolbar */}
+      {batchMode && (
+        <div className="mb-3 flex items-center gap-2 rounded-btn bg-indigo/10 px-3 py-2">
+          <span className="text-sm text-indigo">
+            {t("servers.selected", { count: selected.size })}
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={selectAll}
+            className="flex items-center gap-1.5 rounded-btn px-2 py-1 text-xs text-text-dim hover:text-text"
+          >
+            <Square size={13} /> {t("servers.batchSelectAll")}
+          </button>
+          <button
+            onClick={batchDelete}
+            disabled={selected.size === 0}
+            className="flex items-center gap-1.5 rounded-btn px-2 py-1 text-xs text-bad hover:text-bad disabled:opacity-50"
+          >
+            <Trash2 size={13} /> {t("servers.batchDelete")}
+          </button>
+        </div>
+      )}
 
       {/* Filters + sort */}
       <div className="mb-3 flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -324,6 +389,9 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
                       <ServerCard
                         key={s.id}
                         server={s}
+                        batchMode={batchMode}
+                        batchSelected={selected.has(s.id)}
+                        onBatchToggle={() => toggleSelected(s.id)}
                         onDragStart={(id) => (dragId.current = id)}
                         onDrop={handleDrop}
                       />
@@ -335,6 +403,9 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
               <ServerCard
                 key={s.id}
                 server={s}
+                batchMode={batchMode}
+                batchSelected={selected.has(s.id)}
+                onBatchToggle={() => toggleSelected(s.id)}
                 onDragStart={(id) => (dragId.current = id)}
                 onDrop={handleDrop}
               />

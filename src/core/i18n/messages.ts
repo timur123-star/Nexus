@@ -162,6 +162,18 @@ export const en = {
   "settings.app.minimizeToTray": "Minimize to tray",
   "settings.openLogs": "Open logs folder",
   "settings.reset": "Reset settings",
+  "settings.security.title": "Security",
+  "settings.killSwitch.label": "Kill Switch",
+  "settings.killSwitch.hint": "Block all traffic when VPN disconnects unexpectedly.",
+  "settings.insecureSubs.label": "Allow insecure subscriptions",
+  "settings.insecureSubs.hint": "Skip TLS certificate check when fetching subscriptions (less secure).",
+  "settings.app.autoSortByPing": "Auto-sort by ping",
+  "settings.app.autoSortByPingHint": "Automatically sort servers by latency after a ping test.",
+  "servers.batchDelete": "Delete selected",
+  "servers.batchSelect": "Select",
+  "servers.batchSelectAll": "Select all",
+  "servers.batchCancel": "Cancel",
+  "servers.selected": "{count} selected",
 };
 
 export type MessageKey = keyof typeof en;
@@ -326,6 +338,18 @@ export const ru: Record<MessageKey, string> = {
   "settings.app.minimizeToTray": "Сворачивать в трей",
   "settings.openLogs": "Открыть папку логов",
   "settings.reset": "Сбросить настройки",
+  "settings.security.title": "Безопасность",
+  "settings.killSwitch.label": "Kill Switch",
+  "settings.killSwitch.hint": "Блокировать весь трафик при неожиданном обрыве VPN.",
+  "settings.insecureSubs.label": "Небезопасные подписки",
+  "settings.insecureSubs.hint": "Пропускать проверку TLS-сертификата при загрузке подписок (менее безопасно).",
+  "settings.app.autoSortByPing": "Авто-сортировка по пингу",
+  "settings.app.autoSortByPingHint": "Автоматически сортировать серверы по задержке после теста.",
+  "servers.batchDelete": "Удалить выбранные",
+  "servers.batchSelect": "Выбрать",
+  "servers.batchSelectAll": "Выбрать все",
+  "servers.batchCancel": "Отмена",
+  "servers.selected": "Выбрано: {count}",
 };
 
 export const fa: Record<MessageKey, string> = {
@@ -388,6 +412,18 @@ export const fa: Record<MessageKey, string> = {
   "settings.app.title": "برنامه", "settings.app.theme": "پوسته", "settings.theme.system": "سیستمی", "settings.theme.dark": "تیره", "settings.theme.light": "روشن", "settings.app.language": "زبان",
   "settings.app.autoStart": "راه‌اندازی خودکار با سیستم", "settings.app.minimizeToTray": "کمینه در سینی سیستم",
   "settings.openLogs": "باز کردن پوشه گزارش‌ها", "settings.reset": "بازنشانی تنظیمات",
+  "settings.security.title": "امنیت",
+  "settings.killSwitch.label": "Kill Switch",
+  "settings.killSwitch.hint": "مسدود کردن تمام ترافیک هنگام قطع ناگهانی VPN.",
+  "settings.insecureSubs.label": "اشتراک‌های ناامن",
+  "settings.insecureSubs.hint": "بررسی گواهی TLS هنگام دریافت اشتراک‌ها را رد کنید (کمتر امن).",
+  "settings.app.autoSortByPing": "مرتب‌سازی خودکار بر اساس پینگ",
+  "settings.app.autoSortByPingHint": "سرورها را پس از تست پینگ به‌طور خودکار بر اساس تأخیر مرتب کنید.",
+  "servers.batchDelete": "حذف انتخاب‌شده‌ها",
+  "servers.batchSelect": "انتخاب",
+  "servers.batchSelectAll": "انتخاب همه",
+  "servers.batchCancel": "لغو",
+  "servers.selected": "{count} انتخاب شده",
 };
 
 export const zh: Record<MessageKey, string> = {
@@ -450,4 +486,16 @@ export const zh: Record<MessageKey, string> = {
   "settings.app.title": "应用", "settings.app.theme": "主题", "settings.theme.system": "跟随系统", "settings.theme.dark": "深色", "settings.theme.light": "浅色", "settings.app.language": "语言",
   "settings.app.autoStart": "开机自启动", "settings.app.minimizeToTray": "最小化到托盘",
   "settings.openLogs": "打开日志文件夹", "settings.reset": "重置设置",
+  "settings.security.title": "安全",
+  "settings.killSwitch.label": "Kill Switch",
+  "settings.killSwitch.hint": "当 VPN 意外断开时阻止所有流量。",
+  "settings.insecureSubs.label": "允许不安全订阅",
+  "settings.insecureSubs.hint": "获取订阅时跳过 TLS 证书检查（不太安全）。",
+  "settings.app.autoSortByPing": "按延迟自动排序",
+  "settings.app.autoSortByPingHint": "在延迟测试后自动按延迟排序服务器。",
+  "servers.batchDelete": "删除选中",
+  "servers.batchSelect": "选择",
+  "servers.batchSelectAll": "全选",
+  "servers.batchCancel": "取消",
+  "servers.selected": "已选择 {count} 个",
 };
