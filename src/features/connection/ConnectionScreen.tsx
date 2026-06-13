@@ -123,7 +123,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   const connectState = connected ? "connected" : busy ? "busy" : "idle";
   const connectLabels = {
     connected: t("common.disconnect"),
-    busy: "\u2026",
+    busy: "…",
     idle: t("common.connect"),
   };
 
@@ -188,14 +188,14 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
         <div className="grid grid-cols-2 gap-3">
           <ThroughputTile
             label={t("conn.download")}
-            arrow="\u2193"
+            arrow="↓"
             value={formatBytes(traffic.down, true)}
             series={downSeries}
             color="var(--color-teal)"
           />
           <ThroughputTile
             label={t("conn.upload")}
-            arrow="\u2191"
+            arrow="↑"
             value={formatBytes(traffic.up, true)}
             series={upSeries}
             color="var(--color-indigo)"
@@ -219,7 +219,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
       >
         <Metric icon={Globe2} label={t("conn.address")} value={active.address} mono />
         <Metric icon={Zap} label={t("conn.port")} value={String(active.port)} mono />
-        <Metric icon={Clock} label={t("conn.uptime")} value={connected ? uptime || `0${unitS}` : "\u2014"} />
+        <Metric icon={Clock} label={t("conn.uptime")} value={connected ? uptime || `0${unitS}` : "—"} />
       </motion.div>
 
       <button
@@ -262,7 +262,7 @@ function ThroughputTile({
         </motion.span>
       </div>
       <div className="mt-2">
-        <Sparkline data={series} width={240} height={28} color={color} />
+        <Sparkline data={series} width={240} height={28} color={color} responsive />
       </div>
     </div>
   );
