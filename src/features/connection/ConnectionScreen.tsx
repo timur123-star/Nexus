@@ -109,7 +109,7 @@ export function ConnectionScreen({ onBrowse }: { onBrowse: () => void }) {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center gap-6 p-8">
+    <div className="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center gap-6 p-8">
       {/* Active server card */}
       <motion.div
         custom={0}
