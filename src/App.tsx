@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "framer-motion";
 import { TitleBar } from "./shared/components/TitleBar";
 import { Sidebar, type Screen } from "./shared/components/Sidebar";
+import { Toaster } from "./shared/components/Toaster";
 import { ConnectionScreen } from "./features/connection/ConnectionScreen";
 import { ServersScreen } from "./features/servers/ServersScreen";
 import { StatsScreen } from "./features/stats/StatsScreen";
@@ -12,6 +13,7 @@ import { ImportDialog } from "./features/import/ImportDialog";
 import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
 import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
+import { useConnectionToasts } from "./shared/hooks/useConnectionToasts";
 import { isTauri } from "./core/ipc";
 import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
@@ -26,6 +28,7 @@ export default function App() {
 
   useCoreEvents();
   useTrafficPoller();
+  useConnectionToasts();
 
   // Global hotkeys: Ctrl+K toggle connection, Ctrl+, settings, Ctrl+I import.
   useEffect(() => {
@@ -103,6 +106,7 @@ export default function App() {
         </main>
       </div>
       {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
+      <Toaster />
     </div>
   );
 }

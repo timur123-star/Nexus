@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Search, Plus, Activity, ArrowDownUp, Rocket } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
+import { toast } from "../../store/useToastStore";
 import { ServerCard } from "./ServerCard";
 import { ALL_PROTOCOLS, PROTOCOL_LABEL } from "./protocolMeta";
 import { cn } from "../../shared/lib/utils";
@@ -58,7 +59,12 @@ export function ServersScreen({ onImport }: { onImport: () => void }) {
     setAuto(true);
     try {
       const best = await pingAllAndBest();
-      if (best) await connect(best);
+      if (best) {
+        toast.success(t("servers.autoConnecting", { name: best.name }));
+        await connect(best);
+      } else {
+        toast.warning(t("servers.autoNone"));
+      }
     } finally {
       setAuto(false);
     }
