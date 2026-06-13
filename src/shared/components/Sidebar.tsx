@@ -29,35 +29,39 @@ export function Sidebar({
   const navAnimate = { width: expanded ? 200 : 64 };
   const t = useT();
 
+  // A fixed 64px rail keeps the layout stable; the expanding menu floats over
+  // the main content instead of pushing it, so tile grids never reflow on hover.
   return (
-    <motion.nav
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      animate={navAnimate}
-      transition={springSoft}
-      className="glass z-10 flex shrink-0 flex-col gap-1 overflow-hidden border-r border-border/60 p-3"
-    >
-      {NAV.map((item) => (
+    <div className="relative z-20 w-16 shrink-0">
+      <motion.nav
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+        animate={navAnimate}
+        transition={springSoft}
+        className="glass absolute inset-y-0 left-0 flex flex-col gap-1 overflow-hidden border-r border-border/60 p-3"
+      >
+        {NAV.map((item) => (
+          <NavButton
+            key={item.id}
+            icon={item.icon}
+            label={t(item.labelKey)}
+            expanded={expanded}
+            active={active === item.id}
+            onClick={() => onNavigate(item.id)}
+          />
+        ))}
+
+        <div className="flex-1" />
+
         <NavButton
-          key={item.id}
-          icon={item.icon}
-          label={t(item.labelKey)}
+          icon={HelpCircle}
+          label={t("nav.help")}
           expanded={expanded}
-          active={active === item.id}
-          onClick={() => onNavigate(item.id)}
+          active={false}
+          onClick={() => window.open("https://sing-box.sagernet.org/", "_blank")}
         />
-      ))}
-
-      <div className="flex-1" />
-
-      <NavButton
-        icon={HelpCircle}
-        label={t("nav.help")}
-        expanded={expanded}
-        active={false}
-        onClick={() => window.open("https://sing-box.sagernet.org/", "_blank")}
-      />
-    </motion.nav>
+      </motion.nav>
+    </div>
   );
 }
 
