@@ -16,11 +16,16 @@ export interface XrayGenOptions {
   allowLan: boolean;
   /** Optional dedicated SOCKS port; defaults to mixedPort + 1. */
   socksPort?: number;
+  /** TLS fragmentation (anti-DPI) via a dedicated freedom outbound + dialerProxy. */
+  fragment?: { enabled: boolean; packets: string; length: string; interval: string } | null;
+  /** Stream multiplexing on the proxy outbound. */
+  mux?: { enabled: boolean; protocol?: string } | null;
 }
 
 const PROXY_TAG = "proxy";
 const DIRECT_TAG = "direct";
 const BLOCK_TAG = "block";
+const FRAGMENT_TAG = "fragment";
 
 export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions): object {
   if (server.protocol === "hysteria2" || server.protocol === "tuic") {
@@ -32,6 +37,29 @@ export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions):
   const listen = opts.allowLan ? "0.0.0.0" : "127.0.0.1";
   const socksPort = opts.socksPort ?? opts.mixedPort + 1;
   const sniffing = { enabled: true, destOverride: ["http", "tls", "quic"] };
+  const fragmentEnabled = !!opts.fragment?.enabled;
+
+  const outbounds: object[] = [
+    buildXrayOutbound(server, { mux: opts.mux ?? null, fragment: fragmentEnabled }),
+    { tag: DIRECT_TAG, protocol: "freedom" },
+    { tag: BLOCK_TAG, protocol: "blackhole" },
+  ];
+
+  // Xray fragments TLS ClientHello by dialing the real outbound through a
+  // dedicated freedom outbound that owns the fragment settings.
+  if (fragmentEnabled && opts.fragment) {
+    outbounds.push({
+      tag: FRAGMENT_TAG,
+      protocol: "freedom",
+      settings: {
+        fragment: {
+          packets: opts.fragment.packets || "tlshello",
+          length: opts.fragment.length || "10-20",
+          interval: opts.fragment.interval || "10-20",
+        },
+      },
+    });
+  }
 
   return {
     log: { loglevel: "warning" },
@@ -52,17 +80,19 @@ export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions):
         sniffing,
       },
     ],
-    outbounds: [
-      buildXrayOutbound(server),
-      { tag: DIRECT_TAG, protocol: "freedom" },
-      { tag: BLOCK_TAG, protocol: "blackhole" },
-    ],
+    outbounds,
     routing: buildXrayRouting(opts.routingMode),
   };
 }
 
-function buildXrayOutbound(s: ServerProfile): object {
-  const streamSettings = buildXrayStream(s);
+interface OutboundExtras {
+  mux: { enabled: boolean; protocol?: string } | null;
+  fragment: boolean;
+}
+
+function buildXrayOutbound(s: ServerProfile, extra: OutboundExtras): object {
+  const streamSettings = buildXrayStream(s, extra.fragment);
+  const muxBlock = extra.mux?.enabled ? { mux: { enabled: true, concurrency: 8 } } : {};
   switch (s.protocol) {
     case "vless":
       return {
@@ -78,6 +108,7 @@ function buildXrayOutbound(s: ServerProfile): object {
           ],
         },
         streamSettings,
+        ...muxBlock,
       };
     case "vmess":
       return {
@@ -93,6 +124,7 @@ function buildXrayOutbound(s: ServerProfile): object {
           ],
         },
         streamSettings,
+        ...muxBlock,
       };
     case "trojan":
       return {
@@ -100,6 +132,7 @@ function buildXrayOutbound(s: ServerProfile): object {
         protocol: "trojan",
         settings: { servers: [{ address: s.address, port: s.port, password: s.password }] },
         streamSettings,
+        ...muxBlock,
       };
     case "shadowsocks":
       return {
@@ -109,13 +142,14 @@ function buildXrayOutbound(s: ServerProfile): object {
           servers: [{ address: s.address, port: s.port, method: s.method, password: s.password }],
         },
         streamSettings,
+        ...muxBlock,
       };
     default:
       throw new Error(`Unsupported protocol for xray: ${s.protocol}`);
   }
 }
 
-function buildXrayStream(s: ServerProfile): object {
+function buildXrayStream(s: ServerProfile, fragment: boolean): object {
   const network = mapNetwork(s.transport.type);
   const ss: Record<string, unknown> = { network };
 
@@ -158,6 +192,11 @@ function buildXrayStream(s: ServerProfile): object {
     };
   } else {
     ss.security = "none";
+  }
+
+  // Route this outbound's dialling through the fragment freedom outbound.
+  if (fragment) {
+    ss.sockopt = { dialerProxy: FRAGMENT_TAG };
   }
 
   return ss;

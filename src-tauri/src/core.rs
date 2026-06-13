@@ -96,12 +96,24 @@ impl CoreManager {
 
         self.set_status(app, CoreStatus::Starting);
 
-        let mut child = Command::new(&bin)
+        let mut command = Command::new(&bin);
+        command
             .arg("run")
             .arg("-c")
             .arg(&config_path)
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        // On Windows, suppress the flashing console window that would otherwise
+        // pop up every time we launch the (console-subsystem) core binary.
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let mut child = command
             .spawn()
             .map_err(|e| {
                 format!(

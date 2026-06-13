@@ -121,6 +121,23 @@ export interface RoutingRule {
   target: RoutingTarget;
 }
 
+/**
+ * A saved bundle of routing settings the user can switch between in one click.
+ * Built-in profiles are seeded by the store and cannot be renamed or deleted.
+ */
+export interface RoutingProfile {
+  id: string;
+  /** User-defined profile name (custom profiles). */
+  name?: string;
+  /** Lookup key for the localised name of a built-in profile. */
+  nameKey?: string;
+  /** Built-in profiles cannot be renamed or deleted. */
+  builtin?: boolean;
+  routingMode: RoutingMode;
+  customRules: RoutingRule[];
+  blockQuic: boolean;
+}
+
 export type ConnectionStatus =
   | "disconnected"
   | "connecting"

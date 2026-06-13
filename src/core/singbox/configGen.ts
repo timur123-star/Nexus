@@ -30,6 +30,10 @@ export interface GenOptions {
   customRules?: RoutingRule[];
   /** Reject QUIC so browsers fall back to TCP/TLS and remain routed. */
   blockQuic?: boolean;
+  /** Stream multiplexing (mux) applied to TCP-based protocols only. */
+  mux?: ProxySettings["mux"];
+  /** TLS fragmentation. Native to Xray; sing-box configs intentionally ignore it. */
+  fragment?: ProxySettings["fragment"];
   logLevel?: "trace" | "debug" | "info" | "warn" | "error";
 }
 
@@ -53,7 +57,7 @@ const TARGET_OUTBOUND: Record<RoutingTarget, string> = {
 
 export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): object {
   const inbounds = buildInbounds(opts);
-  const outbound = buildOutbound(server);
+  const outbound = buildOutbound(server, opts);
 
   return {
     log: { level: opts.logLevel ?? "info", timestamp: true },
@@ -200,10 +204,28 @@ function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
 }
 
 // -- Outbound builders ------------------------------------------------------
-function buildOutbound(s: ServerProfile): object {
+
+/**
+ * sing-box stream multiplexing. Valid only on TCP-based protocols
+ * (vless/vmess/trojan/shadowsocks); hysteria2 and tuic are UDP-native and must
+ * never carry a multiplex block.
+ */
+function buildMultiplex(mux: GenOptions["mux"]): object | null {
+  if (!mux || !mux.enabled) return null;
+  return {
+    enabled: true,
+    protocol: mux.protocol,
+    max_connections: 4,
+    min_streams: 4,
+    padding: false,
+  };
+}
+
+function buildOutbound(s: ServerProfile, opts: GenOptions): object {
   const common = { tag: PROXY_TAG, server: s.address, server_port: s.port };
   const tls = buildTlsBlock(s);
   const transport = buildTransportBlock(s.transport);
+  const multiplex = buildMultiplex(opts.mux);
 
   switch (s.protocol) {
     case "vless":
@@ -211,9 +233,10 @@ function buildOutbound(s: ServerProfile): object {
         type: "vless",
         ...common,
         uuid: s.uuid,
-        flow: s.flow || "",
+        ...(s.flow ? { flow: s.flow } : {}),
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
+        ...(multiplex ? { multiplex } : {}),
       };
     case "vmess":
       return {
@@ -224,6 +247,7 @@ function buildOutbound(s: ServerProfile): object {
         security: s.method || "auto",
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
+        ...(multiplex ? { multiplex } : {}),
       };
     case "trojan":
       return {
@@ -232,6 +256,7 @@ function buildOutbound(s: ServerProfile): object {
         password: s.password,
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
+        ...(multiplex ? { multiplex } : {}),
       };
     case "shadowsocks":
       return {
@@ -239,6 +264,7 @@ function buildOutbound(s: ServerProfile): object {
         ...common,
         method: s.method,
         password: s.password,
+        ...(multiplex ? { multiplex } : {}),
       };
     case "hysteria2":
       return {
@@ -265,17 +291,24 @@ function buildOutbound(s: ServerProfile): object {
 
 function buildTlsBlock(s: ServerProfile): object | null {
   if (!s.tls.enabled) return null;
+  const isReality = s.tls.security === "reality";
   const tls: Record<string, unknown> = {
     enabled: true,
     server_name: s.tls.sni || s.address,
     insecure: !!s.tls.allowInsecure,
   };
   if (s.tls.alpn?.length) tls.alpn = s.tls.alpn;
-  if (s.tls.fingerprint) tls.utls = { enabled: true, fingerprint: s.tls.fingerprint };
-  if (s.tls.security === "reality") {
+  // sing-box REQUIRES a utls block for Reality. Many 3x-ui share links omit the
+  // `fp` param, so we must still emit utls (defaulting to "chrome") whenever
+  // Reality is in use; otherwise the outbound is invalid and only plain-TLS
+  // protocols (e.g. Trojan) connect.
+  if (s.tls.fingerprint || isReality) {
+    tls.utls = { enabled: true, fingerprint: s.tls.fingerprint || "chrome" };
+  }
+  if (isReality) {
     tls.reality = {
       enabled: true,
-      public_key: s.tls.publicKey,
+      public_key: s.tls.publicKey || "",
       short_id: s.tls.shortId || "",
     };
   }

@@ -21,6 +21,8 @@ interface ServerState {
   // ping
   pingOne: (id: string) => Promise<void>;
   pingAll: () => Promise<void>;
+  /** Ping every server, then return the reachable one with the lowest latency. */
+  pingAllAndBest: () => Promise<ServerProfile | null>;
 
   // subscriptions
   addSubscription: (name: string, url: string, intervalHours: number) => Promise<void>;
@@ -113,6 +115,16 @@ export const useServerStore = create<ServerState>()(
           }
         };
         await Promise.all(Array.from({ length: 8 }, worker));
+      },
+
+      pingAllAndBest: async () => {
+        await get().pingAll();
+        // pingServer returns -1 for unreachable hosts; only consider live ones.
+        const reachable = get().servers.filter((s) => (s.latencyMs ?? -1) >= 0);
+        if (reachable.length === 0) return null;
+        return reachable.reduce((best, s) =>
+          (s.latencyMs ?? Infinity) < (best.latencyMs ?? Infinity) ? s : best,
+        );
       },
 
       addSubscription: async (name, url, intervalHours) => {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Trash2, ArrowDown, ArrowUp } from "lucide-react";
+import { Trash2, ArrowDown, ArrowUp, FolderOpen } from "lucide-react";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
-import { getConnections, type ConnectionEntry } from "../../core/ipc";
+import { getConnections, openLogsDir, type ConnectionEntry } from "../../core/ipc";
 import { Sparkline } from "../../shared/components/Sparkline";
 import { coreLogRing } from "../../shared/hooks/useCoreEvents";
 import { formatBytes, cn } from "../../shared/lib/utils";
@@ -18,16 +18,38 @@ export function StatsScreen() {
   const [dns, setDns] = useState<DnsEntry[]>([]);
   const [logTab, setLogTab] = useState<"core" | "dns">("core");
 
+  // Live connections come from the Clash API, which only answers while the core
+  // is actually running.
   useEffect(() => {
-    if (status !== "connected") return;
+    if (status !== "connected") {
+      setConns([]);
+      return;
+    }
     const id = setInterval(async () => {
       setConns(await getConnections(clashApiPort, clashSecret));
-      const ring = [...coreLogRing];
-      setLogs(ring.slice(-80).reverse());
-      setDns(parseDnsLog(ring).slice(-80).reverse());
     }, 1500);
     return () => clearInterval(id);
   }, [status, clashApiPort, clashSecret]);
+
+  // Core log + DNS are read from the in-memory ring buffer and must stay live
+  // in EVERY state — a connection that fails to start is exactly when the user
+  // needs to read the log.
+  useEffect(() => {
+    const tick = () => {
+      const ring = [...coreLogRing];
+      setLogs(ring.slice(-200).reverse());
+      setDns(parseDnsLog(ring).slice(-100).reverse());
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const clearLogs = () => {
+    coreLogRing.length = 0;
+    setLogs([]);
+    setDns([]);
+  };
 
   return (
     <div className="flex h-full flex-col gap-4 p-5">
@@ -99,12 +121,28 @@ export function StatsScreen() {
                 DNS
               </LogTabBtn>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void openLogsDir()}
+                title={t("settings.openLogs")}
+                className="flex items-center gap-1 text-xs text-text-faint hover:text-text"
+              >
+                <FolderOpen size={13} />
+              </button>
+              <button
+                onClick={clearLogs}
+                title={t("stats.clear")}
+                className="flex items-center gap-1 text-xs text-text-faint hover:text-bad"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
           </div>
           {logTab === "core" ? (
             <div className="min-h-0 flex-1 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed text-text-dim">
               {logs.length === 0 && <p className="mt-8 text-center text-text-faint">{t("stats.logEmpty")}</p>}
               {logs.map((l, i) => (
-                <div key={i} className="truncate px-2 py-0.5" title={l}>
+                <div key={i} className="whitespace-pre-wrap break-all px-2 py-0.5" title={l}>
                   {l}
                 </div>
               ))}

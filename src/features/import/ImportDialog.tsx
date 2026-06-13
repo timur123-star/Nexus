@@ -92,7 +92,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="glass-elev animate-fade-in w-full max-w-lg rounded-panel p-5"
+        className="glass-elev animate-fade-in flex max-h-[90vh] w-full max-w-lg flex-col overflow-y-auto rounded-panel p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -117,7 +117,7 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={6}
-              placeholder="vless://… / vmess://… / trojan://… / ss://…"
+              placeholder="vless://\u2026 / vmess://\u2026 / trojan://\u2026 / ss://\u2026"
               className="w-full resize-none rounded-btn border border-border bg-bg/40 p-3 font-mono text-xs text-text outline-none focus:border-indigo"
             />
             <div className="mt-2 flex flex-col gap-2">
