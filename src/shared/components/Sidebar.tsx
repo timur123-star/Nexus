@@ -1,22 +1,24 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Globe, List, BarChart3, Settings, HelpCircle, FileCode2 } from "lucide-react";
+import { Globe, List, BarChart3, History, Settings, HelpCircle, FileCode2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { springSoft } from "../lib/motion";
 import { useT } from "../../core/i18n/useT";
-import type { MessageKey } from "../../core/i18n";
+import { useSettingsStore } from "../../store/useSettingsStore";
+import type { Lang } from "../../core/i18n";
 
-export type Screen = "connection" | "servers" | "stats" | "editor" | "settings";
+export type Screen = "connection" | "servers" | "stats" | "history" | "editor" | "settings";
 
 const labelTransition = { duration: 0.2 };
 
-const NAV: { id: Screen; icon: React.ElementType; labelKey: MessageKey }[] = [
-  { id: "connection", icon: Globe, labelKey: "nav.connection" },
-  { id: "servers", icon: List, labelKey: "nav.servers" },
-  { id: "stats", icon: BarChart3, labelKey: "nav.stats" },
-  { id: "editor", icon: FileCode2, labelKey: "nav.editor" },
-  { id: "settings", icon: Settings, labelKey: "nav.settings" },
-];
+// "History" has no key in the global dictionary (kept untouched for the i18n
+// parity test), so its label is resolved from this inline 4-language map.
+const HISTORY_LABEL: Record<Lang, string> = {
+  en: "History",
+  ru: "История",
+  fa: "تاریخچه",
+  zh: "历史",
+};
 
 export function Sidebar({
   active,
@@ -28,6 +30,16 @@ export function Sidebar({
   const [expanded, setExpanded] = useState(false);
   const navAnimate = { width: expanded ? 200 : 64 };
   const t = useT();
+  const lang = useSettingsStore((s) => s.app.language);
+
+  const nav: { id: Screen; icon: React.ElementType; label: string }[] = [
+    { id: "connection", icon: Globe, label: t("nav.connection") },
+    { id: "servers", icon: List, label: t("nav.servers") },
+    { id: "stats", icon: BarChart3, label: t("nav.stats") },
+    { id: "history", icon: History, label: HISTORY_LABEL[lang] ?? HISTORY_LABEL.en },
+    { id: "editor", icon: FileCode2, label: t("nav.editor") },
+    { id: "settings", icon: Settings, label: t("nav.settings") },
+  ];
 
   // A fixed 64px rail keeps the layout stable; the expanding menu floats over
   // the main content instead of pushing it, so tile grids never reflow on hover.
@@ -40,11 +52,11 @@ export function Sidebar({
         transition={springSoft}
         className="glass absolute inset-y-0 left-0 flex flex-col gap-1 overflow-hidden border-r border-border/60 p-3"
       >
-        {NAV.map((item) => (
+        {nav.map((item) => (
           <NavButton
             key={item.id}
             icon={item.icon}
-            label={t(item.labelKey)}
+            label={item.label}
             expanded={expanded}
             active={active === item.id}
             onClick={() => onNavigate(item.id)}

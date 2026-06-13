@@ -7,6 +7,7 @@ import { Toaster } from "./shared/components/Toaster";
 import { ConnectionScreen } from "./features/connection/ConnectionScreen";
 import { ServersScreen } from "./features/servers/ServersScreen";
 import { StatsScreen } from "./features/stats/StatsScreen";
+import { HistoryScreen } from "./features/history/HistoryScreen";
 import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { EditorScreen } from "./features/editor/EditorScreen";
 import { ImportDialog } from "./features/import/ImportDialog";
@@ -14,6 +15,7 @@ import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
 import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
 import { useConnectionToasts } from "./shared/hooks/useConnectionToasts";
+import { useSessionHistory } from "./shared/hooks/useSessionHistory";
 import { isTauri } from "./core/ipc";
 import { useServerStore } from "./store/useServerStore";
 import { useConnectionStore } from "./store/useConnectionStore";
@@ -33,6 +35,7 @@ export default function App() {
   useCoreEvents();
   useTrafficPoller();
   useConnectionToasts();
+  useSessionHistory();
 
   // Apply the chosen theme to the document root. The light palette lives under
   // `:root.light` in index.css, so without this the selector in Settings did
@@ -132,6 +135,7 @@ export default function App() {
               {screen === "connection" && <ConnectionScreen onBrowse={() => setScreen("servers")} />}
               {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
               {screen === "stats" && <StatsScreen />}
+              {screen === "history" && <HistoryScreen />}
               {screen === "editor" && <EditorScreen />}
               {screen === "settings" && <SettingsScreen />}
             </motion.div>
