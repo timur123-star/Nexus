@@ -59,6 +59,20 @@ interface SettingsState {
 }
 
 /**
+ * Clamp a TCP/UDP port to the valid range. NaN (e.g. an emptied input) keeps
+ * the previous good value so the field never becomes silently broken; anything
+ * else is floored and bounded to 0-65535 so config generation can never emit a
+ * nonsensical port.
+ */
+function sanitizePort(value: number, previous: number): number {
+  if (!Number.isFinite(value)) return previous;
+  const n = Math.floor(value);
+  if (n < 0) return 0;
+  if (n > 65535) return 65535;
+  return n;
+}
+
+/**
  * Seed profiles available on first run. Names are localised in the UI via the
  * `nameKey` lookup so the stored data stays language-agnostic.
  */
@@ -122,7 +136,15 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       proxy: DEFAULT_PROXY,
       app: DEFAULT_APP,
-      setProxy: (patch) => set((s) => ({ proxy: { ...s.proxy, ...patch } })),
+      setProxy: (patch) =>
+        set((s) => {
+          const proxy = { ...s.proxy, ...patch };
+          if (patch.mixedPort !== undefined)
+            proxy.mixedPort = sanitizePort(patch.mixedPort, s.proxy.mixedPort);
+          if (patch.clashApiPort !== undefined)
+            proxy.clashApiPort = sanitizePort(patch.clashApiPort, s.proxy.clashApiPort);
+          return { proxy };
+        }),
       setApp: (patch) => set((s) => ({ app: { ...s.app, ...patch } })),
       reset: () => set({ proxy: DEFAULT_PROXY, app: DEFAULT_APP }),
     }),

@@ -8,6 +8,7 @@ import { useT } from "../../core/i18n/useT";
 import type { Lang, MessageKey } from "../../core/i18n";
 import type { CoreKind, RoutingMode, RoutingProfile, RoutingRuleMatch, RoutingTarget } from "../../core/types";
 import { SubscriptionList } from "./SubscriptionList";
+import { BackupSection } from "./BackupSection";
 
 const MATCH_KEYS: RoutingRuleMatch[] = [
   "domain",
@@ -440,6 +441,8 @@ export function SettingsScreen() {
           onChange={(v) => setApp({ minimizeToTray: v })}
         />
       </Section>
+
+      <BackupSection />
 
       <div className="flex gap-2">
         <button

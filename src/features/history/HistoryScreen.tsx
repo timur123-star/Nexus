@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { Activity, ArrowDown, ArrowUp, Clock, Cpu, History, Server, Trash2 } from "lucide-react";
 import { useHistoryStore } from "../../store/useHistoryStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useT } from "../../core/i18n/useT";
 import type { Lang } from "../../core/i18n";
+import { fadeInUp } from "../../shared/lib/motion";
 import { cn, formatBytes, formatUptime } from "../../shared/lib/utils";
 
 type Filter = "all" | "sing-box" | "xray";
@@ -22,7 +24,7 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     title: "Connection history",
     subtitle: "Past sessions, duration and data used",
     sessions: "Sessions",
-    totalDown: "Total downloaded",
+    data: "Data used",
     totalTime: "Time connected",
     empty: "No sessions yet. Connect to start tracking.",
     clearAll: "Clear all",
@@ -33,7 +35,7 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     title: "История подключений",
     subtitle: "Прошлые сессии, длительность и трафик",
     sessions: "Сессий",
-    totalDown: "Всего загружено",
+    data: "Трафик",
     totalTime: "Время онлайн",
     empty: "Сессий пока нет. Подключитесь, чтобы начать.",
     clearAll: "Очистить",
@@ -44,7 +46,7 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     title: "تاریخچه اتصال",
     subtitle: "نشست‌های گذشته، مدت و مصرف داده",
     sessions: "نشست‌ها",
-    totalDown: "کل دانلود",
+    data: "داده مصرفی",
     totalTime: "زمان اتصال",
     empty: "هنوز نشستی نیست. برای شروع وصل شوید.",
     clearAll: "پاک کردن",
@@ -55,7 +57,7 @@ const HISTORY_STRINGS: Record<Lang, Record<string, string>> = {
     title: "连接历史",
     subtitle: "过往会话、时长与流量",
     sessions: "会话数",
-    totalDown: "总下载",
+    data: "流量",
     totalTime: "在线时长",
     empty: "暂无会话。连接后开始记录。",
     clearAll: "清空",
@@ -82,17 +84,19 @@ export function HistoryScreen() {
     [sessions, filter],
   );
 
+  // Totals follow the active filter so the summary cards always match the list.
   const totals = useMemo(
     () =>
-      sessions.reduce(
+      visible.reduce(
         (acc, s) => {
           acc.down += s.bytesDown;
+          acc.up += s.bytesUp;
           acc.time += s.durationMs;
           return acc;
         },
-        { down: 0, time: 0 },
+        { down: 0, up: 0, time: 0 },
       ),
-    [sessions],
+    [visible],
   );
 
   const fmtDate = (ts: number): string =>
@@ -107,6 +111,9 @@ export function HistoryScreen() {
     core === "xray" ? "Xray" : core === "sing-box" ? "sing-box" : "\u2014";
   const filterLabel = (f: Filter): string =>
     f === "all" ? hs.all : f === "sing-box" ? "sing-box" : "Xray";
+  // Per-filter session counts shown as a subtle badge on each chip.
+  const filterCount = (f: Filter): number =>
+    f === "all" ? sessions.length : sessions.filter((x) => x.core === f).length;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-5">
@@ -131,8 +138,20 @@ export function HistoryScreen() {
       </header>
 
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard icon={Activity} label={hs.sessions} value={String(sessions.length)} />
-        <SummaryCard icon={ArrowDown} label={hs.totalDown} value={formatBytes(totals.down)} />
+        <SummaryCard icon={Activity} label={hs.sessions} value={String(visible.length)} />
+        <div className="glass rounded-card p-4">
+          <div className="flex items-center gap-1.5 text-[11px] text-text-faint">
+            <Activity size={13} /> {hs.data}
+          </div>
+          <div className="mt-1 flex items-center gap-3 font-mono text-base font-semibold">
+            <span className="flex items-center gap-1 text-teal">
+              <ArrowDown size={14} /> {formatBytes(totals.down)}
+            </span>
+            <span className="flex items-center gap-1 text-indigo">
+              <ArrowUp size={14} /> {formatBytes(totals.up)}
+            </span>
+          </div>
+        </div>
         <SummaryCard icon={Clock} label={hs.totalTime} value={formatUptime(totals.time, units)} />
       </div>
 
@@ -142,13 +161,21 @@ export function HistoryScreen() {
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              "rounded-btn border px-3 py-1.5 text-xs transition-colors",
+              "flex items-center gap-1.5 rounded-btn border px-3 py-1.5 text-xs transition-colors",
               filter === f
                 ? "border-indigo bg-indigo/10 text-indigo"
                 : "border-border text-text-dim hover:text-text",
             )}
           >
             {filterLabel(f)}
+            <span
+              className={cn(
+                "rounded-full px-1.5 text-[10px] font-mono",
+                filter === f ? "bg-indigo/20 text-indigo" : "bg-surface text-text-faint",
+              )}
+            >
+              {filterCount(f)}
+            </span>
           </button>
         ))}
       </div>
@@ -160,8 +187,15 @@ export function HistoryScreen() {
         </div>
       ) : (
         <div className="space-y-2">
-          {visible.map((s) => (
-            <div key={s.id} className="glass flex items-center gap-3 rounded-card px-4 py-3">
+          {visible.map((s, i) => (
+            <motion.div
+              key={s.id}
+              custom={i}
+              variants={fadeInUp}
+              initial="initial"
+              animate="enter"
+              className="glass flex items-center gap-3 rounded-card px-4 py-3"
+            >
               <div className="grid h-9 w-9 shrink-0 place-items-center rounded-btn bg-surface text-text-dim">
                 <Server size={16} />
               </div>
@@ -195,7 +229,7 @@ export function HistoryScreen() {
               >
                 <Trash2 size={14} />
               </button>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}

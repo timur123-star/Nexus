@@ -1,19 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertCircle, Download, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertCircle, Download, RefreshCw, Copy, Check } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { toast } from "../../store/useToastStore";
 import { getCore, ALL_CORES } from "../../core/proxy";
 import { validateConfig } from "../../core/ipc";
 import { CodeEditor } from "../../shared/components/CodeEditor";
 import { useT } from "../../core/i18n/useT";
 import type { CoreKind } from "../../core/types";
+import type { Lang } from "../../core/i18n";
+
+// Inline label so the global dictionary (and its parity test) stays untouched.
+const MODIFIED_LABEL: Record<Lang, string> = {
+  en: "Modified",
+  ru: "Изменено",
+  fa: "ویرایش‌شده",
+  zh: "已修改",
+};
+
+// Copy button + its success/failure toast, 4-language inline.
+const COPY_STRINGS: Record<Lang, { copy: string; copied: string; failed: string }> = {
+  en: { copy: "Copy", copied: "Config copied to clipboard", failed: "Couldn't copy config" },
+  ru: {
+    copy: "Копировать",
+    copied: "Конфиг скопирован в буфер",
+    failed: "Не удалось скопировать",
+  },
+  fa: {
+    copy: "کپی",
+    copied: "پیکربندی کپی شد",
+    failed: "کپی نشد",
+  },
+  zh: { copy: "复制", copied: "配置已复制到剪贴板", failed: "复制失败" },
+};
 
 export function EditorScreen() {
   const t = useT();
   const servers = useServerStore((s) => s.servers);
   const activeId = useConnectionStore((s) => s.activeServerId);
   const proxy = useSettingsStore((s) => s.proxy);
+  const lang = useSettingsStore((s) => s.app.language);
+  const C = COPY_STRINGS[lang] ?? COPY_STRINGS.en;
 
   const active = servers.find((s) => s.id === activeId) ?? servers[0];
 
@@ -51,6 +79,7 @@ export function EditorScreen() {
   const [text, setText] = useState(generated.text);
   const [dirty, setDirty] = useState(false);
   const [check, setCheck] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Follow the generated config (active server / settings changes) until the
   // user starts editing by hand. Their manual edits are then preserved until
@@ -75,13 +104,26 @@ export function EditorScreen() {
     setCheck(await validateConfig(text));
   }
 
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(C.copied);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      toast.error(C.failed);
+    }
+  }
+
   function handleExport() {
     const blob = new Blob([text], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nexusshield-${active?.name ?? "config"}.json`.replace(/[^\w.-]+/g, "_");
+    a.download = `nexusshield-${active?.name ?? "config"}.json`.replace(/[^\\w.-]+/g, "_");
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     URL.revokeObjectURL(url);
   }
 
@@ -97,14 +139,27 @@ export function EditorScreen() {
                 {generated.core}
               </span>
             )}
+            {dirty && (
+              <span className="rounded bg-warn/15 px-1.5 py-0.5 font-medium text-warn">
+                {MODIFIED_LABEL[lang] ?? MODIFIED_LABEL.en}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={handleRegenerate}
-            className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim hover:text-text"
+            disabled={!dirty}
+            className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim transition-colors hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw size={14} /> {t("editor.regenerate")}
+          </button>
+          <button
+            onClick={handleCopy}
+            title={C.copy}
+            className="glass flex items-center gap-1.5 rounded-btn px-3 py-2 text-sm text-text-dim transition-colors hover:text-text"
+          >
+            {copied ? <Check size={14} className="text-ok" /> : <Copy size={14} />} {C.copy}
           </button>
           <button
             onClick={handleValidate}

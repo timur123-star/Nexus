@@ -1,10 +1,27 @@
 import { useState } from "react";
-import { Shield, Plus, Route, Power, ArrowRight } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Shield, Plus, Route, Power, ArrowRight, ArrowLeft } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn } from "../../shared/lib/utils";
+import { EASE_OUT } from "../../shared/lib/motion";
 import { useT } from "../../core/i18n/useT";
-import type { MessageKey } from "../../core/i18n";
+import type { Lang, MessageKey } from "../../core/i18n";
 import type { RoutingMode } from "../../core/types";
+
+// Inline label so the global dictionary (and its parity test) stays untouched.
+const BACK_LABEL: Record<Lang, string> = {
+  en: "Back",
+  ru: "Назад",
+  fa: "بازگشت",
+  zh: "返回",
+};
+
+// Slide + fade keyed by navigation direction so forward/back feel distinct.
+const stepVariants = {
+  enter: (dir: number) => ({ opacity: 0, x: dir >= 0 ? 28 : -28 }),
+  center: { opacity: 1, x: 0 },
+  exit: (dir: number) => ({ opacity: 0, x: dir >= 0 ? -28 : 28 }),
+};
 
 /**
  * First-run wizard: add a server \u2192 choose a mode \u2192 connect.
@@ -20,9 +37,16 @@ export function Onboarding({
   importNode: React.ReactNode;
 }) {
   const [step, setStep] = useState(0);
+  const [dir, setDir] = useState(1);
   const setProxy = useSettingsStore((s) => s.setProxy);
   const mode = useSettingsStore((s) => s.proxy.routingMode);
+  const lang = useSettingsStore((s) => s.app.language);
   const t = useT();
+
+  const goTo = (next: number) => {
+    setDir(next > step ? 1 : -1);
+    setStep(next);
+  };
 
   const steps = [
     {
@@ -76,6 +100,8 @@ export function Onboarding({
 
   const cur = steps[step];
   const Icon = cur.icon;
+  const isLast = step === steps.length - 1;
+  const backLabel = BACK_LABEL[lang] ?? BACK_LABEL.en;
 
   return (
     <div className="relative grid h-screen place-items-center p-8">
@@ -85,18 +111,44 @@ export function Onboarding({
           <span className="text-lg font-semibold tracking-wide text-text">NexusShield</span>
         </div>
 
-        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-indigo/15 text-indigo">
-          <Icon size={28} />
+        <div className="min-h-[15rem] overflow-hidden">
+          <AnimatePresence mode="wait" custom={dir} initial={false}>
+            <motion.div
+              key={step}
+              custom={dir}
+              variants={stepVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={ { duration: 0.28, ease: EASE_OUT } }
+            >
+              <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-indigo/15 text-indigo">
+                <Icon size={28} />
+              </div>
+
+              <h2 className="text-xl font-semibold text-text">{cur.title}</h2>
+              <p className="mx-auto mt-2 max-w-xs text-sm text-text-dim">{cur.body}</p>
+
+              <div className="mt-6 flex justify-center">{cur.action}</div>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
-        <h2 className="text-xl font-semibold text-text">{cur.title}</h2>
-        <p className="mx-auto mt-2 max-w-xs text-sm text-text-dim">{cur.body}</p>
-
-        <div className="mt-6 flex justify-center">{cur.action}</div>
-
         {/* Step dots + nav */}
-        <div className="mt-8 flex items-center justify-between">
-          <div className="flex gap-1.5">
+        <div className="mt-8 grid grid-cols-3 items-center">
+          <div className="flex justify-start">
+            {step > 0 ? (
+              <button
+                onClick={() => goTo(step - 1)}
+                className="flex items-center gap-1 text-sm text-text-dim transition-colors hover:text-text"
+              >
+                <ArrowLeft size={15} /> {backLabel}
+              </button>
+            ) : (
+              <span />
+            )}
+          </div>
+          <div className="flex justify-center gap-1.5">
             {steps.map((_, i) => (
               <span
                 key={i}
@@ -107,18 +159,20 @@ export function Onboarding({
               />
             ))}
           </div>
-          {step < steps.length - 1 ? (
-            <button
-              onClick={() => setStep((s) => s + 1)}
-              className="flex items-center gap-1 text-sm text-text-dim hover:text-text"
-            >
-              {t("onboarding.next")} <ArrowRight size={15} />
-            </button>
-          ) : (
-            <button onClick={onDone} className="text-sm text-text-faint hover:text-text">
-              {t("onboarding.skip")}
-            </button>
-          )}
+          <div className="flex justify-end">
+            {!isLast ? (
+              <button
+                onClick={() => goTo(step + 1)}
+                className="flex items-center gap-1 text-sm text-text-dim transition-colors hover:text-text"
+              >
+                {t("onboarding.next")} <ArrowRight size={15} />
+              </button>
+            ) : (
+              <button onClick={onDone} className="text-sm text-text-faint transition-colors hover:text-text">
+                {t("onboarding.skip")}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

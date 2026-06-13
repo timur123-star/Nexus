@@ -1,23 +1,29 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Globe, List, BarChart3, History, Settings, HelpCircle, FileCode2 } from "lucide-react";
+import { Globe, List, BarChart3, History, ScrollText, Settings, HelpCircle, FileCode2 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { springSoft } from "../lib/motion";
 import { useT } from "../../core/i18n/useT";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import type { Lang } from "../../core/i18n";
 
-export type Screen = "connection" | "servers" | "stats" | "history" | "editor" | "settings";
+export type Screen = "connection" | "servers" | "stats" | "history" | "logs" | "editor" | "settings";
 
 const labelTransition = { duration: 0.2 };
 
-// "History" has no key in the global dictionary (kept untouched for the i18n
-// parity test), so its label is resolved from this inline 4-language map.
+// "History" and "Logs" have no keys in the global dictionary (kept untouched for
+// the i18n parity test), so their labels resolve from these inline maps.
 const HISTORY_LABEL: Record<Lang, string> = {
   en: "History",
   ru: "История",
   fa: "تاریخچه",
   zh: "历史",
+};
+const LOGS_LABEL: Record<Lang, string> = {
+  en: "Logs",
+  ru: "Логи",
+  fa: "گزارش‌ها",
+  zh: "日志",
 };
 
 export function Sidebar({
@@ -28,7 +34,7 @@ export function Sidebar({
   onNavigate: (s: Screen) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const navAnimate = { width: expanded ? 200 : 64 };
+  const navAnimate = { width: expanded ? 208 : 64 };
   const t = useT();
   const lang = useSettingsStore((s) => s.app.language);
 
@@ -37,20 +43,27 @@ export function Sidebar({
     { id: "servers", icon: List, label: t("nav.servers") },
     { id: "stats", icon: BarChart3, label: t("nav.stats") },
     { id: "history", icon: History, label: HISTORY_LABEL[lang] ?? HISTORY_LABEL.en },
+    { id: "logs", icon: ScrollText, label: LOGS_LABEL[lang] ?? LOGS_LABEL.en },
     { id: "editor", icon: FileCode2, label: t("nav.editor") },
     { id: "settings", icon: Settings, label: t("nav.settings") },
   ];
 
   // A fixed 64px rail keeps the layout stable; the expanding menu floats over
   // the main content instead of pushing it, so tile grids never reflow on hover.
+  // While expanded it becomes a near-opaque elevated drawer (plus a strong drop
+  // shadow) so page content never bleeds through the labels.
   return (
-    <div className="relative z-20 w-16 shrink-0">
+    <div className="relative z-30 w-16 shrink-0">
       <motion.nav
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
         animate={navAnimate}
         transition={springSoft}
-        className="glass absolute inset-y-0 left-0 flex flex-col gap-1 overflow-hidden border-r border-border/60 p-3"
+        style={expanded ? { background: "color-mix(in srgb, var(--color-bg-elev) 97%, transparent)" } : undefined}
+        className={cn(
+          "glass-elev absolute inset-y-0 left-0 flex flex-col gap-1 overflow-hidden border-r border-border/60 p-3",
+          expanded && "shadow-2xl",
+        )}
       >
         {nav.map((item) => (
           <NavButton
