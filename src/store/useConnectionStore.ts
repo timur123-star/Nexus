@@ -3,9 +3,54 @@ import type { ConnectionStatus, CoreKind, ServerProfile, TrafficSample } from ".
 import { getCore, ALL_CORES } from "../core/proxy";
 import { coreStart, coreStop, setSystemProxy, type CoreStatus, type TrafficStats } from "../core/ipc";
 import { useSettingsStore } from "./useSettingsStore";
+import { useServerStore } from "./useServerStore";
+import { toast } from "./useToastStore";
 
 const MAX_SAMPLES = 60; // 60s rolling window for the live graph
 const MAX_RECONNECT_ATTEMPTS = 8;
+/**
+ * After this many failed reconnects on the *same* server, stop hammering a dead
+ * endpoint and fail over to the best reachable alternative instead.
+ */
+const FAILOVER_AFTER_ATTEMPTS = 2;
+/**
+ * Consecutive failed health probes (active server unreachable) tolerated while
+ * "connected" before we treat the tunnel as silently dead and recover. With the
+ * 6s probe interval this is ~18s of sustained failure — long enough to ride out
+ * a transient blip, short enough that the user isn't left on a dead tunnel.
+ */
+const HEALTH_FAIL_THRESHOLD = 3;
+
+/**
+ * Screen-local (not in the global i18n dictionary, so it never affects the
+ * key-parity test) message shown when the watchdog fails over to a better
+ * server.
+ */
+const FAILOVER_MESSAGE: Record<"ru" | "en" | "fa" | "zh", (name: string) => string> = {
+  ru: (n) => `Соединение нестабильно — переключаюсь на лучший сервер: ${n}`,
+  en: (n) => `Connection unstable — switching to the best server: ${n}`,
+  fa: (n) => `اتصال ناپایدار است — در حال تغییر به بهترین سرور: ${n}`,
+  zh: (n) => `连接不稳定 — 正在切换到最佳服务器：${n}`,
+};
+
+/**
+ * Find the best (lowest-latency) reachable server that is NOT the one that just
+ * failed, re-probing candidates fresh so a stale latency reading can't send us
+ * to another dead endpoint. Returns null when no healthy alternative exists.
+ */
+async function pickFailoverTarget(currentId: string): Promise<ServerProfile | null> {
+  const { servers, pingMany } = useServerStore.getState();
+  const candidateIds = servers.filter((s) => s.id !== currentId).map((s) => s.id);
+  if (candidateIds.length === 0) return null;
+  await pingMany(candidateIds);
+  const reachable = useServerStore
+    .getState()
+    .servers.filter((s) => s.id !== currentId && (s.latencyMs ?? -1) >= 0);
+  if (reachable.length === 0) return null;
+  return reachable.reduce((best, s) =>
+    (s.latencyMs ?? Infinity) < (best.latencyMs ?? Infinity) ? s : best,
+  );
+}
 
 interface ConnectionState {
   status: ConnectionStatus;
@@ -19,6 +64,8 @@ interface ConnectionState {
   /** True while the user wants to stay connected; drives auto-reconnect. */
   autoReconnect: boolean;
   reconnectAttempts: number;
+  /** Consecutive failed health probes against the active server. */
+  healthFailures: number;
 
   traffic: TrafficStats;
   samples: TrafficSample[];
@@ -30,6 +77,12 @@ interface ConnectionState {
   applyCoreStatus: (s: CoreStatus) => void;
   setStatus: (s: ConnectionStatus, error?: string) => void;
   pushTraffic: (t: TrafficStats) => void;
+  /**
+   * Report the result of a periodic tunnel health probe (active server
+   * reachable?). Drives recovery from a silently-dead tunnel where the core
+   * process is still alive but no traffic can flow.
+   */
+  reportHealthProbe: (ok: boolean) => void;
 }
 
 const ZERO: TrafficStats = { up: 0, down: 0, totalUp: 0, totalDown: 0 };
@@ -83,13 +136,33 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       return;
     }
     const delay = Math.min(30_000, Math.round(1000 * Math.pow(1.6, attempt - 1)));
-    set({ status: "reconnecting", reconnectAttempts: attempt });
+    set({ status: "reconnecting", reconnectAttempts: attempt, healthFailures: 0 });
     clearReconnectTimer();
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
-      const cur = get();
-      if (!cur.autoReconnect || !cur.activeServer) return;
-      void cur.connect(cur.activeServer);
+      void (async () => {
+        const cur = get();
+        if (!cur.autoReconnect || !cur.activeServer) return;
+
+        // After a couple of failed attempts on the same endpoint, fail over to
+        // the best reachable alternative instead of retrying a dead server.
+        let target = cur.activeServer;
+        if (attempt >= FAILOVER_AFTER_ATTEMPTS) {
+          const better = await pickFailoverTarget(cur.activeServer.id);
+          if (better && better.id !== cur.activeServer.id) {
+            target = better;
+            const lang = useSettingsStore.getState().app.language;
+            toast.warning(FAILOVER_MESSAGE[lang](better.name));
+            // Fresh attempt budget for the new server.
+            set({ reconnectAttempts: 0 });
+          }
+        }
+
+        // The user may have disconnected during the async probe above.
+        const latest = get();
+        if (!latest.autoReconnect) return;
+        void latest.connect(target);
+      })();
     }, delay);
   };
 
@@ -102,6 +175,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     error: null,
     autoReconnect: false,
     reconnectAttempts: 0,
+    healthFailures: 0,
     traffic: ZERO,
     samples: [],
 
@@ -114,6 +188,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         activeServerId: server.id,
         activeServer: server,
         autoReconnect: true,
+        healthFailures: 0,
       });
       try {
         const core = selectCore(server, proxy.coreKind);
@@ -155,7 +230,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     disconnect: async () => {
       const { proxy } = useSettingsStore.getState();
       clearReconnectTimer();
-      set({ autoReconnect: false, reconnectAttempts: 0 });
+      set({ autoReconnect: false, reconnectAttempts: 0, healthFailures: 0 });
       try {
         if (proxy.systemProxy) await setSystemProxy(false, proxy.mixedPort);
         await coreStop();
@@ -196,6 +271,7 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
             connectedAt: state.connectedAt ?? Date.now(),
             error: null,
             reconnectAttempts: 0,
+            healthFailures: 0,
           });
           if (proxy.systemProxy) void setSystemProxy(true, proxy.mixedPort).catch(() => {});
           break;
@@ -207,12 +283,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           }
           break;
         case "error":
-          // Kill switch: when enabled, keep system proxy pointing at our (now-dead)
-          // port so the OS blocks all traffic rather than leaking it unprotected.
-          // Without kill switch, restore networking immediately.
-          if (proxy.systemProxy && !proxy.killSwitch) {
-            void setSystemProxy(false, proxy.mixedPort).catch(() => {});
-          }
+          // Restore networking immediately; a dead local proxy must not strand the user.
+          if (proxy.systemProxy) void setSystemProxy(false, proxy.mixedPort).catch(() => {});
           if (state.autoReconnect) {
             scheduleReconnect();
           } else {
@@ -223,6 +295,29 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     },
 
     setStatus: (s, error) => set({ status: s, error: error ?? null }),
+
+    reportHealthProbe: (ok) => {
+      const state = get();
+      // Only meaningful while we believe we're connected.
+      if (state.status !== "connected") {
+        if (state.healthFailures !== 0) set({ healthFailures: 0 });
+        return;
+      }
+      if (ok) {
+        if (state.healthFailures !== 0) set({ healthFailures: 0 });
+        return;
+      }
+      const failures = state.healthFailures + 1;
+      if (failures >= HEALTH_FAIL_THRESHOLD && state.autoReconnect) {
+        // The core process may still be alive, but the endpoint is unreachable —
+        // kick off a reconnect (which fails over to the best server) rather than
+        // waiting for a hard crash that may never arrive.
+        set({ healthFailures: 0 });
+        scheduleReconnect();
+      } else {
+        set({ healthFailures: failures });
+      }
+    },
 
     pushTraffic: (t) =>
       set((state) => {
