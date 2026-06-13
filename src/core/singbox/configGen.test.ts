@@ -96,3 +96,20 @@ describe("generateSingboxConfig Shadowsocks plugin", () => {
     expect("plugin_opts" in out).toBe(false);
   });
 });
+
+describe("generateSingboxConfig rejects Xray-only features", () => {
+  it("refuses xhttp transport (sing-box has no xhttp)", () => {
+    expect(() =>
+      generateSingboxConfig(server({ transport: { type: "xhttp", path: "/xh" } }), baseOpts),
+    ).toThrow(/XHTTP/i);
+  });
+
+  it("refuses post-quantum reality (no ML-DSA-65 client in sing-box)", () => {
+    expect(() =>
+      generateSingboxConfig(
+        server({ tls: { enabled: true, security: "reality", publicKey: "PBK", postQuantum: "PQV" } }),
+        baseOpts,
+      ),
+    ).toThrow(/quantum/i);
+  });
+});

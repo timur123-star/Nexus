@@ -141,10 +141,23 @@ function selectCore(server: ServerProfile, preferredKind: string) {
     preferred.kind === "xray" &&
     server.protocol === "shadowsocks" &&
     !!server.extra?.obfs;
-  if (preferred.supports(server.protocol) && !xrayCantObfs) return preferred;
+  // XHTTP transport and post-quantum (ML-DSA-65) REALITY are Xray-only: sing-box
+  // cannot run them at all. Force Xray for those regardless of the user's
+  // preferred core so the node actually connects instead of silently failing.
+  const needsXray =
+    server.transport.type === "xhttp" ||
+    (server.tls.security === "reality" && !!server.tls.postQuantum);
+  if (needsXray) {
+    const xray = ALL_CORES.find((c) => c.kind === "xray");
+    if (xray && xray.supports(server.protocol)) return xray;
+  }
+  if (preferred.supports(server.protocol) && !xrayCantObfs && !needsXray) return preferred;
   return (
     ALL_CORES.find(
-      (c) => c.supports(server.protocol) && !(c.kind === "xray" && xrayCantObfs),
+      (c) =>
+        c.supports(server.protocol) &&
+        !(c.kind === "xray" && xrayCantObfs) &&
+        !(needsXray && c.kind !== "xray"),
     ) ?? null
   );
 }

@@ -56,6 +56,15 @@ const TARGET_OUTBOUND: Record<RoutingTarget, string> = {
 };
 
 export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): object {
+  // sing-box has no XHTTP transport and no post-quantum (ML-DSA-65) REALITY
+  // client. Such nodes must run on Xray-core; refuse here so the connection
+  // store transparently falls back instead of emitting a silently-broken config.
+  if (server.transport.type === "xhttp") {
+    throw new Error("Транспорт XHTTP поддерживается только ядром Xray");
+  }
+  if (server.tls.security === "reality" && server.tls.postQuantum) {
+    throw new Error("Post-quantum REALITY поддерживается только ядром Xray");
+  }
   const inbounds = buildInbounds(opts);
   const outbound = buildOutbound(server, opts);
 

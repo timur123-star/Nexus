@@ -18,7 +18,7 @@ export type Protocol =
 export type CoreKind = "sing-box" | "xray";
 
 /** Transport / network layer carried over the protocol. */
-export type Transport = "tcp" | "ws" | "grpc" | "http" | "h2" | "quic";
+export type Transport = "tcp" | "ws" | "grpc" | "http" | "h2" | "quic" | "xhttp";
 
 /** TLS-layer security. "reality" is treated as a first-class flavour. */
 export type Security = "none" | "tls" | "reality";
@@ -35,18 +35,24 @@ export interface TlsSettings {
   publicKey?: string;
   shortId?: string;
   spiderX?: string;
+  /** Reality post-quantum verify key (`pqv` → Xray mldsa65Verify). Xray-only. */
+  postQuantum?: string;
 }
 
 export interface TransportSettings {
   type: Transport;
-  /** ws/http path */
+  /** ws/http/xhttp path */
   path?: string;
-  /** ws/http Host header, h2 host */
+  /** ws/http Host header, h2/xhttp host */
   host?: string;
   /** grpc service name */
   serviceName?: string;
   /** http method / mode hints */
   headers?: Record<string, string>;
+  /** xhttp mode: "auto" | "packet-up" | "stream-up" | "stream-one" */
+  mode?: string;
+  /** xhttp `extra` JSON (e.g. { xPaddingBytes, noGRPCHeader, ... }) — Xray-only. */
+  xhttpExtra?: Record<string, unknown>;
 }
 
 export interface ServerProfile {

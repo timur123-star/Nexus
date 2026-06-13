@@ -27,6 +27,13 @@ function normalizeTransport(raw: string | undefined): Transport {
       return "h2";
     case "quic":
       return "quic";
+    // XHTTP (a.k.a. the former "splithttp") is an Xray-core transport used by
+    // modern 3x-ui panels. Without this case it silently fell back to "tcp" and
+    // the generated outbound never completed its handshake — only plain TCP /
+    // Trojan nodes connected from such subscriptions.
+    case "xhttp":
+    case "splithttp":
+      return "xhttp";
     default:
       return "tcp";
   }
@@ -45,6 +52,23 @@ function buildTransport(q: Record<string, string>, net: Transport): TransportSet
   if (q.host) t.host = q.host;
   if (q.serviceName) t.serviceName = q.serviceName;
   if (net === "grpc" && q.serviceName === undefined && q.path) t.serviceName = q.path;
+  if (net === "xhttp") {
+    if (q.mode) t.mode = q.mode;
+    // `extra` is a URL-encoded JSON blob (e.g. {"xPaddingBytes":"100-1000"}).
+    // Some panels instead pass discrete params like `x_padding_bytes`.
+    const extra: Record<string, unknown> = {};
+    if (q.extra) {
+      try {
+        Object.assign(extra, JSON.parse(q.extra));
+      } catch {
+        /* ignore malformed extra */
+      }
+    }
+    if (q.x_padding_bytes && extra.xPaddingBytes === undefined) {
+      extra.xPaddingBytes = q.x_padding_bytes;
+    }
+    if (Object.keys(extra).length > 0) t.xhttpExtra = extra;
+  }
   return t;
 }
 
@@ -61,6 +85,9 @@ function buildTls(q: Record<string, string>, security: Security): TlsSettings {
     tls.publicKey = q.pbk;
     tls.shortId = q.sid;
     tls.spiderX = q.spx;
+    // Post-quantum REALITY (ML-DSA-65). The server advertises `pqv` in the
+    // share link; dropping it makes the handshake fail against PQ-enabled nodes.
+    if (q.pqv) tls.postQuantum = q.pqv;
   }
   return tls;
 }

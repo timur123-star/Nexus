@@ -177,6 +177,14 @@ function buildXrayStream(s: ServerProfile, fragment: boolean): object {
         ...(s.transport.host ? { host: [s.transport.host] } : {}),
       };
       break;
+    case "xhttp":
+      ss.xhttpSettings = {
+        path: s.transport.path || "/",
+        ...(s.transport.host ? { host: s.transport.host } : {}),
+        mode: s.transport.mode || "auto",
+        ...(s.transport.xhttpExtra ? { extra: s.transport.xhttpExtra } : {}),
+      };
+      break;
     default:
       break; // tcp / quic — no extra block
   }
@@ -189,6 +197,8 @@ function buildXrayStream(s: ServerProfile, fragment: boolean): object {
       shortId: s.tls.shortId || "",
       fingerprint: s.tls.fingerprint || "chrome",
       spiderX: s.tls.spiderX || "",
+      // Post-quantum REALITY (ML-DSA-65) — required to handshake with PQ nodes.
+      ...(s.tls.postQuantum ? { mldsa65Verify: s.tls.postQuantum } : {}),
     };
   } else if (s.tls.enabled) {
     ss.security = "tls";
@@ -221,6 +231,8 @@ function mapNetwork(t: TransportSettings["type"]): string {
       return "http";
     case "quic":
       return "quic";
+    case "xhttp":
+      return "xhttp";
     default:
       return "tcp";
   }

@@ -82,3 +82,50 @@ describe("generateXrayConfig — mux", () => {
     expect(proxy.mux).toBeUndefined();
   });
 });
+
+describe("generateXrayConfig — xhttp + post-quantum reality", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function genFor(s: ServerProfile): any {
+    return generateXrayConfig(s, baseOpts);
+  }
+
+  it("emits xhttpSettings (path/host/mode/extra) for an xhttp reality node", () => {
+    const s: ServerProfile = {
+      ...server,
+      transport: {
+        type: "xhttp",
+        path: "/xh",
+        host: "www.nvidia.com",
+        mode: "auto",
+        xhttpExtra: { xPaddingBytes: "100-1000" },
+      },
+      tls: { enabled: true, security: "reality", sni: "ya.ru", publicKey: "PBK", shortId: "SID" },
+    };
+    const ss = genFor(s).outbounds[0].streamSettings;
+    expect(ss.network).toBe("xhttp");
+    expect(ss.xhttpSettings).toEqual({
+      path: "/xh",
+      host: "www.nvidia.com",
+      mode: "auto",
+      extra: { xPaddingBytes: "100-1000" },
+    });
+    expect(ss.security).toBe("reality");
+  });
+
+  it("emits mldsa65Verify when a post-quantum reality key is present", () => {
+    const s: ServerProfile = {
+      ...server,
+      transport: { type: "tcp" },
+      tls: {
+        enabled: true,
+        security: "reality",
+        sni: "vk.ru",
+        publicKey: "PBK",
+        shortId: "SID",
+        postQuantum: "PQVKEY",
+      },
+    };
+    const rs = genFor(s).outbounds[0].streamSettings.realitySettings;
+    expect(rs.mldsa65Verify).toBe("PQVKEY");
+  });
+});

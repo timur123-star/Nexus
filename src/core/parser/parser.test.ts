@@ -214,3 +214,39 @@ describe("detectFormat", () => {
     expect(detectFormat(wrapped)).toBe("base64-subscription");
   });
 });
+
+describe("parseShareLink — xhttp + post-quantum reality (3x-ui modern nodes)", () => {
+  it("parses a VLESS Reality XHTTP link (was silently falling back to tcp)", () => {
+    const link =
+      "vless://uuid-xh@1.2.3.4:8444?encryption=none&security=reality" +
+      "&type=xhttp&mode=auto&path=%2Fxh&host=www.nvidia.com" +
+      "&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D" +
+      "&pbk=PBK&sid=SID&sni=ya.ru&fp=chrome#XHTTP";
+    const s = parseShareLink(link);
+    expect(s.transport.type).toBe("xhttp");
+    expect(s.transport.path).toBe("/xh");
+    expect(s.transport.host).toBe("www.nvidia.com");
+    expect(s.transport.mode).toBe("auto");
+    expect(s.transport.xhttpExtra).toEqual({ xPaddingBytes: "100-1000" });
+    expect(s.tls.security).toBe("reality");
+  });
+
+  it("accepts the legacy `splithttp` spelling", () => {
+    const s = parseShareLink("vless://u@h:443?type=splithttp&security=tls#S");
+    expect(s.transport.type).toBe("xhttp");
+  });
+
+  it("captures the post-quantum reality verify key (pqv)", () => {
+    const s = parseShareLink(
+      "vless://u@h:443?type=tcp&security=reality&pbk=PBK&sid=SID&pqv=PQVKEY123#PQ",
+    );
+    expect(s.tls.postQuantum).toBe("PQVKEY123");
+  });
+
+  it("falls back to discrete x_padding_bytes when extra JSON is absent", () => {
+    const s = parseShareLink(
+      "vless://u@h:8444?type=xhttp&x_padding_bytes=100-1000&security=tls#XP",
+    );
+    expect(s.transport.xhttpExtra).toEqual({ xPaddingBytes: "100-1000" });
+  });
+});
