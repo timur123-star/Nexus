@@ -51,6 +51,12 @@ export function StatsScreen() {
     setDns([]);
   };
 
+  // Heaviest connections first so the user immediately sees what is using the
+  // tunnel the most.
+  const sortedConns = [...conns].sort(
+    (a, b) => b.download + b.upload - (a.download + a.upload),
+  );
+
   return (
     <div className="flex h-full flex-col gap-4 p-5">
       {/* Live graph */}
@@ -95,16 +101,31 @@ export function StatsScreen() {
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-2 text-xs">
-            {conns.length === 0 && (
+            {sortedConns.length === 0 && (
               <p className="mt-8 text-center text-text-faint">{t("stats.noConnections")}</p>
             )}
-            {conns.map((c) => (
-              <div key={c.id} className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-surface/50">
-                <span className="truncate font-mono text-text-dim" title={c.host}>
-                  {c.host}
-                </span>
-                <span className="ml-2 shrink-0 font-mono text-text-faint">
-                  {c.network} \u00b7 {formatBytes(c.download)}
+            {sortedConns.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between gap-2 rounded px-2 py-1.5 hover:bg-surface/50"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate font-mono text-text-dim" title={c.host}>
+                    {c.host}
+                  </span>
+                  <span className="truncate text-[10px] uppercase tracking-wide text-text-faint">
+                    {c.network} · {c.outbound}
+                  </span>
+                </div>
+                <span className="ml-2 flex shrink-0 items-center gap-2 font-mono">
+                  <span className="flex items-center gap-0.5 text-teal">
+                    <ArrowDown size={11} />
+                    {formatBytes(c.download)}
+                  </span>
+                  <span className="flex items-center gap-0.5 text-indigo">
+                    <ArrowUp size={11} />
+                    {formatBytes(c.upload)}
+                  </span>
                 </span>
               </div>
             ))}
