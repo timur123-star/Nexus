@@ -2,25 +2,37 @@ import { Minus, X, Square, Shield } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "../../core/ipc";
 import { useConnectionStore } from "../../store/useConnectionStore";
+import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn, latencyLabel } from "../lib/utils";
 import { useServerStore } from "../../store/useServerStore";
+import { useT } from "../../core/i18n/useT";
+import type { ConnectionStatus } from "../../core/types";
+import type { MessageKey } from "../../core/i18n";
 
-const STATUS_TEXT: Record<string, string> = {
-  disconnected: "Отключено",
-  connecting: "Подключение…",
-  connected: "Подключено",
-  reconnecting: "Переподключение…",
-  error: "Ошибка",
+const STATUS_KEY: Record<ConnectionStatus, MessageKey> = {
+  disconnected: "conn.disconnected",
+  connecting: "conn.connecting",
+  connected: "conn.connected",
+  reconnecting: "conn.reconnecting",
+  error: "conn.error",
 };
 
 export function TitleBar() {
   const status = useConnectionStore((s) => s.status);
   const activeId = useConnectionStore((s) => s.activeServerId);
   const active = useServerStore((s) => s.servers.find((x) => x.id === activeId));
+  const minimizeToTray = useSettingsStore((s) => s.app.minimizeToTray);
+  const t = useT();
 
   const win = isTauri ? getCurrentWindow() : null;
   const dotColor =
     status === "connected" ? "bg-ok" : status === "connecting" ? "bg-warn" : status === "error" ? "bg-bad" : "bg-text-faint";
+
+  // Closing hides to tray only when the user opted in; otherwise quit for real.
+  const handleClose = () => {
+    if (minimizeToTray) win?.hide();
+    else win?.close();
+  };
 
   return (
     <div
@@ -34,20 +46,20 @@ export function TitleBar() {
 
       <div data-tauri-drag-region className="flex items-center gap-2 text-xs text-text-dim">
         <span className={cn("h-2 w-2 rounded-full", dotColor, status === "connecting" && "animate-pulse")} />
-        <span>{STATUS_TEXT[status] ?? status}</span>
+        <span>{t(STATUS_KEY[status] ?? "conn.disconnected")}</span>
         {status === "connected" && active?.latencyMs != null && (
           <span className="font-mono text-text-faint">· {latencyLabel(active.latencyMs)}</span>
         )}
       </div>
 
       <div className="flex items-center gap-1">
-        <WinBtn onClick={() => win?.minimize()} label="свернуть">
+        <WinBtn onClick={() => win?.minimize()} label="minimize">
           <Minus size={15} />
         </WinBtn>
-        <WinBtn onClick={() => win?.toggleMaximize()} label="развернуть">
+        <WinBtn onClick={() => win?.toggleMaximize()} label="maximize">
           <Square size={12} />
         </WinBtn>
-        <WinBtn onClick={() => win?.hide()} label="закрыть" danger>
+        <WinBtn onClick={handleClose} label="close" danger>
           <X size={15} />
         </WinBtn>
       </div>

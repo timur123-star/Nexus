@@ -3,6 +3,8 @@ import Editor, { loader, type OnMount } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import { useSettingsStore } from "../../store/useSettingsStore";
+import type { Lang } from "../../core/i18n";
 
 // Custom theme matching the NexusShield dark design tokens.
 const nexusDarkTheme: monaco.editor.IStandaloneThemeData = {
@@ -41,6 +43,14 @@ function configureMonaco() {
   monaco.editor.defineTheme("nexus-dark", nexusDarkTheme);
 }
 
+// Self-contained loading label so the editor doesn't show Russian in other UIs.
+const LOADING_TEXT: Record<Lang, string> = {
+  en: "Loading editor\u2026",
+  ru: "\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0430\u2026",
+  fa: "\u062f\u0631 \u062d\u0627\u0644 \u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0648\u06cc\u0631\u0627\u06cc\u0634\u06af\u0631\u2026",
+  zh: "\u6b63\u5728\u52a0\u8f7d\u7f16\u8f91\u5668\u2026",
+};
+
 const EDITOR_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions = {
   fontSize: 12.5,
   fontFamily: "'JetBrains Mono', ui-monospace, monospace",
@@ -69,6 +79,8 @@ export function CodeEditor({
   language?: string;
   readOnly?: boolean;
 }) {
+  const lang = useSettingsStore((s) => s.app.language);
+
   useEffect(() => {
     configureMonaco();
   }, []);
@@ -80,7 +92,7 @@ export function CodeEditor({
   const options = { ...EDITOR_OPTIONS, readOnly };
   const loadingNode = (
     <div className="grid h-full place-items-center text-xs text-text-faint">
-      Загрузка редактора…
+      {LOADING_TEXT[lang] ?? LOADING_TEXT.en}
     </div>
   );
 

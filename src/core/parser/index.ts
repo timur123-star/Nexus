@@ -36,18 +36,21 @@ export interface ParseResult {
  * Parse an arbitrary blob into servers. Handles:
  *  - a single share link
  *  - many links separated by newlines / whitespace
- *  - a base64-encoded subscription body (decode, then recurse)
+ *  - a base64-encoded subscription body (decode, then recurse), including
+ *    MIME / line-wrapped base64 bodies
  */
 export function parseMany(text: string): ParseResult {
   const input = text.trim();
   const servers: ServerProfile[] = [];
   const errors: { line: string; reason: string }[] = [];
 
-  // If the whole blob is base64 and does NOT itself start with a scheme,
-  // it's almost certainly a base64 subscription — decode and recurse once.
-  if (!SCHEME_RE.test(input) && looksBase64(input)) {
+  // If the blob is base64 and does NOT itself start with a scheme, it's almost
+  // certainly a base64 subscription — decode and recurse once. Strip whitespace
+  // first so MIME / line-wrapped base64 bodies are recognised too.
+  const compact = input.replace(/\s+/g, "");
+  if (!SCHEME_RE.test(input) && looksBase64(compact)) {
     try {
-      const decoded = decodeBase64(input);
+      const decoded = decodeBase64(compact);
       if (/:\/\//.test(decoded)) return parseMany(decoded);
     } catch {
       /* fall through to line-based parsing */
@@ -97,10 +100,10 @@ export function detectFormat(text: string): DetectedFormat {
   const lines = t.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length > 1 && lines.every((l) => SCHEME_RE.test(l.trim()))) return "link-list";
   if (SCHEME_RE.test(t)) return "share-link";
-  if (looksBase64(t)) return "base64-subscription";
+  if (looksBase64(t.replace(/\s+/g, ""))) return "base64-subscription";
   return "unknown";
 }
 
 function truncate(s: string, n = 60): string {
-  return s.length > n ? s.slice(0, n) + "…" : s;
+  return s.length > n ? s.slice(0, n) + "\u2026" : s;
 }

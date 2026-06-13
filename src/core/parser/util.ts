@@ -1,8 +1,11 @@
 /** Low-level parsing helpers shared by every protocol parser. */
 
-/** URL-safe + standard base64 decode that tolerates missing padding. */
+/** URL-safe + standard base64 decode that tolerates missing padding and
+ * embedded whitespace (e.g. MIME line-wrapped subscription bodies). */
 export function decodeBase64(input: string): string {
-  let s = input.trim().replace(/-/g, "+").replace(/_/g, "/");
+  // Strip ALL whitespace first: base64 ignores it per spec, but atob() and
+  // Buffer treat embedded newlines/spaces as invalid input.
+  let s = input.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
   const pad = s.length % 4;
   if (pad) s += "=".repeat(4 - pad);
   if (typeof atob === "function") {

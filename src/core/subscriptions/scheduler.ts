@@ -19,10 +19,31 @@ export function isDue(sub: Subscription, nowMs: number): boolean {
 }
 
 /**
+ * Clear any subscription stuck in "updating" from a previous session.
+ *
+ * `status` is persisted, so a refresh interrupted by an app close/crash leaves
+ * the subscription marked "updating" forever — which makes isDue() skip it on
+ * every future tick. Reset such entries so auto-update can resume.
+ */
+function clearStaleUpdating(): void {
+  const { subscriptions } = useServerStore.getState();
+  if (!subscriptions.some((s) => s.status === "updating")) return;
+  useServerStore.setState((s) => ({
+    subscriptions: s.subscriptions.map((sub) =>
+      sub.status === "updating"
+        ? { ...sub, status: (sub.lastUpdatedAt ? "ok" : "never") as Subscription["status"] }
+        : sub,
+    ),
+  }));
+}
+
+/**
  * Start the scheduler. Runs immediately, then every `checkEveryMs`.
  * Returns a stop function that clears the timer. Safe to call once on mount.
  */
 export function startSubscriptionScheduler(checkEveryMs = 60_000): () => void {
+  clearStaleUpdating(); // recover from an interrupted refresh before ticking
+
   const tick = () => {
     const { subscriptions, refreshSubscription } = useServerStore.getState();
     const now = Date.now();

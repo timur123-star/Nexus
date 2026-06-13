@@ -54,16 +54,16 @@ export function ServerCard({
             />
           )}
           {server.tags.map((tag) => (
-            <span key={tag} className="rounded bg-surface px-1.5 text-[10px] text-text-dim">
+            <span key={tag} className="shrink-0 rounded bg-surface px-1.5 text-[10px] text-text-dim">
               #{tag}
             </span>
           ))}
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-text-dim">
-          <span className="font-medium text-indigo">{PROTOCOL_LABEL[server.protocol]}</span>
-          <span className="font-mono uppercase">{server.transport.type}</span>
+          <span className="shrink-0 font-medium text-indigo">{PROTOCOL_LABEL[server.protocol]}</span>
+          <span className="shrink-0 font-mono uppercase">{server.transport.type}</span>
           {server.tls.security !== "none" && (
-            <span className="font-mono uppercase text-teal">{server.tls.security}</span>
+            <span className="shrink-0 font-mono uppercase text-teal">{server.tls.security}</span>
           )}
           <span className="truncate font-mono text-text-faint">{server.address}</span>
         </div>
@@ -73,14 +73,14 @@ export function ServerCard({
       <button
         onClick={() => pingOne(server.id)}
         title={t("servers.latencyTest")}
-        className={cn("flex items-center gap-1 font-mono text-xs", latencyColor(server.latencyMs))}
+        className={cn("flex shrink-0 items-center gap-1 font-mono text-xs", latencyColor(server.latencyMs))}
       >
         <Activity size={13} />
         {latencyLabel(server.latencyMs)}
       </button>
 
       {/* Favorite */}
-      <button onClick={() => toggleFavorite(server.id)} title={t("servers.favorite")}>
+      <button onClick={() => toggleFavorite(server.id)} title={t("servers.favorite")} className="shrink-0">
         <Star
           size={16}
           className={cn(
@@ -93,7 +93,7 @@ export function ServerCard({
       <button
         onClick={() => toggle(server)}
         className={cn(
-          "grid h-8 w-8 place-items-center rounded-btn transition-colors",
+          "grid h-8 w-8 shrink-0 place-items-center rounded-btn transition-colors",
           isActive ? "bg-ok text-white" : "bg-surface text-text-dim hover:bg-indigo hover:text-white",
         )}
         title={isActive ? t("common.disconnect") : t("common.connect")}
@@ -102,7 +102,7 @@ export function ServerCard({
       </button>
 
       {/* Context menu */}
-      <div className="relative">
+      <div className="relative shrink-0">
         <button
           onClick={() => setMenuOpen((v) => !v)}
           onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
