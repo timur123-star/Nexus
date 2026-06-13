@@ -9,14 +9,15 @@ export const PROTOCOL_LABEL: Record<Protocol, string> = {
   tuic: "TUIC",
 };
 
-/** Accent colour per protocol for chips. */
+/** Accent colour per protocol for chips — kept visually distinct for quick
+ *  recognition while staying coherent with the crimson/dark theme. */
 export const PROTOCOL_COLOR: Record<Protocol, string> = {
   vless: "var(--color-indigo)",
-  vmess: "#9b6af0",
-  trojan: "#f0556b",
-  shadowsocks: "#1ec8a4",
-  hysteria2: "#f5b14c",
-  tuic: "#4bd9bb",
+  vmess: "#f0556b",
+  trojan: "#fb923c",
+  shadowsocks: "#f5b14c",
+  hysteria2: "#ec4899",
+  tuic: "#a78bfa",
 };
 
 export const ALL_PROTOCOLS: Protocol[] = [

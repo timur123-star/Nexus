@@ -80,9 +80,9 @@ function configureMonaco() {
 // and hang forever on the loading label inside the packaged desktop app.
 configureMonaco();
 
-function resolveLight(theme: "system" | "dark" | "light"): boolean {
+function resolveLight(theme: "system" | "dark" | "light" | "oled"): boolean {
   if (theme === "light") return true;
-  if (theme === "dark") return false;
+  if (theme === "dark" || theme === "oled") return false;
   return window.matchMedia("(prefers-color-scheme: light)").matches;
 }
 

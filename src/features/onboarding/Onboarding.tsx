@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Shield, Plus, Route, Power, ArrowRight, ArrowLeft } from "lucide-react";
+import { Plus, Route, Power, ArrowRight, ArrowLeft } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import logoFull from "../../assets/logo-full.png";
 import { cn } from "../../shared/lib/utils";
 import { EASE_OUT } from "../../shared/lib/motion";
 import { useT } from "../../core/i18n/useT";
@@ -90,7 +91,7 @@ export function Onboarding({
       action: (
         <button
           onClick={onDone}
-          className="rounded-btn bg-gradient-to-br from-indigo to-teal px-6 py-2.5 text-sm font-medium text-white"
+          className="rounded-btn bg-gradient-to-br from-indigo to-indigo-soft px-6 py-2.5 text-sm font-medium text-white shadow-[0_8px_24px_-8px_rgba(220,38,38,0.6)]"
         >
           {t("onboarding.start")}
         </button>
@@ -106,9 +107,15 @@ export function Onboarding({
   return (
     <div className="relative grid h-screen place-items-center p-8">
       <div className="glass-elev w-full max-w-md rounded-panel p-8 text-center">
-        <div className="mb-6 flex items-center justify-center gap-2 text-indigo">
-          <Shield size={22} />
-          <span className="text-lg font-semibold tracking-wide text-text">NexusShield</span>
+        <div className="mb-6 flex flex-col items-center justify-center gap-3">
+          <img
+            src={logoFull}
+            alt="NexusShield"
+            className="h-24 w-24 object-contain drop-shadow-[0_0_24px_rgba(220,38,38,0.45)]"
+          />
+          <span className="text-lg font-semibold tracking-wide text-text">
+            Nexus<span className="text-indigo">Shield</span>
+          </span>
         </div>
 
         <div className="min-h-[15rem] overflow-hidden">
