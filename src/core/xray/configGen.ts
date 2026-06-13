@@ -92,7 +92,11 @@ interface OutboundExtras {
 
 function buildXrayOutbound(s: ServerProfile, extra: OutboundExtras): object {
   const streamSettings = buildXrayStream(s, extra.fragment);
-  const muxBlock = extra.mux?.enabled ? { mux: { enabled: true, concurrency: 8 } } : {};
+  // xtls-rprx-vision cannot be combined with mux; Xray rejects the pair, so
+  // suppress mux for vless outbounds that carry a flow.
+  const visionFlow = s.protocol === "vless" && !!s.flow;
+  const muxBlock =
+    extra.mux?.enabled && !visionFlow ? { mux: { enabled: true, concurrency: 8 } } : {};
   switch (s.protocol) {
     case "vless":
       return {

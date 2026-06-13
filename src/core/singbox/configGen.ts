@@ -236,7 +236,9 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         ...(s.flow ? { flow: s.flow } : {}),
         ...(transport ? { transport } : {}),
         ...(tls ? { tls } : {}),
-        ...(multiplex ? { multiplex } : {}),
+        // xtls-rprx-vision is incompatible with multiplex in sing-box; emitting
+        // both makes the outbound invalid, so drop mux whenever a flow is set.
+        ...(multiplex && !s.flow ? { multiplex } : {}),
       };
     case "vmess":
       return {
