@@ -187,6 +187,15 @@ describe("parseMany", () => {
     const { servers } = parseMany(sub);
     expect(servers).toHaveLength(2);
   });
+
+  it("decodes a line-wrapped (MIME) base64 subscription body", () => {
+    const inner = ["trojan://p@a.com:443#A", "vless://u@b.com:443?type=tcp#B"].join("\n");
+    // Many providers (incl. 3x-ui) wrap the base64 body across multiple lines.
+    const wrapped = Buffer.from(inner).toString("base64").replace(/(.{16})/g, "$1\n");
+    expect(wrapped).toContain("\n");
+    const { servers } = parseMany(wrapped);
+    expect(servers).toHaveLength(2);
+  });
 });
 
 describe("detectFormat", () => {
@@ -196,5 +205,12 @@ describe("detectFormat", () => {
     expect(detectFormat("trojan://a@h:1#x\nvless://b@h:2#y")).toBe("link-list");
     expect(detectFormat(Buffer.from("trojan://a@h:1").toString("base64"))).toBe("base64-subscription");
     expect(detectFormat("")).toBe("unknown");
+  });
+
+  it("classifies a line-wrapped base64 body as a subscription", () => {
+    const wrapped = Buffer.from("trojan://a@h:1#x\nvless://b@h:2#y")
+      .toString("base64")
+      .replace(/(.{16})/g, "$1\n");
+    expect(detectFormat(wrapped)).toBe("base64-subscription");
   });
 });
