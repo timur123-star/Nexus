@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { CoreKind, RoutingMode, RoutingRule } from "../core/types";
+import type { CoreKind, RoutingMode, RoutingProfile, RoutingRule } from "../core/types";
 import { persistentStorage } from "../core/db";
 
 export interface ProxySettings {
@@ -14,6 +14,8 @@ export interface ProxySettings {
   blockQuic: boolean;
   /** User-defined rules, evaluated before the bundled geo rules. */
   customRules: RoutingRule[];
+  /** Saved routing presets the user can switch between in one click. */
+  routingProfiles: RoutingProfile[];
   tun: {
     enabled: boolean;
     stack: "system" | "gvisor" | "mixed";
@@ -53,6 +55,37 @@ interface SettingsState {
   reset: () => void;
 }
 
+/**
+ * Seed profiles available on first run. Names are localised in the UI via the
+ * `nameKey` lookup so the stored data stays language-agnostic.
+ */
+export const BUILTIN_ROUTING_PROFILES: RoutingProfile[] = [
+  {
+    id: "builtin-smart",
+    builtin: true,
+    nameKey: "smart",
+    routingMode: "rule",
+    customRules: [],
+    blockQuic: false,
+  },
+  {
+    id: "builtin-global",
+    builtin: true,
+    nameKey: "global",
+    routingMode: "global",
+    customRules: [],
+    blockQuic: true,
+  },
+  {
+    id: "builtin-direct",
+    builtin: true,
+    nameKey: "direct",
+    routingMode: "direct",
+    customRules: [],
+    blockQuic: false,
+  },
+];
+
 export const DEFAULT_PROXY: ProxySettings = {
   coreKind: "sing-box",
   mixedPort: 2080,
@@ -61,6 +94,7 @@ export const DEFAULT_PROXY: ProxySettings = {
   routingMode: "rule",
   blockQuic: false,
   customRules: [],
+  routingProfiles: BUILTIN_ROUTING_PROFILES,
   tun: { enabled: false, stack: "system" },
   dns: { remote: "https://1.1.1.1/dns-query", direct: "https://223.5.5.5/dns-query" },
   fakeIp: true,
@@ -91,13 +125,24 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: "nexusshield-settings",
       storage: createJSONStorage(() => persistentStorage),
-      // Merge persisted state over defaults so new fields (e.g. coreKind) are
-      // always present for users upgrading from an older version.
+      // Merge persisted state over defaults so new fields (e.g. coreKind,
+      // routingProfiles) are always present for users upgrading from an older
+      // version.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
+        const persistedProxy = (p.proxy ?? {}) as Partial<ProxySettings>;
         return {
           ...current,
-          proxy: { ...current.proxy, ...(p.proxy ?? {}) },
+          proxy: {
+            ...current.proxy,
+            ...persistedProxy,
+            // Always keep the built-in presets available even if an older
+            // persisted state had none.
+            routingProfiles:
+              persistedProxy.routingProfiles && persistedProxy.routingProfiles.length > 0
+                ? persistedProxy.routingProfiles
+                : current.proxy.routingProfiles,
+          },
           app: { ...current.app, ...(p.app ?? {}) },
         };
       },

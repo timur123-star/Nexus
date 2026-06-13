@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Folder, Plus, RotateCcw, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
+import { Folder, Plus, RotateCcw, Route, Save, ShieldAlert, ShieldCheck, Trash2, X } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { openLogsDir, isElevated, relaunchAsAdmin } from "../../core/ipc";
 import { cn } from "../../shared/lib/utils";
 import { useT } from "../../core/i18n/useT";
-import type { MessageKey } from "../../core/i18n";
-import type { CoreKind, RoutingMode, RoutingRuleMatch, RoutingTarget } from "../../core/types";
+import type { Lang, MessageKey } from "../../core/i18n";
+import type { CoreKind, RoutingMode, RoutingProfile, RoutingRuleMatch, RoutingTarget } from "../../core/types";
 import { SubscriptionList } from "./SubscriptionList";
 
 const MATCH_KEYS: RoutingRuleMatch[] = [
@@ -29,6 +29,65 @@ const MATCH_PLACEHOLDER: Record<RoutingRuleMatch, string> = {
   ip_cidr: "10.0.0.0/8",
   process_name: "telegram.exe",
 };
+
+// Localised strings for the routing-profiles block. Kept inline (rather than in
+// the global dictionary) so the feature stays self-contained; ru/en are fully
+// covered and fa/zh gracefully fall back to English-style values.
+const PROFILE_STRINGS: Record<Lang, Record<string, string>> = {
+  en: {
+    title: "Routing profiles",
+    intro: "Save the routing mode, custom rules and QUIC switch as a profile and switch between them in one click.",
+    smart: "Smart (rules)",
+    global: "Global",
+    direct: "Direct",
+    save: "Save current as profile",
+    namePlaceholder: "Profile name",
+    defaultName: "Profile",
+    delete: "Delete profile",
+    apply: "Apply profile",
+  },
+  ru: {
+    title: "Профили маршрутизации",
+    intro: "Сохраните режим маршрутизации, свои правила и переключатель QUIC как профиль и меняйте их одним кликом.",
+    smart: "Умный (по правилам)",
+    global: "Глобальный",
+    direct: "Прямой",
+    save: "Сохранить текущие как профиль",
+    namePlaceholder: "Название профиля",
+    defaultName: "Профиль",
+    delete: "Удалить профиль",
+    apply: "Применить профиль",
+  },
+  fa: {
+    title: "پروفایل‌های مسیریابی",
+    intro: "حالت مسیریابی، قوانین سفارشی و QUIC را به‌عنوان پروفایل ذخیره کنید و با یک کلیک جابه‌جا شوید.",
+    smart: "هوشمند (قوانین)",
+    global: "سراسری",
+    direct: "مستقیم",
+    save: "ذخیره به‌عنوان پروفایل",
+    namePlaceholder: "نام پروفایل",
+    defaultName: "پروفایل",
+    delete: "حذف پروفایل",
+    apply: "اعمال پروفایل",
+  },
+  zh: {
+    title: "路由配置",
+    intro: "将路由模式、自定义规则和 QUIC 开关保存为配置，一键切换。",
+    smart: "智能（规则）",
+    global: "全局",
+    direct: "直连",
+    save: "保存为配置",
+    namePlaceholder: "配置名称",
+    defaultName: "配置",
+    delete: "删除配置",
+    apply: "应用配置",
+  },
+};
+
+function sameRules(a: RoutingProfile["customRules"], b: RoutingProfile["customRules"]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((r, i) => r.match === b[i].match && r.value === b[i].value && r.target === b[i].target);
+}
 
 export function SettingsScreen() {
   const { proxy, app, setProxy, setApp, reset } = useSettingsStore();
@@ -158,6 +217,8 @@ export function SettingsScreen() {
           <Plus size={15} /> {t("settings.rules.add")}
         </button>
       </Section>
+
+      <RoutingProfiles />
 
       <Section title={t("settings.tun.title")}>
         {proxy.tun.enabled && !elevated && (
@@ -326,6 +387,134 @@ export function SettingsScreen() {
         </button>
       </div>
     </div>
+  );
+}
+
+function RoutingProfiles() {
+  const proxy = useSettingsStore((s) => s.proxy);
+  const setProxy = useSettingsStore((s) => s.setProxy);
+  const lang = useSettingsStore((s) => s.app.language);
+  const ps = PROFILE_STRINGS[lang] ?? PROFILE_STRINGS.en;
+  const [naming, setNaming] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const customCount = proxy.routingProfiles.filter((p) => !p.builtin).length;
+
+  const profileLabel = (p: RoutingProfile): string =>
+    p.builtin ? ps[p.nameKey ?? ""] ?? p.nameKey ?? "?" : p.name || "?";
+
+  const isActive = (p: RoutingProfile): boolean =>
+    p.routingMode === proxy.routingMode &&
+    p.blockQuic === proxy.blockQuic &&
+    sameRules(p.customRules, proxy.customRules);
+
+  const applyProfile = (p: RoutingProfile) =>
+    setProxy({
+      routingMode: p.routingMode,
+      blockQuic: p.blockQuic,
+      customRules: p.customRules.map((r) => ({ ...r })),
+    });
+
+  const removeProfile = (id: string) =>
+    setProxy({ routingProfiles: proxy.routingProfiles.filter((p) => p.id !== id) });
+
+  const startNaming = () => {
+    setDraft(`${ps.defaultName} ${customCount + 1}`);
+    setNaming(true);
+  };
+
+  const confirmSave = () => {
+    const name = draft.trim() || `${ps.defaultName} ${customCount + 1}`;
+    const profile: RoutingProfile = {
+      id: `prof-${Date.now()}`,
+      name,
+      routingMode: proxy.routingMode,
+      blockQuic: proxy.blockQuic,
+      customRules: proxy.customRules.map((r) => ({ ...r })),
+    };
+    setProxy({ routingProfiles: [...proxy.routingProfiles, profile] });
+    setNaming(false);
+    setDraft("");
+  };
+
+  return (
+    <Section title={ps.title}>
+      <p className="-mt-1 text-[11px] text-text-faint">{ps.intro}</p>
+      <div className="flex flex-wrap gap-2">
+        {proxy.routingProfiles.map((p) => {
+          const active = isActive(p);
+          return (
+            <div
+              key={p.id}
+              className={cn(
+                "flex items-center gap-1.5 rounded-btn border px-3 py-1.5 text-sm transition-colors",
+                active
+                  ? "border-indigo bg-indigo/10 text-indigo"
+                  : "border-border text-text-dim hover:text-text",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => applyProfile(p)}
+                title={ps.apply}
+                className="flex items-center gap-1.5"
+              >
+                <Route size={14} />
+                <span>{profileLabel(p)}</span>
+              </button>
+              {!p.builtin && (
+                <button
+                  type="button"
+                  onClick={() => removeProfile(p.id)}
+                  title={ps.delete}
+                  className="grid h-4 w-4 place-items-center rounded text-text-faint transition-colors hover:text-bad"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {naming ? (
+        <div className="flex items-center gap-2">
+          <input
+            autoFocus
+            className="ns-input flex-1"
+            placeholder={ps.namePlaceholder}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmSave();
+              else if (e.key === "Escape") setNaming(false);
+            }}
+          />
+          <button
+            type="button"
+            onClick={confirmSave}
+            title={ps.save}
+            className="flex shrink-0 items-center gap-1.5 rounded-btn bg-indigo px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-soft"
+          >
+            <Save size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setNaming(false)}
+            className="shrink-0 rounded-btn px-3 py-2 text-sm text-text-faint transition-colors hover:text-text"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={startNaming}
+          className="flex items-center gap-1.5 rounded-btn border border-border px-3 py-2 text-sm text-text-dim transition-colors hover:border-indigo/40 hover:text-text"
+        >
+          <Save size={15} /> {ps.save}
+        </button>
+      )}
+    </Section>
   );
 }
 
