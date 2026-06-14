@@ -101,10 +101,17 @@ export function ImportDialog({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setResult(null);
     try {
-      await addSubscription(subName || subUrl, subUrl, interval);
-      showResult(t("import.subAdded"), "ok");
-      setSubUrl("");
-      setSubName("");
+      const sub = await addSubscription(subName || subUrl, subUrl, interval);
+      if (sub.status === "error") {
+        showResult(t("import.errorPrefix", { msg: sub.lastError ?? "" }), "err");
+      } else {
+        const count = sub.serverCount ?? 0;
+        showResult(t("import.added", { count }), count > 0 ? "ok" : "err");
+        if (count > 0) {
+          setSubUrl("");
+          setSubName("");
+        }
+      }
     } catch (e) {
       showResult(t("import.errorPrefix", { msg: e instanceof Error ? e.message : String(e) }), "err");
     } finally {

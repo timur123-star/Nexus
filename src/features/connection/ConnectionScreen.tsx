@@ -66,6 +66,7 @@ interface DashStrings {
   pasteEmpty: string;
   pasteFail: string;
   subAdded: string;
+  subError: string;
   importedN: string;
   importNone: string;
 }
@@ -79,7 +80,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     modeProxy: "Proxy", modeSystem: "System proxy", modeTun: "VPN",
     pasteClipboard: "Paste from clipboard", addManual: "Add manually",
     pasteEmpty: "Clipboard is empty", pasteFail: "Couldn't read the clipboard",
-    subAdded: "Subscription added", importedN: "Imported", importNone: "No configs found in the clipboard",
+    subAdded: "Subscription added", subError: "Couldn't load the subscription", importedN: "Imported", importNone: "No configs found in the clipboard",
   },
   ru: {
     downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a",
@@ -90,7 +91,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     modeProxy: "Прокси", modeSystem: "Системный прокси", modeTun: "VPN",
     pasteClipboard: "Вставить из буфера", addManual: "Добавить вручную",
     pasteEmpty: "Буфер обмена пуст", pasteFail: "Не удалось прочитать буфер обмена",
-    subAdded: "Подписка добавлена", importedN: "Импортировано", importNone: "В буфере не найдено конфигов",
+    subAdded: "Подписка добавлена", subError: "Не удалось загрузить подписку", importedN: "Импортировано", importNone: "В буфере не найдено конфигов",
   },
   fa: {
     downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج",
@@ -101,7 +102,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     modeProxy: "پروکسی", modeSystem: "پروکسی سیستم", modeTun: "VPN",
     pasteClipboard: "جای‌گذاری از کلیپ‌بورد", addManual: "افزودن دستی",
     pasteEmpty: "کلیپ‌بورد خالی است", pasteFail: "خواندن کلیپ‌بورد ناموفق بود",
-    subAdded: "اشتراک اضافه شد", importedN: "وارد شد", importNone: "هیچ پیکربندی در کلیپ‌بورد یافت نشد",
+    subAdded: "اشتراک اضافه شد", subError: "بارگیری اشتراک ناموفق بود", importedN: "وارد شد", importNone: "هیچ پیکربندی در کلیپ‌بورد یافت نشد",
   },
   zh: {
     downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值",
@@ -112,7 +113,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     modeProxy: "代理", modeSystem: "系统代理", modeTun: "VPN",
     pasteClipboard: "从剪贴板粘贴", addManual: "手动添加",
     pasteEmpty: "剪贴板为空", pasteFail: "无法读取剪贴板",
-    subAdded: "已添加订阅", importedN: "已导入", importNone: "剪贴板中未找到配置",
+    subAdded: "已添加订阅", subError: "无法加载订阅", importedN: "已导入", importNone: "剪贴板中未找到配置",
   },
 };
 
@@ -206,8 +207,17 @@ export function ConnectionScreen({
         } catch {
           /* keep default */
         }
-        await addSubscription(host, text, subIntervalHours);
-        pushToast({ kind: "success", message: L.subAdded });
+        const sub = await addSubscription(host, text, subIntervalHours);
+        if (sub.status === "error") {
+          pushToast({
+            kind: "error",
+            message: sub.lastError ? `${L.subError}: ${sub.lastError}` : L.subError,
+          });
+        } else if ((sub.serverCount ?? 0) === 0) {
+          pushToast({ kind: "warning", message: L.importNone });
+        } else {
+          pushToast({ kind: "success", message: `${L.subAdded} · ${sub.serverCount}` });
+        }
       } else {
         const { added, errors } = addFromBlob(text);
         if (added > 0) {

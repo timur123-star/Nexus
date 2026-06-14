@@ -71,6 +71,10 @@ export function ServerCard({
         isActive && "border-ok/50 bg-ok/5",
         isBusy && "border-indigo/50 bg-indigo/5",
         dragOver && "ring-2 ring-indigo/60",
+        // While the context menu is open, lift the whole card above the cards
+        // below it — each card is its own stacking context (glass backdrop-filter),
+        // so the dropdown can't otherwise rise above the next card in a long list.
+        menuOpen && "z-40",
       )}
     >
       {batchMode ? (

@@ -7,6 +7,7 @@
  * have to be added to the global i18n dictionary (which enforces key parity).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { Check, Copy, QrCode, X } from "lucide-react";
 import type { ServerProfile } from "../../core/types";
@@ -55,24 +56,36 @@ export function ShareDialog({ server, onClose }: { server: ServerProfile; onClos
   const tr = STRINGS[lang] ?? STRINGS.en;
   const [qr, setQr] = useState<string>("");
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [qrError, setQrError] = useState(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
-  const link = useMemo(() => {
+  // Compute the share-link without any setState-during-render side effects
+  // (which is what made the dialog flicker / "колбасить" on re-render). Only
+  // depends on stable config fields, so live latency pings don't regenerate it.
+  const { link, linkError } = useMemo(() => {
     try {
-      return serverToShareLink(server);
+      return { link: serverToShareLink(server), linkError: null as string | null };
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e));
-      return "";
+      return { link: "", linkError: String(e instanceof Error ? e.message : e) };
     }
   }, [server]);
+  const error = linkError ?? (qrError ? "qr" : null);
 
   useEffect(() => {
     if (!link) return;
+    let alive = true;
+    setQrError(false);
     QRCode.toDataURL(link, { margin: 1, width: 320, errorCorrectionLevel: "M" })
-      .then(setQr)
-      .catch(() => setError("qr"));
+      .then((url) => {
+        if (alive) setQr(url);
+      })
+      .catch(() => {
+        if (alive) setQrError(true);
+      });
+    return () => {
+      alive = false;
+    };
   }, [link]);
 
   useEffect(() => {
@@ -90,17 +103,17 @@ export function ShareDialog({ server, onClose }: { server: ServerProfile; onClos
       toast.success(tr.copyToast);
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      setError("clipboard");
+      toast.error(tr.copyToast);
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] grid place-items-center bg-black/50 p-6 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="glass-elev animate-fade-in flex w-full max-w-sm flex-col overflow-y-auto rounded-panel p-5"
+        className="glass-elev animate-fade-in flex max-h-[90vh] w-full max-w-sm flex-col overflow-y-auto rounded-panel p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -117,11 +130,11 @@ export function ShareDialog({ server, onClose }: { server: ServerProfile; onClos
         {error ? (
           <div className="rounded-card bg-bad/10 p-4 text-center text-sm text-bad">{error}</div>
         ) : (
-          <div className="grid place-items-center rounded-card bg-white p-3">
+          <div className="mx-auto grid aspect-square w-full max-w-[14rem] place-items-center rounded-card bg-white p-3">
             {qr ? (
-              <img src={qr} alt={tr.qrAlt} className="h-56 w-56" />
+              <img src={qr} alt={tr.qrAlt} className="h-full w-full object-contain" />
             ) : (
-              <div className="h-56 w-56 animate-pulse rounded bg-black/5" />
+              <div className="h-full w-full animate-pulse rounded bg-black/5" />
             )}
           </div>
         )}
@@ -141,6 +154,7 @@ export function ShareDialog({ server, onClose }: { server: ServerProfile; onClos
           {copied ? tr.copied : tr.copy}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

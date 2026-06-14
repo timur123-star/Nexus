@@ -62,8 +62,8 @@ interface ServerState {
     url: string,
     intervalHours: number,
     userAgent?: string,
-  ) => Promise<void>;
-  refreshSubscription: (id: string) => Promise<void>;
+  ) => Promise<Subscription>;
+  refreshSubscription: (id: string) => Promise<Subscription | undefined>;
   removeSubscription: (id: string, removeServers: boolean) => void;
 }
 
@@ -194,22 +194,30 @@ export const useServerStore = create<ServerState>()(
       },
 
       addSubscription: async (name, url, intervalHours, userAgent) => {
+        const trimmedUrl = url.trim();
+        // Dedup by URL: re-pasting / re-adding the same subscription should just
+        // refresh the existing one instead of piling up duplicate (and often
+        // broken) entries that show up as "странные инбаунды".
+        const existing = get().subscriptions.find((x) => x.url === trimmedUrl);
+        if (existing) {
+          return (await get().refreshSubscription(existing.id)) ?? existing;
+        }
         const sub: Subscription = {
           id: makeSubId(),
           name,
-          url,
+          url: trimmedUrl,
           updateIntervalHours: intervalHours,
           userAgent: userAgent?.trim() ? userAgent.trim() : undefined,
           serverCount: 0,
           status: "never",
         };
         set((s) => ({ subscriptions: [...s.subscriptions, sub] }));
-        await get().refreshSubscription(sub.id);
+        return (await get().refreshSubscription(sub.id)) ?? sub;
       },
 
       refreshSubscription: async (id) => {
         const sub = get().subscriptions.find((x) => x.id === id);
-        if (!sub) return;
+        if (!sub) return undefined;
         set((s) => ({
           subscriptions: s.subscriptions.map((x) =>
             x.id === id ? { ...x, status: "updating" } : x,
@@ -267,6 +275,7 @@ export const useServerStore = create<ServerState>()(
             ),
           }));
         }
+        return get().subscriptions.find((x) => x.id === id);
       },
 
       removeSubscription: (id, removeServers) =>
