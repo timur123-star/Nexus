@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ServerProfile, Subscription } from "../core/types";
 import { parseMany, parseShareLink } from "../core/parser";
-import { fetchSubscriptionInfo, pingServer } from "../core/ipc";
+import { fetchSubscriptionInfo, pingServer, type SubscriptionPayload } from "../core/ipc";
 import type { SubscriptionUsage } from "../core/types";
 
 /**
@@ -74,6 +74,43 @@ function now(): number {
 
 function makeSubId(): string {
   return `sub_${now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+/**
+ * Heuristic: does this fetch error look like a TLS / certificate rejection?
+ * RU anti-censorship panels are routinely fronted behind self-signed certs or
+ * a borrowed CN (e.g. `vk.ru`) and served straight off an IP, so strict cert
+ * verification fails even though the subscription is perfectly valid. We detect
+ * that case to retry leniently — exactly what Hiddify/v2rayN do out of the box.
+ */
+export function isTlsCertError(msg: string): boolean {
+  return /certificate|self.?signed|unknownissuer|notvalidfor|invalid peer|cert verif|certificate verify|tls|ssl|handshake|webpki|der|untrusted/i.test(
+    msg,
+  );
+}
+
+/**
+ * Fetch a subscription, transparently retrying once with TLS verification
+ * disabled when (and only when) the first attempt fails with a certificate
+ * error and the user has not already opted into insecure fetches. Returns the
+ * payload plus whether an invalid certificate had to be accepted.
+ */
+export async function fetchSubscriptionResilient(
+  url: string,
+  allowInsecure: boolean,
+  userAgent: string,
+): Promise<{ payload: SubscriptionPayload; insecureCertAccepted: boolean }> {
+  try {
+    const payload = await fetchSubscriptionInfo(url, allowInsecure, userAgent);
+    return { payload, insecureCertAccepted: allowInsecure };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!allowInsecure && isTlsCertError(msg)) {
+      const payload = await fetchSubscriptionInfo(url, true, userAgent);
+      return { payload, insecureCertAccepted: true };
+    }
+    throw e;
+  }
 }
 
 /** Number of concurrent latency probes; keeps us from opening hundreds of sockets. */
@@ -230,7 +267,11 @@ export const useServerStore = create<ServerState>()(
           const userAgent = sub.userAgent?.trim()
             ? sub.userAgent.trim()
             : settings.app.subscriptionUserAgent;
-          const payload = await fetchSubscriptionInfo(sub.url, allowInsecure, userAgent);
+          const { payload, insecureCertAccepted } = await fetchSubscriptionResilient(
+            sub.url,
+            allowInsecure,
+            userAgent,
+          );
           const body = payload.body;
           const usage = parseUserinfo(payload.userinfo);
           const { servers } = parseMany(body);
@@ -261,7 +302,7 @@ export const useServerStore = create<ServerState>()(
               servers: [...others, ...tagged],
               subscriptions: s.subscriptions.map((x) =>
                 x.id === id
-                  ? { ...x, status: "ok", serverCount: tagged.length, lastUpdatedAt: now(), lastError: undefined, usage: usage ?? x.usage }
+                  ? { ...x, status: "ok", serverCount: tagged.length, lastUpdatedAt: now(), lastError: undefined, insecureCertAccepted, usage: usage ?? x.usage }
                   : x,
               ),
             };

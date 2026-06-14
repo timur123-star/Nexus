@@ -904,9 +904,6 @@ const WARP_STRINGS: Record<
     working: string;
     ok: string;
     fail: string;
-    relayLabel: string;
-    relayPlaceholder: string;
-    relayHint: string;
   }
 > = {
   en: {
@@ -916,9 +913,6 @@ const WARP_STRINGS: Record<
     working: "Registering WARP…",
     ok: "WARP server added",
     fail: "Couldn't register WARP",
-    relayLabel: "Relay URL (optional)",
-    relayPlaceholder: "https://your-app.up.railway.app",
-    relayHint: "If Cloudflare is blocked in your region, deploy the warp-relay and paste its URL here.",
   },
   ru: {
     title: "Cloudflare WARP",
@@ -927,9 +921,6 @@ const WARP_STRINGS: Record<
     working: "Регистрирую WARP…",
     ok: "WARP-сервер добавлен",
     fail: "Не удалось зарегистрировать WARP",
-    relayLabel: "URL релея (необязательно)",
-    relayPlaceholder: "https://your-app.up.railway.app",
-    relayHint: "Если Cloudflare заблокирован в вашем регионе — разверните warp-relay и вставьте его адрес сюда.",
   },
   fa: {
     title: "Cloudflare WARP",
@@ -938,9 +929,6 @@ const WARP_STRINGS: Record<
     working: "در حال ثبت WARP…",
     ok: "سرور WARP اضافه شد",
     fail: "ثبت WARP ناموفق بود",
-    relayLabel: "آدرس رله (اختیاری)",
-    relayPlaceholder: "https://your-app.up.railway.app",
-    relayHint: "اگر Cloudflare در منطقه شما مسدود است، warp-relay را اجرا کرده و آدرس آن را اینجا وارد کنید.",
   },
   zh: {
     title: "Cloudflare WARP",
@@ -949,17 +937,16 @@ const WARP_STRINGS: Record<
     working: "正在注册 WARP…",
     ok: "已添加 WARP 服务器",
     fail: "WARP 注册失败",
-    relayLabel: "中继 URL（可选）",
-    relayPlaceholder: "https://your-app.up.railway.app",
-    relayHint: "如果你所在地区屏蔽了 Cloudflare，请部署 warp-relay 并在此填写其地址。",
   },
 };
 
 function WarpButton({ lang }: { lang: Lang }) {
   const W = WARP_STRINGS[lang] ?? WARP_STRINGS.en;
   const addFromBlob = useServerStore((s) => s.addFromBlob);
+  // Optional power-user override; empty by default so registerWarp() uses the
+  // built-in relay. There is intentionally no visible field — one click is all
+  // it takes. A custom relay can still be set via settings backup/import.
   const relayUrl = useSettingsStore((s) => s.app.warpRelayUrl);
-  const setApp = useSettingsStore((s) => s.setApp);
   const [busy, setBusy] = useState(false);
 
   const run = async () => {
@@ -998,19 +985,6 @@ function WarpButton({ lang }: { lang: Lang }) {
         >
           {busy ? W.working : W.button}
         </button>
-      </div>
-      <div className="mt-2.5 border-t border-border/50 pt-2.5">
-        <label className="block text-[11px] font-medium text-text-faint">{W.relayLabel}</label>
-        <input
-          type="url"
-          inputMode="url"
-          spellCheck={false}
-          value={relayUrl}
-          onChange={(e) => setApp({ warpRelayUrl: e.target.value.trim() })}
-          placeholder={W.relayPlaceholder}
-          className="mt-1 w-full rounded-btn border border-border/70 bg-bg/60 px-2.5 py-1.5 text-xs text-text outline-none placeholder:text-text-faint/60 focus:border-indigo/60"
-        />
-        <p className="mt-1 text-[11px] text-text-faint">{W.relayHint}</p>
       </div>
     </div>
   );

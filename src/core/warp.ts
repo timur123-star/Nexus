@@ -11,6 +11,17 @@
 import { x25519 } from "@noble/curves/ed25519";
 import { warpRegister } from "./ipc";
 
+/**
+ * Built-in WARP relay (see `warp-relay/`). Cloudflare's enrollment API is
+ * blocked from some regions (e.g. RU), so by default we enroll through this
+ * hosted relay running outside the blocked region — the "Create WARP" button
+ * then just works out of the box, no configuration needed. Only the public key
+ * is ever sent to it; the private key never leaves this machine. Users may
+ * override it with their own relay via the `warpRelayUrl` setting, or pass an
+ * empty string somewhere upstream to fall back to the direct Cloudflare path.
+ */
+export const DEFAULT_WARP_RELAY = "https://nexus-warp-production.up.railway.app";
+
 /** Base64-encode raw bytes using the browser's btoa (binary-safe). */
 function toBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -102,10 +113,24 @@ export async function registerWarp(relayUrl?: string): Promise<string> {
   const privB64 = toBase64(priv);
   const pubB64 = toBase64(pub);
 
-  const raw =
-    relayUrl && relayUrl.trim()
-      ? await registerViaRelay(relayUrl, pubB64)
-      : await warpRegister(pubB64);
+  // The relay is the primary, RU-friendly path: a user-configured one wins,
+  // otherwise the built-in default. If the relay is unreachable/erroring we
+  // fall back to a direct Cloudflare enrollment (works wherever the API isn't
+  // regionally blocked) so a relay hiccup never breaks WARP for everyone.
+  const relay = (relayUrl ?? "").trim() || DEFAULT_WARP_RELAY;
+  let raw: string;
+  try {
+    raw = await registerViaRelay(relay, pubB64);
+  } catch (relayErr) {
+    let fallback = "";
+    try {
+      fallback = await warpRegister(pubB64);
+    } catch {
+      throw relayErr;
+    }
+    if (!fallback) throw relayErr;
+    raw = fallback;
+  }
   if (!raw) throw new Error("WARP registration unavailable (run inside the app)");
 
   let data: WarpRegResponse;

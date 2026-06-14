@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock, ShieldAlert } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import type { Subscription } from "../../core/types";
@@ -20,6 +20,7 @@ const SUB_STRINGS: Record<
     unlimited: string;
     expires: string;
     expired: string;
+    insecureCert: string;
     daysLeft: (n: number) => string;
   }
 > = {
@@ -33,6 +34,7 @@ const SUB_STRINGS: Record<
     unlimited: "unlimited",
     expires: "expires",
     expired: "expired",
+    insecureCert: "self-signed certificate accepted",
     daysLeft: (n) => `${n} d left`,
   },
   ru: {
@@ -45,6 +47,7 @@ const SUB_STRINGS: Record<
     unlimited: "безлимит",
     expires: "до",
     expired: "истекла",
+    insecureCert: "принят самоподписанный сертификат",
     daysLeft: (n) => `осталось ${n} дн.`,
   },
   fa: {
@@ -57,6 +60,7 @@ const SUB_STRINGS: Record<
     unlimited: "نامحدود",
     expires: "انقضا",
     expired: "منقضی",
+    insecureCert: "گواهی خودامضا پذیرفته شد",
     daysLeft: (n) => `${n} روز مانده`,
   },
   zh: {
@@ -69,6 +73,7 @@ const SUB_STRINGS: Record<
     unlimited: "无限制",
     expires: "到期",
     expired: "已过期",
+    insecureCert: "已接受自签名证书",
     daysLeft: (n) => `剩 ${n} 天`,
   },
 };
@@ -100,6 +105,11 @@ export function SubscriptionList() {
             {sub.status === "error" && sub.lastError ? (
               <div className="truncate text-[11px] text-bad" title={sub.lastError}>
                 {sub.lastError}
+              </div>
+            ) : null}
+            {sub.status !== "error" && sub.insecureCertAccepted ? (
+              <div className="flex items-center gap-1 truncate text-[11px] text-warn" title={S.insecureCert}>
+                <ShieldAlert size={11} className="shrink-0" /> {S.insecureCert}
               </div>
             ) : null}
             <UsageRow sub={sub} S={S} />

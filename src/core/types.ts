@@ -160,6 +160,13 @@ export interface Subscription {
   serverCount: number;
   status: "ok" | "error" | "updating" | "never";
   lastError?: string;
+  /**
+   * True when the body was fetched only after accepting an invalid/self-signed
+   * TLS certificate (common for RU anti-censorship panels fronted behind
+   * domains like vk.ru). Surfaced so the UI can show a "trusted on first use"
+   * style hint.
+   */
+  insecureCertAccepted?: boolean;
   /** Subscription usage reported via the `Subscription-Userinfo` header. */
   usage?: SubscriptionUsage;
 }
