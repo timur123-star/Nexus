@@ -66,3 +66,54 @@ describe("registerWarp", () => {
     await expect(registerWarp()).rejects.toThrow(/unavailable/i);
   });
 });
+
+describe("registerWarp via relay", () => {
+  beforeEach(() => warpRegister.mockReset());
+
+  it("posts the public key to <relay>/reg and builds the link from the response", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(regResponse(), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const link = await registerWarp("https://relay.example.com/");
+    expect(link.startsWith("wireguard://")).toBe(true);
+    // Rust IPC must NOT be used when a relay is configured.
+    expect(warpRegister).not.toHaveBeenCalled();
+
+    // Trailing slash collapsed, /reg appended, public key sent in the body.
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://relay.example.com/reg");
+    expect(init?.method).toBe("POST");
+    const body = JSON.parse(init?.body as string) as { key: string };
+    expect(typeof body.key).toBe("string");
+    expect(body.key.length).toBeGreaterThan(0);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("does not double-append /reg when the URL already ends in it", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(regResponse(), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await registerWarp("https://relay.example.com/reg");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://relay.example.com/reg");
+    vi.unstubAllGlobals();
+  });
+
+  it("surfaces a clear error when the relay returns a non-2xx", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ error: "Cloudflare returned HTTP 403" }), { status: 502 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(registerWarp("https://relay.example.com")).rejects.toThrow(/relay error.*403/i);
+    vi.unstubAllGlobals();
+  });
+
+  it("surfaces a clear error when the relay is unreachable", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
+      throw new TypeError("Failed to fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(registerWarp("https://relay.example.com")).rejects.toThrow(/could not reach the warp relay/i);
+    vi.unstubAllGlobals();
+  });
+});

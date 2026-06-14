@@ -56,16 +56,56 @@ function reservedFromClientId(clientId: string | undefined): string {
 }
 
 /**
- * Register a fresh WARP account and return a ready-to-import `wireguard://`
- * link. Throws with a human-readable message on any failure.
+ * Enroll a WARP peer through a user-deployed relay (see `warp-relay/`). Used
+ * when Cloudflare's API is blocked locally (e.g. RU): the relay runs outside
+ * the blocked region and performs the registration on our behalf. Only the
+ * public key is ever sent — the private key stays on this machine.
  */
-export async function registerWarp(): Promise<string> {
+async function registerViaRelay(relayUrl: string, pubB64: string): Promise<string> {
+  const base = relayUrl.trim().replace(/\/+$/, "");
+  const endpoint = /\/reg$/.test(base) ? base : `${base}/reg`;
+  let resp: Response;
+  try {
+    resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: pubB64 }),
+    });
+  } catch (e) {
+    throw new Error(
+      `Could not reach the WARP relay at ${base}: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+  const text = await resp.text();
+  if (!resp.ok) {
+    let detail = text.slice(0, 200);
+    try {
+      const j = JSON.parse(text) as { error?: string; detail?: string };
+      detail = j.error || detail;
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(`WARP relay error (HTTP ${resp.status}): ${detail}`);
+  }
+  return text;
+}
+
+/**
+ * Register a fresh WARP account and return a ready-to-import `wireguard://`
+ * link. Throws with a human-readable message on any failure. When `relayUrl`
+ * is provided, enrollment goes through that relay instead of Cloudflare
+ * directly (to bypass regional blocks of api.cloudflareclient.com).
+ */
+export async function registerWarp(relayUrl?: string): Promise<string> {
   const priv = x25519.utils.randomPrivateKey();
   const pub = x25519.getPublicKey(priv);
   const privB64 = toBase64(priv);
   const pubB64 = toBase64(pub);
 
-  const raw = await warpRegister(pubB64);
+  const raw =
+    relayUrl && relayUrl.trim()
+      ? await registerViaRelay(relayUrl, pubB64)
+      : await warpRegister(pubB64);
   if (!raw) throw new Error("WARP registration unavailable (run inside the app)");
 
   let data: WarpRegResponse;

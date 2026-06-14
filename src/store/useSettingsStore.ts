@@ -69,6 +69,13 @@ export interface AppSettings {
   subscriptionUserAgent: string;
   /** Sort server list automatically after ping. */
   autoSortByPing: boolean;
+  /**
+   * Optional WARP relay base URL. When set, WARP enrollment is performed via
+   * this relay (deploy `warp-relay/` somewhere outside a region that blocks
+   * Cloudflare's API) instead of contacting api.cloudflareclient.com directly.
+   * Empty string = register directly with Cloudflare (default).
+   */
+  warpRelayUrl: string;
 }
 
 interface SettingsState {
@@ -163,6 +170,7 @@ export const DEFAULT_APP: AppSettings = {
   subscriptionUpdateHours: 12,
   subscriptionUserAgent: "Hiddify/4.1.1",
   autoSortByPing: false,
+  warpRelayUrl: "",
 };
 
 export const useSettingsStore = create<SettingsState>()(
