@@ -84,7 +84,12 @@ function makeSubId(): string {
  * that case to retry leniently — exactly what Hiddify/v2rayN do out of the box.
  */
 export function isTlsCertError(msg: string): boolean {
-  return /certificate|self.?signed|unknownissuer|notvalidfor|invalid peer|cert verif|certificate verify|tls|ssl|handshake|webpki|der|untrusted/i.test(
+  // Word boundaries on the short tokens (tls/ssl/der) keep us from matching
+  // innocent substrings like "hea(der)" or "deta(ils)" in unrelated errors and
+  // wrongly downgrading to an insecure fetch. rustls cert failures always carry
+  // the literal "certificate" / "invalid peer certificate: <reason>", so the
+  // important cases are covered regardless.
+  return /certificate|self.?signed|unknown\s?issuer|not\s?valid\s?for|invalid peer|cert verif|\btls\b|\bssl\b|handshake|webpki|\bder\b|untrusted/i.test(
     msg,
   );
 }

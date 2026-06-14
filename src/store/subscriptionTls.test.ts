@@ -25,10 +25,14 @@ describe("isTlsCertError", () => {
       expect(isTlsCertError(m)).toBe(true);
     }
   });
-  it("ignores unrelated network errors", () => {
+  it("ignores unrelated network errors (incl. tricky substrings)", () => {
     expect(isTlsCertError("HTTP 404 Not Found")).toBe(false);
     expect(isTlsCertError("connection refused")).toBe(false);
     expect(isTlsCertError("dns error: failed to lookup address")).toBe(false);
+    // Regression: short tokens must not match inside ordinary words.
+    expect(isTlsCertError("invalid HTTP header in response")).toBe(false);
+    expect(isTlsCertError("missing details: order timed out")).toBe(false);
+    expect(isTlsCertError("operation timed out after 20s")).toBe(false);
   });
 });
 
