@@ -38,7 +38,7 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3NkMzRTY0NkI5Q0MwRDAKUldUUXdKeHJaRDVzdHpFaDVHbjdlbmJsQWhsUW9DSzc1WTNPS2hSanNnNEJBL1YyV05lTGV6akoK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRGRjc0MTNEN0VGRURCMTAKUldRUTIvNStQVUgzVDNlYmI1aWZkV0k1Mys1OGlJREFCTHg4LzBUeE1TMitzSzRqSGdrV25rZjgK",
       "endpoints": [
         "https://github.com/timur123-star/Nexus/releases/latest/download/latest.json"
       ],
