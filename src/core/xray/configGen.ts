@@ -268,6 +268,14 @@ function buildXrayStream(s: ServerProfile, fragment: boolean): object {
   }
 
   if (s.tls.enabled && s.tls.security === "reality") {
+    // Defense in depth: a REALITY handshake is impossible without the server's
+    // public key. Xray would otherwise exit with `empty "publicKey"` and the
+    // supervisor would crash-loop. Fail loudly here so the caller surfaces it.
+    if (!(s.tls.publicKey ?? "").trim()) {
+      throw new Error(
+        `REALITY server "${s.name || s.address}" is missing its public key (pbk) — re-import the share link.`,
+      );
+    }
     ss.security = "reality";
     ss.realitySettings = {
       serverName: s.tls.sni || s.address,

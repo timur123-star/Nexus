@@ -14,6 +14,7 @@ import { SettingsScreen } from "./features/settings/SettingsScreen";
 import { EditorScreen } from "./features/editor/EditorScreen";
 import { ImportDialog } from "./features/import/ImportDialog";
 import { CommandPalette } from "./shared/components/CommandPalette";
+import { ErrorBoundary } from "./shared/components/ErrorBoundary";
 import { Onboarding } from "./features/onboarding/Onboarding";
 import { useCoreEvents } from "./shared/hooks/useCoreEvents";
 import { useTrafficPoller } from "./shared/hooks/useTrafficPoller";
@@ -40,6 +41,34 @@ const DEEPLINK_MSG: Record<"ru" | "en" | "fa" | "zh", (n: number) => string> = {
   zh: (n) => `已从链接导入：${n} 个服务器`,
 };
 
+// Localized fallback shown by the screen-level ErrorBoundary so a crashing
+// screen never blanks the whole window.
+const BOUNDARY_LABELS: Record<
+  "ru" | "en" | "fa" | "zh",
+  { title: string; body: string; retry: string }
+> = {
+  ru: {
+    title: "Что-то пошло не так",
+    body: "Этот экран столкнулся с непредвиденной ошибкой. Приложение работает — можно повторить или перейти на другой экран.",
+    retry: "Перезагрузить экран",
+  },
+  en: {
+    title: "Something went wrong",
+    body: "This screen hit an unexpected error. The app is still running — retry or switch screens.",
+    retry: "Reload screen",
+  },
+  fa: {
+    title: "مشکلی پیش آمد",
+    body: "این صفحه با خطای غیرمنتظره مواجه شد. برنامه همچنان در حال اجراست — دوباره تلاش کنید یا صفحه را عوض کنید.",
+    retry: "بارگذاری مجدد صفحه",
+  },
+  zh: {
+    title: "出了点问题",
+    body: "此屏幕遇到意外错误。应用仍在运行——可重试或切换到其他屏幕。",
+    retry: "重新加载屏幕",
+  },
+};
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("connection");
   const [importOpen, setImportOpen] = useState(false);
@@ -47,6 +76,7 @@ export default function App() {
   const servers = useServerStore((s) => s.servers);
   const theme = useSettingsStore((s) => s.app.theme);
   const accent = useSettingsStore((s) => s.app.accent);
+  const language = useSettingsStore((s) => s.app.language);
   const [onboarded, setOnboarded] = useState(() => localStorage.getItem("ns-onboarded") === "1");
 
   useCoreEvents();
@@ -191,18 +221,23 @@ export default function App() {
               exit="exit"
               className="h-full"
             >
-              {screen === "connection" && (
-                <ConnectionScreen
-                  onBrowse={() => setScreen("servers")}
-                  onImport={() => setImportOpen(true)}
-                />
-              )}
-              {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
-              {screen === "stats" && <StatsScreen />}
-              {screen === "history" && <HistoryScreen />}
-              {screen === "logs" && <LogsScreen />}
-              {screen === "editor" && <EditorScreen />}
-              {screen === "settings" && <SettingsScreen />}
+              <ErrorBoundary
+                resetKey={screen}
+                labels={BOUNDARY_LABELS[language] ?? BOUNDARY_LABELS.en}
+              >
+                {screen === "connection" && (
+                  <ConnectionScreen
+                    onBrowse={() => setScreen("servers")}
+                    onImport={() => setImportOpen(true)}
+                  />
+                )}
+                {screen === "servers" && <ServersScreen onImport={() => setImportOpen(true)} />}
+                {screen === "stats" && <StatsScreen />}
+                {screen === "history" && <HistoryScreen />}
+                {screen === "logs" && <LogsScreen />}
+                {screen === "editor" && <EditorScreen />}
+                {screen === "settings" && <SettingsScreen />}
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </main>

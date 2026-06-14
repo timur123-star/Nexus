@@ -503,6 +503,14 @@ function buildTlsBlock(s: ServerProfile): object | null {
     tls.utls = { enabled: true, fingerprint: s.tls.fingerprint || "chrome" };
   }
   if (isReality) {
+    // A REALITY handshake needs the server public key; emitting an empty one
+    // makes sing-box reject the config. Fail loudly so the caller surfaces a
+    // clear message instead of a cryptic core crash-loop.
+    if (!(s.tls.publicKey ?? "").trim()) {
+      throw new Error(
+        `REALITY server "${s.name || s.address}" is missing its public key (pbk) — re-import the share link.`,
+      );
+    }
     tls.reality = {
       enabled: true,
       public_key: s.tls.publicKey || "",

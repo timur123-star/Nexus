@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ConnectionStatus, CoreKind, ServerProfile, TrafficSample } from "../core/types";
 import { getCore, ALL_CORES } from "../core/proxy";
+import { validateServerForLaunch } from "../core/validate";
 import {
   coreStart,
   coreStop,
@@ -255,6 +256,23 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       // firewall allow-list pointed at the current server after a failover.
       if (proxy.killSwitch) armKillSwitch(server.address);
       try {
+        // Pre-flight: reject configs the core can't possibly launch (e.g. a
+        // REALITY node missing its publicKey) with one clear message instead of
+        // letting the core crash-loop on a cryptic low-level error.
+        const lang = useSettingsStore.getState().app.language;
+        const invalid = validateServerForLaunch(server, lang);
+        if (invalid) {
+          toast.error(invalid.message);
+          clearReconnectTimer();
+          set({
+            status: "error",
+            autoReconnect: false,
+            activeCore: null,
+            error: invalid.message,
+          });
+          return;
+        }
+
         const core = selectCore(server, proxy.coreKind);
         if (!core) {
           throw new Error(
@@ -265,7 +283,6 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         // Catch it up-front with a clear message + auto-elevate, instead of the
         // core starting and silently routing nothing.
         if (proxy.tun?.enabled && !(await isElevated())) {
-          const lang = useSettingsStore.getState().app.language;
           toast.error(TUN_NEEDS_ADMIN_MESSAGE[lang]);
           clearReconnectTimer();
           set({
