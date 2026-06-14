@@ -7,6 +7,8 @@ import {
   setSystemProxy,
   enableKillSwitch,
   disableKillSwitch,
+  isElevated,
+  relaunchAsAdmin,
   type CoreStatus,
   type TrafficStats,
 } from "../core/ipc";
@@ -51,6 +53,19 @@ const KILLSWITCH_FAIL_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
   en: "Couldn't enable the kill-switch — run the app as administrator",
   fa: "فعال‌سازی kill-switch ناموفق بود — برنامه را با دسترسی مدیر اجرا کنید",
   zh: "无法启用断网保护 — 请以管理员身份运行应用",
+};
+
+/**
+ * TUN (VPN) mode needs OS-level privileges to create the virtual interface.
+ * When the app isn't elevated we surface a clear, localized error instead of
+ * letting the core fail silently, and auto-relaunch as administrator so the
+ * user lands back in an elevated session that can actually bring up the tunnel.
+ */
+const TUN_NEEDS_ADMIN_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
+  ru: "Режим VPN (TUN) требует прав администратора — перезапускаю с повышением прав…",
+  en: "VPN (TUN) mode requires administrator rights — relaunching elevated…",
+  fa: "حالت VPN (TUN) به دسترسی مدیر نیاز دارد — در حال راه‌اندازی مجدد با دسترسی مدیر…",
+  zh: "VPN (TUN) 模式需要管理员权限 — 正在以管理员身份重启…",
 };
 
 /**
@@ -245,6 +260,22 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           throw new Error(
             `\u041d\u0438 \u043e\u0434\u043d\u043e \u044f\u0434\u0440\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
           );
+        }
+        // TUN (VPN) mode can't create the virtual interface without elevation.
+        // Catch it up-front with a clear message + auto-elevate, instead of the
+        // core starting and silently routing nothing.
+        if (proxy.tun?.enabled && !(await isElevated())) {
+          const lang = useSettingsStore.getState().app.language;
+          toast.error(TUN_NEEDS_ADMIN_MESSAGE[lang]);
+          clearReconnectTimer();
+          set({
+            status: "error",
+            autoReconnect: false,
+            activeCore: null,
+            error: TUN_NEEDS_ADMIN_MESSAGE[lang],
+          });
+          void relaunchAsAdmin().catch(() => {});
+          return;
         }
         set({ activeCore: core.kind });
         const config = core.generateConfig(server, {

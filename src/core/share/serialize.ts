@@ -146,6 +146,30 @@ export function serverToShareLink(s: ServerProfile): string {
         : "";
       return `socks://${auth}${hostPort(s)}${frag(s.name)}`;
     }
+    case "shadowtls": {
+      const st = s.shadowtls;
+      const p = new URLSearchParams();
+      p.set("version", String(st?.version ?? 3));
+      if (st?.password) p.set("password", st.password);
+      if (s.tls.sni) p.set("sni", s.tls.sni);
+      if (s.tls.allowInsecure) p.set("insecure", "1");
+      const userinfo = `${encodeURIComponent(st?.method ?? "")}:${encodeURIComponent(st?.ssPassword ?? "")}`;
+      return `shadowtls://${userinfo}@${hostPort(s)}?${p.toString()}${frag(s.name)}`;
+    }
+    case "ssh": {
+      const ssh = s.ssh;
+      const auth = ssh?.password
+        ? `${encodeURIComponent(ssh.user)}:${encodeURIComponent(ssh.password)}`
+        : encodeURIComponent(ssh?.user ?? "root");
+      const p = new URLSearchParams();
+      if (ssh?.privateKey) p.set("privateKey", encodeBase64(ssh.privateKey));
+      if (ssh?.privateKeyPassphrase) p.set("passphrase", ssh.privateKeyPassphrase);
+      const qs = p.toString();
+      return `ssh://${auth}@${hostPort(s)}${qs ? `?${qs}` : ""}${frag(s.name)}`;
+    }
+    case "tor": {
+      return `tor://${hostPort(s)}${frag(s.name)}`;
+    }
     case "wireguard": {
       const wg = s.wireguard;
       const p = new URLSearchParams();

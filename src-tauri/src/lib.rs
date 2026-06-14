@@ -10,7 +10,7 @@ mod sysproxy;
 mod tray;
 
 use core::AppState;
-use tauri::Emitter;
+use tauri::{Emitter, Listener, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -43,6 +43,28 @@ pub fn run() {
                     let _ = handle.emit("deep-link://new", url.to_string());
                 }
             });
+
+            // Window first-paint robustness. The main window starts hidden
+            // (`"visible": false` in tauri.conf) so the transparent, undecorated
+            // frame never flashes a blank/garbled first frame on Windows
+            // WebView2. We reveal it the moment the frontend signals it has
+            // painted ("app://ready"), with a hard fallback timer so the window
+            // can never get stuck hidden if that event is missed.
+            let on_ready = app.handle().clone();
+            app.listen("app://ready", move |_event| {
+                if let Some(win) = on_ready.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            });
+            let fallback = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+                if let Some(win) = fallback.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -58,6 +80,8 @@ pub fn run() {
             commands::core_status,
             commands::ping_server,
             commands::fetch_subscription,
+            commands::fetch_subscription_info,
+            commands::warp_register,
             commands::get_traffic,
             commands::get_connections,
             commands::set_system_proxy,

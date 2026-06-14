@@ -16,7 +16,10 @@ export type Protocol =
   | "tuic"
   | "wireguard"
   | "socks"
-  | "anytls";
+  | "anytls"
+  | "shadowtls"
+  | "ssh"
+  | "tor";
 
 /** Proxy core that actually runs the connection. */
 export type CoreKind = "sing-box" | "xray";
@@ -96,6 +99,31 @@ export interface ServerProfile {
     mtu?: number;
   };
 
+  /** ShadowTLS v2/v3 parameters (protocol === "shadowtls").
+   *  ShadowTLS is a TLS-camouflage layer that carries an inner Shadowsocks
+   *  connection, so we keep both the handshake password and the inner SS
+   *  credentials here. */
+  shadowtls?: {
+    /** ShadowTLS protocol version: 1, 2 or 3 (3 recommended). */
+    version: number;
+    /** Handshake password (v2/v3). */
+    password: string;
+    /** Inner Shadowsocks cipher, e.g. "2022-blake3-aes-128-gcm". */
+    method: string;
+    /** Inner Shadowsocks password. */
+    ssPassword: string;
+  };
+
+  /** SSH outbound parameters (protocol === "ssh"). */
+  ssh?: {
+    user: string;
+    password?: string;
+    /** PEM-encoded private key (alternative to password auth). */
+    privateKey?: string;
+    /** Passphrase protecting `privateKey`, if any. */
+    privateKeyPassphrase?: string;
+  };
+
   /** Hysteria / hysteria2 / tuic congestion + obfuscation knobs. */
   extra?: {
     obfs?: string;
@@ -131,6 +159,24 @@ export interface Subscription {
   serverCount: number;
   status: "ok" | "error" | "updating" | "never";
   lastError?: string;
+  /** Subscription usage reported via the `Subscription-Userinfo` header. */
+  usage?: SubscriptionUsage;
+}
+
+/**
+ * Traffic + expiry metadata advertised by a subscription provider through the
+ * `Subscription-Userinfo` response header
+ * (`upload=…; download=…; total=…; expire=…`). All byte counts are absolute.
+ */
+export interface SubscriptionUsage {
+  /** Bytes uploaded so far. */
+  upload: number;
+  /** Bytes downloaded so far. */
+  download: number;
+  /** Total quota in bytes (0 = unlimited / unknown). */
+  total: number;
+  /** Plan expiry as a unix epoch in seconds (0 = no expiry advertised). */
+  expire: number;
 }
 
 export type RoutingMode = "global" | "rule" | "direct";
@@ -140,7 +186,11 @@ export type RoutingRuleMatch =
   | "domain"
   | "domain_suffix"
   | "domain_keyword"
+  | "domain_regex"
   | "ip_cidr"
+  | "geoip"
+  | "geosite"
+  | "port"
   | "process_name";
 
 /** Where a matched rule sends traffic. */

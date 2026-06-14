@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "framer-motion";
 import { TitleBar } from "./shared/components/TitleBar";
 import { AppBackground } from "./shared/components/AppBackground";
@@ -84,6 +84,20 @@ export default function App() {
   useEffect(() => {
     applyAccent(accent);
   }, [accent]);
+
+  // Window first-paint: the native window starts hidden so WebView2 never
+  // flashes a blank/garbled transparent frame. Once React has committed and the
+  // browser has painted a frame, signal the backend to reveal the window. The
+  // Rust side also has a 1.5s fallback timer, so a missed event can't strand us.
+  useEffect(() => {
+    if (!isTauri) return;
+    const raf = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        void emit("app://ready");
+      }),
+    );
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // Global hotkeys: Ctrl/⌘+K command palette, Ctrl/⌘+Enter toggle connection,
   // Ctrl/⌘+, settings, Ctrl/⌘+I import.

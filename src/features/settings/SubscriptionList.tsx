@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { RefreshCw, Trash2, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { useServerStore } from "../../store/useServerStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -9,7 +10,18 @@ import { cn } from "../../shared/lib/utils";
 // untouched, consistent with the other feature screens.
 const SUB_STRINGS: Record<
   Lang,
-  { empty: string; servers: string; refresh: string; remove: string; error: string }
+  {
+    empty: string;
+    servers: string;
+    refresh: string;
+    remove: string;
+    error: string;
+    used: string;
+    unlimited: string;
+    expires: string;
+    expired: string;
+    daysLeft: (n: number) => string;
+  }
 > = {
   en: {
     empty: "No subscriptions yet. Add one via \u2018Add server \u2192 Subscription\u2019.",
@@ -17,6 +29,11 @@ const SUB_STRINGS: Record<
     refresh: "Refresh",
     remove: "Remove (with servers)",
     error: "Update error",
+    used: "used",
+    unlimited: "unlimited",
+    expires: "expires",
+    expired: "expired",
+    daysLeft: (n) => `${n} d left`,
   },
   ru: {
     empty: "Подписок нет. Добавьте их через «Добавить сервер → Подписка».",
@@ -24,6 +41,11 @@ const SUB_STRINGS: Record<
     refresh: "Обновить",
     remove: "Удалить (с серверами)",
     error: "Ошибка обновления",
+    used: "использовано",
+    unlimited: "безлимит",
+    expires: "до",
+    expired: "истекла",
+    daysLeft: (n) => `осталось ${n} дн.`,
   },
   fa: {
     empty: "هنوز اشتراکی نیست. از «افزودن سرور ← اشتراک» اضافه کنید.",
@@ -31,6 +53,11 @@ const SUB_STRINGS: Record<
     refresh: "بروزرسانی",
     remove: "حذف (همراه سرورها)",
     error: "خطای بروزرسانی",
+    used: "مصرف‌شده",
+    unlimited: "نامحدود",
+    expires: "انقضا",
+    expired: "منقضی",
+    daysLeft: (n) => `${n} روز مانده`,
   },
   zh: {
     empty: "暂无订阅。通过“添加服务器 → 订阅”添加。",
@@ -38,8 +65,20 @@ const SUB_STRINGS: Record<
     refresh: "刷新",
     remove: "删除（含服务器）",
     error: "更新错误",
+    used: "已用",
+    unlimited: "无限制",
+    expires: "到期",
+    expired: "已过期",
+    daysLeft: (n) => `剩 ${n} 天`,
   },
 };
+
+function fmtBytes(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  const u = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const i = Math.min(u.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+  return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${u[i]}`;
+}
 
 export function SubscriptionList() {
   const { subscriptions, refreshSubscription, removeSubscription } = useServerStore();
@@ -63,6 +102,7 @@ export function SubscriptionList() {
                 {sub.lastError}
               </div>
             ) : null}
+            <UsageRow sub={sub} S={S} />
           </div>
           <span className="shrink-0 text-xs text-text-dim">
             {sub.serverCount} {S.servers}
@@ -85,6 +125,64 @@ export function SubscriptionList() {
           </button>
         </div>
       ))}
+    </div>
+  );
+}
+
+function UsageRow({
+  sub,
+  S,
+}: {
+  sub: Subscription;
+  S: (typeof SUB_STRINGS)[Lang];
+}) {
+  const u = sub.usage;
+  if (!u) return null;
+  const used = (u.upload || 0) + (u.download || 0);
+  const total = u.total || 0;
+  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const danger = pct >= 90;
+  // Expiry: epoch seconds. 0 ⇒ no expiry advertised.
+  let expiryNode: ReactNode = null;
+  if (u.expire > 0) {
+    const msLeft = u.expire * 1000 - Date.now();
+    if (msLeft <= 0) {
+      expiryNode = <span className="text-bad">{S.expired}</span>;
+    } else {
+      const days = Math.ceil(msLeft / 86_400_000);
+      const date = new Date(u.expire * 1000).toISOString().slice(0, 10);
+      expiryNode = (
+        <span className={days <= 3 ? "text-warn" : "text-text-faint"}>
+          {S.expires} {date} · {S.daysLeft(days)}
+        </span>
+      );
+    }
+  }
+  return (
+    <div className="mt-1 space-y-1">
+      {total > 0 ? (
+        <>
+          <div className="h-1 overflow-hidden rounded-full bg-bg">
+            <div
+              className={cn("h-full rounded-full", danger ? "bg-bad" : "bg-indigo")}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-text-faint">
+            <span>
+              {fmtBytes(used)} / {fmtBytes(total)} {S.used}
+            </span>
+            {expiryNode}
+          </div>
+        </>
+      ) : (
+        <div className="flex justify-between text-[10px] text-text-faint">
+          <span>
+            {fmtBytes(used)} · {S.unlimited}
+          </span>
+          {expiryNode}
+        </div>
+      )}
     </div>
   );
 }

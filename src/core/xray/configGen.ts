@@ -36,7 +36,10 @@ export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions):
     server.protocol === "hysteria2" ||
     server.protocol === "hysteria" ||
     server.protocol === "tuic" ||
-    server.protocol === "anytls"
+    server.protocol === "anytls" ||
+    server.protocol === "shadowtls" ||
+    server.protocol === "ssh" ||
+    server.protocol === "tor"
   ) {
     throw new Error(
       `Протокол ${server.protocol} поддерживается только ядром sing-box`,
@@ -298,9 +301,24 @@ function buildXrayCustomRule(r: RoutingRule): object | null {
     case "domain_suffix":
       return { type: "field", domain: [`domain:${value}`], outboundTag };
     case "domain_keyword":
-      return { type: "field", domain: [`keyword:${value}`], outboundTag };
+      return { type: "field", domain: [value], outboundTag };
+    case "domain_regex":
+      return { type: "field", domain: [`regexp:${value}`], outboundTag };
     case "ip_cidr":
       return { type: "field", ip: [value], outboundTag };
+    case "geoip":
+      return { type: "field", ip: [`geoip:${value.replace(/^geoip:/i, "")}`], outboundTag };
+    case "geosite":
+      return {
+        type: "field",
+        domain: [`geosite:${value.replace(/^geosite:/i, "")}`],
+        outboundTag,
+      };
+    case "port": {
+      const port = Number(value);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+      return { type: "field", port: String(port), outboundTag };
+    }
     case "process_name":
       return null; // Xray has no process-based routing
     default:

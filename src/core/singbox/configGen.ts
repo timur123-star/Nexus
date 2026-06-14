@@ -41,10 +41,17 @@ const PROXY_TAG = "proxy";
 const DIRECT_TAG = "direct";
 const BLOCK_TAG = "block";
 
-const MATCH_KEY: Record<RoutingRuleMatch, string> = {
+// Plain inline matchers map straight onto a sing-box route-rule field. geoip /
+// geosite are handled separately because modern sing-box expresses them through
+// generated rule-sets rather than an inline field.
+const MATCH_KEY: Record<
+  Exclude<RoutingRuleMatch, "geoip" | "geosite" | "port">,
+  string
+> = {
   domain: "domain",
   domain_suffix: "domain_suffix",
   domain_keyword: "domain_keyword",
+  domain_regex: "domain_regex",
   ip_cidr: "ip_cidr",
   process_name: "process_name",
 };
@@ -66,14 +73,14 @@ export function generateSingboxConfig(server: ServerProfile, opts: GenOptions): 
     throw new Error("Post-quantum REALITY поддерживается только ядром Xray");
   }
   const inbounds = buildInbounds(opts);
-  const outbound = buildOutbound(server, opts);
+  const proxyOutbounds = buildProxyOutbounds(server, opts);
 
   return {
     log: { level: opts.logLevel ?? "info", timestamp: true },
     dns: buildDns(opts),
     inbounds,
     outbounds: [
-      outbound,
+      ...proxyOutbounds,
       { type: "direct", tag: DIRECT_TAG },
       { type: "block", tag: BLOCK_TAG },
     ],
@@ -158,8 +165,10 @@ function buildRoute(opts: GenOptions): object {
 
   rules.push({ ip_is_private: true, outbound: DIRECT_TAG });
 
-  // User rules win over the bundled geo rules.
-  for (const rule of buildCustomRules(opts.customRules)) rules.push(rule);
+  // User rules win over the bundled geo rules. geoip / geosite matches also
+  // contribute their own remote rule-sets, collected here for the route block.
+  const custom = buildCustomRules(opts.customRules);
+  for (const rule of custom.rules) rules.push(rule);
 
   if (opts.routingMode === "rule") {
     rules.push(
@@ -169,7 +178,7 @@ function buildRoute(opts: GenOptions): object {
     );
   }
 
-  const rule_set =
+  const baseRuleSets =
     opts.routingMode === "rule"
       ? [
           ruleSet("geoip-cn", "geoip", "cn"),
@@ -177,6 +186,17 @@ function buildRoute(opts: GenOptions): object {
           ruleSet("geosite-ads", "geosite", "category-ads-all"),
         ]
       : [];
+
+  // Dedupe rule-sets by tag so a base set and a user set never collide.
+  const rule_set = [...baseRuleSets];
+  const seen = new Set(rule_set.map((r) => (r as { tag: string }).tag));
+  for (const rs of custom.ruleSets) {
+    const tag = (rs as { tag: string }).tag;
+    if (!seen.has(tag)) {
+      seen.add(tag);
+      rule_set.push(rs);
+    }
+  }
 
   return {
     rules,
@@ -186,16 +206,43 @@ function buildRoute(opts: GenOptions): object {
   };
 }
 
-/** Turn user rules into sing-box route rule objects (skips empty values). */
-function buildCustomRules(rules: RoutingRule[] | undefined): object[] {
-  if (!rules || rules.length === 0) return [];
+/** Strip a leading "geoip:" / "geosite:" prefix and normalise the geo code. */
+function geoCode(raw: string): string {
+  return raw.replace(/^geo(ip|site):/i, "").trim().toLowerCase();
+}
+
+/**
+ * Turn user rules into sing-box route rule objects (skips empty values).
+ * geoip / geosite matches are expressed via generated remote rule-sets, so we
+ * return both the route rules and the rule-set definitions they reference.
+ */
+function buildCustomRules(rules: RoutingRule[] | undefined): {
+  rules: object[];
+  ruleSets: object[];
+} {
+  if (!rules || rules.length === 0) return { rules: [], ruleSets: [] };
   const out: object[] = [];
+  const ruleSets: object[] = [];
   for (const r of rules) {
     const value = r.value.trim();
     if (!value) continue;
-    out.push({ [MATCH_KEY[r.match]]: [value], outbound: TARGET_OUTBOUND[r.target] });
+    const outbound = TARGET_OUTBOUND[r.target];
+    if (r.match === "geoip" || r.match === "geosite") {
+      const kind = r.match === "geoip" ? "geoip" : "geosite";
+      const code = geoCode(value);
+      if (!code) continue;
+      const tag = `${kind}-${code}`;
+      out.push({ rule_set: tag, outbound });
+      ruleSets.push(ruleSet(tag, kind, code));
+    } else if (r.match === "port") {
+      const port = Number(value);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) continue;
+      out.push({ port: [port], outbound });
+    } else {
+      out.push({ [MATCH_KEY[r.match]]: [value], outbound });
+    }
   }
-  return out;
+  return { rules: out, ruleSets };
 }
 
 function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {
@@ -245,6 +292,47 @@ function buildShadowsocksPlugin(raw: string | undefined): object {
   const opts = semi >= 0 ? value.slice(semi + 1).trim() : "";
   if (!name) return {};
   return { plugin: name, ...(opts ? { plugin_opts: opts } : {}) };
+}
+
+/**
+ * Build the proxy outbound(s) for a server. Most protocols emit a single
+ * outbound tagged "proxy"; ShadowTLS emits a chain (a `shadowtls` detour plus
+ * the inner `shadowsocks` outbound that dials through it).
+ */
+function buildProxyOutbounds(s: ServerProfile, opts: GenOptions): object[] {
+  if (s.protocol === "shadowtls") {
+    const st = s.shadowtls;
+    const detourTag = "proxy-shadowtls";
+    const detour: Record<string, unknown> = {
+      type: "shadowtls",
+      tag: detourTag,
+      server: s.address,
+      server_port: s.port,
+      version: st?.version ?? 3,
+      // v1 carries no password; v2/v3 require the handshake password.
+      ...((st?.version ?? 3) >= 2 && st?.password ? { password: st.password } : {}),
+      tls: buildShadowtlsTls(s),
+    };
+    const inner = {
+      type: "shadowsocks",
+      tag: PROXY_TAG,
+      detour: detourTag,
+      method: st?.method || "2022-blake3-aes-128-gcm",
+      password: st?.ssPassword || "",
+    };
+    return [detour, inner];
+  }
+  return [buildOutbound(s, opts)];
+}
+
+/** TLS camouflage block for a ShadowTLS detour (always TLS, utls required). */
+function buildShadowtlsTls(s: ServerProfile): object {
+  return {
+    enabled: true,
+    server_name: s.tls.sni || s.address,
+    ...(s.tls.alpn?.length ? { alpn: s.tls.alpn } : {}),
+    utls: { enabled: true, fingerprint: s.tls.fingerprint || "chrome" },
+  };
 }
 
 function buildOutbound(s: ServerProfile, opts: GenOptions): object {
@@ -356,6 +444,27 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         ...(wg?.mtu ? { mtu: wg.mtu } : {}),
       };
     }
+    case "ssh": {
+      const ssh = s.ssh;
+      return {
+        type: "ssh",
+        ...common,
+        user: ssh?.user || "root",
+        ...(ssh?.password ? { password: ssh.password } : {}),
+        ...(ssh?.privateKey ? { private_key: ssh.privateKey } : {}),
+        ...(ssh?.privateKeyPassphrase
+          ? { private_key_passphrase: ssh.privateKeyPassphrase }
+          : {}),
+      };
+    }
+    case "tor":
+      // Embedded Tor outbound. Requires a sing-box build compiled with Tor
+      // support; the camouflage host/port are not used by the engine.
+      return { type: "tor", tag: PROXY_TAG };
+    case "shadowtls":
+      // ShadowTLS is emitted as a chain by buildProxyOutbounds; this branch is
+      // unreachable but kept for switch exhaustiveness.
+      throw new Error("shadowtls handled by buildProxyOutbounds");
   }
 }
 

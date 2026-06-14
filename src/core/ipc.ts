@@ -54,6 +54,32 @@ export const pingServer = (address: string, port: number) =>
 export const fetchSubscription = (url: string, allowInsecure = false, userAgent?: string) =>
   safeInvoke<string>("fetch_subscription", { url, allowInsecure, userAgent }, "");
 
+/** Body + provider headers (`Subscription-Userinfo`, `Profile-Title`). */
+export interface SubscriptionPayload {
+  body: string;
+  userinfo: string;
+  profileTitle: string;
+}
+
+/**
+ * Download a subscription body together with its provider metadata headers so
+ * the UI can render traffic usage / expiry. Degrades to an empty payload
+ * outside a Tauri shell.
+ */
+export const fetchSubscriptionInfo = (url: string, allowInsecure = false, userAgent?: string) =>
+  safeInvoke<SubscriptionPayload>(
+    "fetch_subscription_info",
+    { url, allowInsecure, userAgent },
+    { body: "", userinfo: "", profileTitle: "" },
+  );
+
+/**
+ * Enroll a freshly-generated WireGuard public key with Cloudflare's WARP API
+ * and return the raw JSON registration response (parsed by the caller).
+ */
+export const warpRegister = (publicKey: string) =>
+  safeInvoke<string>("warp_register", { publicKey }, "");
+
 /** Poll the Clash API for live traffic + totals. */
 export const getTraffic = (port: number, secret: string) =>
   safeInvoke<TrafficStats>("get_traffic", { port, secret }, mockTraffic());

@@ -102,6 +102,106 @@ pub async fn fetch_subscription(
     resp.text().await.map_err(|e| e.to_string())
 }
 
+/// Body + provider metadata for a subscription fetch. `userinfo` is the raw
+/// `Subscription-Userinfo` header value (e.g. `upload=…; download=…; total=…;
+/// expire=…`) when the provider advertises one, parsed on the frontend.
+#[derive(Serialize, Default)]
+pub struct SubscriptionPayload {
+    body: String,
+    #[serde(rename = "userinfo")]
+    userinfo: String,
+    #[serde(rename = "profileTitle")]
+    profile_title: String,
+}
+
+/// Like `fetch_subscription`, but also returns the `Subscription-Userinfo` and
+/// `Profile-Title` headers so the UI can show traffic usage / expiry without a
+/// second request. Falls back to an empty `userinfo` when absent.
+#[tauri::command]
+pub async fn fetch_subscription_info(
+    url: String,
+    allow_insecure: Option<bool>,
+    user_agent: Option<String>,
+) -> Result<SubscriptionPayload, String> {
+    let lower = url.to_lowercase();
+    if !lower.starts_with("https://") && !lower.starts_with("http://") {
+        return Err("only http:// and https:// URLs are allowed".into());
+    }
+    let ua = user_agent
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "Hiddify/4.1.1".to_string());
+    let skip_tls = allow_insecure.unwrap_or(false);
+    let client = reqwest::Client::builder()
+        .user_agent(ua)
+        .timeout(std::time::Duration::from_secs(20))
+        .danger_accept_invalid_certs(skip_tls)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    let userinfo = resp
+        .headers()
+        .get("subscription-userinfo")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    // Some panels base64-encode the profile title (`Profile-Title: base64:…`).
+    let profile_title = resp
+        .headers()
+        .get("profile-title")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let body = resp.text().await.map_err(|e| e.to_string())?;
+    Ok(SubscriptionPayload {
+        body,
+        userinfo,
+        profile_title,
+    })
+}
+
+/// Enroll a freshly-generated WireGuard public key with Cloudflare's public
+/// WARP client API and return the raw JSON registration response. The X25519
+/// key pair itself is generated on the frontend (Web-crypto-grade), and the
+/// frontend turns the response into a `wireguard://` link — this command only
+/// performs the cross-origin HTTPS POST the webview cannot make directly.
+///
+/// No external binary is required: WARP is just a managed WireGuard config.
+#[tauri::command]
+pub async fn warp_register(public_key: String) -> Result<String, String> {
+    if public_key.trim().is_empty() {
+        return Err("missing WARP public key".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let body = serde_json::json!({
+        "key": public_key.trim(),
+        "install_id": "",
+        "fcm_token": "",
+        "tos": "2024-01-01T00:00:00.000Z",
+        "model": "PC",
+        "type": "Android",
+        "locale": "en_US",
+    });
+    let resp = client
+        .post("https://api.cloudflareclient.com/v0a2158/reg")
+        .header("User-Agent", "okhttp/3.12.1")
+        .header("CF-Client-Version", "a-6.10-2158")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("WARP registration request failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("WARP registration HTTP {}", resp.status()));
+    }
+    resp.text().await.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn get_traffic(
     state: State<'_, AppState>,

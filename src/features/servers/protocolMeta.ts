@@ -11,6 +11,9 @@ export const PROTOCOL_LABEL: Record<Protocol, string> = {
   wireguard: "WireGuard",
   socks: "SOCKS5",
   anytls: "AnyTLS",
+  shadowtls: "ShadowTLS",
+  ssh: "SSH",
+  tor: "Tor",
 };
 
 /** Accent colour per protocol for chips — kept visually distinct for quick
@@ -26,6 +29,9 @@ export const PROTOCOL_COLOR: Record<Protocol, string> = {
   wireguard: "#34d399",
   socks: "#60a5fa",
   anytls: "#2dd4bf",
+  shadowtls: "#c084fc",
+  ssh: "#94a3b8",
+  tor: "#7e57c2",
 };
 
 export const ALL_PROTOCOLS: Protocol[] = [
@@ -39,4 +45,7 @@ export const ALL_PROTOCOLS: Protocol[] = [
   "wireguard",
   "socks",
   "anytls",
+  "shadowtls",
+  "ssh",
+  "tor",
 ];

@@ -2,7 +2,32 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { ServerProfile, Subscription } from "../core/types";
 import { parseMany, parseShareLink } from "../core/parser";
-import { fetchSubscription, pingServer } from "../core/ipc";
+import { fetchSubscriptionInfo, pingServer } from "../core/ipc";
+import type { SubscriptionUsage } from "../core/types";
+
+/**
+ * Parse a `Subscription-Userinfo` header
+ * (`upload=…; download=…; total=…; expire=…`) into structured usage. Returns
+ * undefined when the header is absent or carries no numeric fields.
+ */
+function parseUserinfo(header: string): SubscriptionUsage | undefined {
+  if (!header.trim()) return undefined;
+  const fields: Record<string, number> = {};
+  for (const part of header.split(";")) {
+    const [k, v] = part.split("=");
+    if (!k || v === undefined) continue;
+    const n = Number(v.trim());
+    if (Number.isFinite(n)) fields[k.trim().toLowerCase()] = n;
+  }
+  if (!("upload" in fields) && !("download" in fields) && !("total" in fields) && !("expire" in fields))
+    return undefined;
+  return {
+    upload: fields.upload ?? 0,
+    download: fields.download ?? 0,
+    total: fields.total ?? 0,
+    expire: fields.expire ?? 0,
+  };
+}
 import { persistentStorage } from "../core/db";
 import { useSettingsStore } from "./useSettingsStore";
 
@@ -197,7 +222,9 @@ export const useServerStore = create<ServerState>()(
           const userAgent = sub.userAgent?.trim()
             ? sub.userAgent.trim()
             : settings.app.subscriptionUserAgent;
-          const body = await fetchSubscription(sub.url, allowInsecure, userAgent);
+          const payload = await fetchSubscriptionInfo(sub.url, allowInsecure, userAgent);
+          const body = payload.body;
+          const usage = parseUserinfo(payload.userinfo);
           const { servers } = parseMany(body);
           set((s) => {
             // Server ids are deterministic, so the same endpoint keeps the same
@@ -226,7 +253,7 @@ export const useServerStore = create<ServerState>()(
               servers: [...others, ...tagged],
               subscriptions: s.subscriptions.map((x) =>
                 x.id === id
-                  ? { ...x, status: "ok", serverCount: tagged.length, lastUpdatedAt: now(), lastError: undefined }
+                  ? { ...x, status: "ok", serverCount: tagged.length, lastUpdatedAt: now(), lastError: undefined, usage: usage ?? x.usage }
                   : x,
               ),
             };

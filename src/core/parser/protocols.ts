@@ -338,6 +338,92 @@ export function parseAnytls(link: string): ServerProfile {
   );
 }
 
+export function parseShadowtls(link: string): ServerProfile {
+  // ShadowTLS v2/v3 wrapping an inner Shadowsocks connection.
+  //   shadowtls://method:ssPassword@host:port?password=<handshake>&version=3
+  //     &sni=example.com&insecure=0#name
+  // The userinfo carries the inner SS cipher + password; query carries the
+  // ShadowTLS handshake password / version / TLS camouflage SNI.
+  const u = safeUrl(link, "shadowtls");
+  if (!u.username) throw new ParseError("shadowtls: missing inner SS method", link);
+  const q = parseQuery(u.search);
+  const method = decodeURIComponent(u.username);
+  const ssPassword = decodeURIComponent(u.password || q.ss_password || "");
+  const version = Number(q.version || q.v || 3) || 3;
+  const handshake = decodeURIComponent(q.password || q.shadowtls_password || "");
+  const tls = buildTls(
+    { sni: q.sni || q.host, alpn: q.alpn, insecure: q.insecure || q.allowInsecure, fp: q.fp },
+    "tls",
+  );
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "shadowtls",
+      address: u.hostname,
+      port: parsePort(u.port),
+      transport: { type: "tcp" },
+      tls,
+      shadowtls: { version, password: handshake, method, ssPassword },
+    },
+    link,
+  );
+}
+
+export function parseSsh(link: string): ServerProfile {
+  // ssh://user:password@host:port#name
+  //   or ssh://user@host:port?privateKey=<base64-PEM>&passphrase=...#name
+  const u = safeUrl(link, "ssh");
+  if (!u.username) throw new ParseError("ssh: missing user", link);
+  const q = parseQuery(u.search);
+  const user = decodeURIComponent(u.username);
+  const password = u.password ? decodeURIComponent(u.password) : undefined;
+  // Private key may be passed base64-encoded (to survive URL encoding) or raw.
+  let privateKey = q.privateKey || q.private_key || q.pk || undefined;
+  if (privateKey && !privateKey.includes("BEGIN")) {
+    privateKey = safeB64(privateKey) || privateKey;
+  }
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "ssh",
+      address: u.hostname,
+      port: parsePort(u.port, 22),
+      transport: { type: "tcp" },
+      tls: { enabled: false, security: "none" },
+      ssh: {
+        user,
+        password,
+        privateKey: privateKey || undefined,
+        privateKeyPassphrase: q.passphrase ? decodeURIComponent(q.passphrase) : undefined,
+      },
+    },
+    link,
+  );
+}
+
+export function parseTor(link: string): ServerProfile {
+  // tor://[host[:port]]#name — connects through the embedded Tor SOCKS path.
+  // No credentials are required; host/port are cosmetic placeholders.
+  const normalized = link.replace(/^tor:\/\/$/, "tor://localhost");
+  const u = safeUrl(
+    normalized.includes("//") && normalized.length > "tor://".length
+      ? normalized
+      : "tor://localhost",
+    "tor",
+  );
+  return finalize(
+    {
+      name: decodeRemark(u.hash, u.hostname ? `Tor (${u.hostname})` : "Tor"),
+      protocol: "tor",
+      address: u.hostname || "127.0.0.1",
+      port: parsePort(u.port, 9050),
+      transport: { type: "tcp" },
+      tls: { enabled: false, security: "none" },
+    },
+    link,
+  );
+}
+
 export function parseSocks(link: string): ServerProfile {
   // socks://[base64(user:pass) | user:pass]@host:port#name  (also socks5://)
   const normalized = link.replace(/^socks5:\/\//, "socks://");
@@ -499,6 +585,9 @@ export const SCHEME_PARSERS: Record<string, (link: string) => ServerProfile> = {
   socks: parseSocks,
   socks5: parseSocks,
   anytls: parseAnytls,
+  shadowtls: parseShadowtls,
+  ssh: parseSsh,
+  tor: parseTor,
 };
 
 export const SUPPORTED_SCHEMES = Object.keys(SCHEME_PARSERS) as readonly string[];

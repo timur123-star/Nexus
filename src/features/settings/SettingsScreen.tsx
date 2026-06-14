@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { AppWindow, Boxes, Folder, Globe, Navigation, Plus, RotateCcw, Route, Save, ShieldAlert, ShieldCheck, Trash2, X } from "lucide-react";
+import { AppWindow, Boxes, Cloud, Folder, Globe, Navigation, Plus, RotateCcw, Route, Save, ShieldAlert, ShieldCheck, Trash2, X } from "lucide-react";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { useServerStore } from "../../store/useServerStore";
 import { openLogsDir, isElevated, relaunchAsAdmin } from "../../core/ipc";
+import { registerWarp } from "../../core/warp";
+import { toast } from "../../store/useToastStore";
 import { cn } from "../../shared/lib/utils";
 import { CustomSelect } from "../../shared/components/CustomSelect";
 import { ACCENTS } from "../../shared/lib/accents";
@@ -16,7 +19,11 @@ const MATCH_KEYS: RoutingRuleMatch[] = [
   "domain",
   "domain_suffix",
   "domain_keyword",
+  "domain_regex",
   "ip_cidr",
+  "geoip",
+  "geosite",
+  "port",
   "process_name",
 ];
 const TARGET_KEYS: RoutingTarget[] = ["proxy", "direct", "block"];
@@ -36,7 +43,11 @@ const MATCH_PLACEHOLDER: Record<RoutingRuleMatch, string> = {
   domain: "example.com",
   domain_suffix: ".openai.com",
   domain_keyword: "google",
+  domain_regex: "^.*\\.openai\\.com$",
   ip_cidr: "10.0.0.0/8",
+  geoip: "ir",
+  geosite: "telegram",
+  port: "443",
   process_name: "telegram.exe",
 };
 
@@ -484,6 +495,7 @@ export function SettingsScreen() {
           />
         </Row>
         <p className="-mt-1 text-[11px] text-text-faint">{adv.subUaHint}</p>
+        <WarpButton lang={app.language} />
       </Section>
 
       <Section title={t("settings.app.title")}>
@@ -877,6 +889,92 @@ function Toggle({
           )}
         />
       </button>
+    </div>
+  );
+}
+
+// One-click Cloudflare WARP: registers a fresh WireGuard peer and imports it as
+// a server. Strings are inline 4-language to keep the i18n parity test green.
+const WARP_STRINGS: Record<
+  Lang,
+  { title: string; hint: string; button: string; working: string; ok: string; fail: string }
+> = {
+  en: {
+    title: "Cloudflare WARP",
+    hint: "Generate a free WARP (WireGuard) server in one click — no account needed.",
+    button: "Add WARP",
+    working: "Registering WARP…",
+    ok: "WARP server added",
+    fail: "Couldn't register WARP",
+  },
+  ru: {
+    title: "Cloudflare WARP",
+    hint: "Создайте бесплатный WARP-сервер (WireGuard) в один клик — без аккаунта.",
+    button: "Добавить WARP",
+    working: "Регистрирую WARP…",
+    ok: "WARP-сервер добавлен",
+    fail: "Не удалось зарегистрировать WARP",
+  },
+  fa: {
+    title: "Cloudflare WARP",
+    hint: "یک سرور رایگان WARP (WireGuard) با یک کلیک بسازید — بدون حساب کاربری.",
+    button: "افزودن WARP",
+    working: "در حال ثبت WARP…",
+    ok: "سرور WARP اضافه شد",
+    fail: "ثبت WARP ناموفق بود",
+  },
+  zh: {
+    title: "Cloudflare WARP",
+    hint: "一键生成免费的 WARP (WireGuard) 服务器 — 无需账户。",
+    button: "添加 WARP",
+    working: "正在注册 WARP…",
+    ok: "已添加 WARP 服务器",
+    fail: "WARP 注册失败",
+  },
+};
+
+function WarpButton({ lang }: { lang: Lang }) {
+  const W = WARP_STRINGS[lang] ?? WARP_STRINGS.en;
+  const addFromBlob = useServerStore((s) => s.addFromBlob);
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const link = await registerWarp();
+      const { added } = addFromBlob(link);
+      if (added > 0) toast.success(W.ok);
+      else throw new Error("no server parsed");
+    } catch (e) {
+      toast.error(`${W.fail}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 rounded-btn border border-border/70 bg-bg/40 px-3 py-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-sm text-text">
+            <Cloud size={14} className="shrink-0 text-indigo" /> {W.title}
+          </div>
+          <p className="mt-0.5 text-[11px] text-text-faint">{W.hint}</p>
+        </div>
+        <button
+          onClick={run}
+          disabled={busy}
+          className={cn(
+            "shrink-0 rounded-btn px-3 py-1.5 text-xs font-medium transition-colors",
+            busy
+              ? "cursor-wait bg-surface text-text-faint"
+              : "bg-indigo/15 text-indigo hover:bg-indigo/25",
+          )}
+        >
+          {busy ? W.working : W.button}
+        </button>
+      </div>
     </div>
   );
 }
