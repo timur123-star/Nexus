@@ -14,6 +14,7 @@ const XRAY_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
   "shadowsocks",
   "wireguard",
   "socks",
+  "http",
 ]);
 
 export const xrayCore: IProxyCore = {

@@ -16,6 +16,7 @@ export type Protocol =
   | "tuic"
   | "wireguard"
   | "socks"
+  | "http"
   | "anytls"
   | "shadowtls"
   | "ssh"

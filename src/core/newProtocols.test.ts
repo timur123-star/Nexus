@@ -132,3 +132,53 @@ describe("advanced routing matches", () => {
     expect(flat).toContain("geosite:telegram");
   });
 });
+
+describe("http proxy outbound", () => {
+  it("parses an http proxy link with credentials", () => {
+    const s = parseShareLink("http://user:pass@1.2.3.4:8080#myhttp");
+    expect(s.protocol).toBe("http");
+    expect(s.address).toBe("1.2.3.4");
+    expect(s.port).toBe(8080);
+    expect(s.username).toBe("user");
+    expect(s.password).toBe("pass");
+    expect(s.tls.enabled).toBe(false);
+  });
+
+  it("parses an https proxy link with TLS enabled and round-trips", () => {
+    const s = parseShareLink("https://u:p@proxy.example:443#secure");
+    expect(s.protocol).toBe("http");
+    expect(s.tls.enabled).toBe(true);
+    const r = parseShareLink(serverToShareLink(s));
+    expect(r.protocol).toBe("http");
+    expect(r.tls.enabled).toBe(true);
+    expect(r.username).toBe("u");
+    expect(serverToShareLink(s).startsWith("https://")).toBe(true);
+  });
+
+  it("rejects a subscription-style URL (has a path) as not a proxy", () => {
+    expect(() => parseShareLink("https://panel.example.com/sub/abc123")).toThrow();
+    expect(() => parseShareLink("http://host.example/api/v1/clients")).toThrow();
+  });
+
+  it("emits a sing-box http outbound (with TLS for https)", () => {
+    const s = parseShareLink("https://u:p@1.2.3.4:8443#x");
+    const cfg = generateSingboxConfig(s, baseOpts({ routingMode: "global" })) as {
+      outbounds: Array<Record<string, unknown>>;
+    };
+    const o = cfg.outbounds.find((x) => x.type === "http");
+    expect(o).toBeTruthy();
+    expect(o?.username).toBe("u");
+    expect((o?.tls as { enabled: boolean }).enabled).toBe(true);
+  });
+
+  it("emits an xray http outbound", () => {
+    const s = parseShareLink("http://user:pass@1.2.3.4:8080#x");
+    const cfg = generateXrayConfig(s, baseOpts({ routingMode: "global" })) as {
+      outbounds: Array<Record<string, unknown>>;
+    };
+    const o = cfg.outbounds.find((x) => x.protocol === "http");
+    expect(o).toBeTruthy();
+    const settings = o?.settings as { servers: Array<{ users: Array<{ user: string }> }> };
+    expect(settings.servers[0].users[0].user).toBe("user");
+  });
+});

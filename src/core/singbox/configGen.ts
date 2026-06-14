@@ -431,6 +431,24 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         ...(s.username ? { username: s.username } : {}),
         ...(s.password ? { password: s.password } : {}),
       };
+    case "http":
+      // HTTP CONNECT proxy. sing-box `http` outbound supports optional TLS
+      // (for an `https://` proxy) but no multiplex.
+      return {
+        type: "http",
+        ...common,
+        ...(s.username ? { username: s.username } : {}),
+        ...(s.password ? { password: s.password } : {}),
+        ...(s.tls.enabled
+          ? {
+              tls: {
+                enabled: true,
+                ...(s.tls.sni ? { server_name: s.tls.sni } : {}),
+                ...(s.tls.allowInsecure ? { insecure: true } : {}),
+              },
+            }
+          : {}),
+      };
     case "wireguard": {
       const wg = s.wireguard;
       return {

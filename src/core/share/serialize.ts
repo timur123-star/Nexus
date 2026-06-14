@@ -146,6 +146,13 @@ export function serverToShareLink(s: ServerProfile): string {
         : "";
       return `socks://${auth}${hostPort(s)}${frag(s.name)}`;
     }
+    case "http": {
+      const auth = s.username
+        ? `${encodeURIComponent(s.username)}:${encodeURIComponent(s.password ?? "")}@`
+        : "";
+      const scheme = s.tls.enabled ? "https" : "http";
+      return `${scheme}://${auth}${hostPort(s)}${frag(s.name)}`;
+    }
     case "shadowtls": {
       const st = s.shadowtls;
       const p = new URLSearchParams();

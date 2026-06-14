@@ -21,7 +21,6 @@ import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { useToastStore } from "../../store/useToastStore";
-import { detectFormat } from "../../core/parser";
 import { Sparkline } from "../../shared/components/Sparkline";
 import { ShieldConnectButton } from "../../shared/components/ShieldConnectButton";
 import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../../shared/lib/utils";
@@ -195,10 +194,11 @@ export function ConnectionScreen({
         return;
       }
       // Auto-detect: a single http(s) URL is a subscription; anything else
-      // (share links / base64 body / link list) is imported directly.
-      const fmt = detectFormat(text);
-      const isSubUrl =
-        /^https?:\/\//i.test(text) && !/\s/.test(text) && fmt !== "share-link";
+      // (share links / base64 body / link list) is imported directly. An
+      // authenticated HTTP-proxy link (`http(s)://user:pass@host:port`) carries
+      // userinfo and is imported as a server, not fetched as a subscription.
+      const singleHttpUrl = /^https?:\/\//i.test(text) && !/\s/.test(text);
+      const isSubUrl = singleHttpUrl && !text.includes("@");
       if (isSubUrl) {
         let host = "Подписка";
         try {

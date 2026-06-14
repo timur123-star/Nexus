@@ -462,6 +462,59 @@ export function parseSocks(link: string): ServerProfile {
   );
 }
 
+export function parseHttp(link: string): ServerProfile {
+  // http(s)://[user:pass@]host:port#name  — an HTTP(S) CONNECT proxy outbound.
+  // `https://` enables TLS. Guarded so subscription URLs (which carry a path
+  // and/or omit an explicit port) are NOT mistaken for proxy share links.
+  const secure = /^https:\/\//i.test(link);
+  const scheme = secure ? "https://" : "http://";
+  const hashIdx = link.indexOf("#");
+  const remark = hashIdx >= 0 ? decodeRemark(link.slice(hashIdx), "") : "";
+  const core = (hashIdx >= 0 ? link.slice(0, hashIdx) : link).slice(scheme.length);
+
+  let username = "";
+  let password = "";
+  let hostPart = core;
+  if (core.includes("@")) {
+    const at = core.lastIndexOf("@");
+    const userinfo = core.slice(0, at);
+    hostPart = core.slice(at + 1);
+    // userinfo may be base64 or plain user:pass.
+    const decoded = userinfo.includes(":") ? userinfo : safeB64(userinfo);
+    [username, password] = splitFirst(decoded, ":");
+  }
+  // A genuine proxy link is host:port with no path; a subscription URL has a
+  // path ("/sub", "/api/...") and/or no explicit port → reject those so they
+  // fall through to the subscription import flow instead of becoming a server.
+  const qIdx = hostPart.indexOf("?");
+  if (qIdx >= 0) hostPart = hostPart.slice(0, qIdx);
+  const slashIdx = hostPart.indexOf("/");
+  if (slashIdx >= 0) {
+    const path = hostPart.slice(slashIdx);
+    hostPart = hostPart.slice(0, slashIdx);
+    if (path !== "/" && path !== "") {
+      throw new ParseError("http: looks like a URL, not a proxy (has path)", link);
+    }
+  }
+  const [host, port] = splitHostPort(hostPart);
+  if (!host || !port) throw new ParseError("http: missing host/port", link);
+  return finalize(
+    {
+      name: remark || `${host}:${port}`,
+      protocol: "http",
+      address: host,
+      port,
+      username: username || undefined,
+      password: password || undefined,
+      transport: { type: "tcp" },
+      tls: secure
+        ? { enabled: true, security: "tls", sni: host }
+        : { enabled: false, security: "none" },
+    },
+    link,
+  );
+}
+
 export function parseWireguard(link: string): ServerProfile {
   // wireguard://<privateKey>@host:port?publickey=<peerPub>&presharedkey=<psk>
   //   &address=172.16.0.2/32,fd01::2/128&reserved=0,0,0&mtu=1420#name
@@ -584,6 +637,8 @@ export const SCHEME_PARSERS: Record<string, (link: string) => ServerProfile> = {
   wg: parseWireguard,
   socks: parseSocks,
   socks5: parseSocks,
+  http: parseHttp,
+  https: parseHttp,
   anytls: parseAnytls,
   shadowtls: parseShadowtls,
   ssh: parseSsh,
@@ -591,4 +646,4 @@ export const SCHEME_PARSERS: Record<string, (link: string) => ServerProfile> = {
 };
 
 export const SUPPORTED_SCHEMES = Object.keys(SCHEME_PARSERS) as readonly string[];
-export type SupportedScheme = Protocol | "hy2" | "wg" | "socks5";
+export type SupportedScheme = Protocol | "hy2" | "wg" | "socks5" | "https";

@@ -142,6 +142,36 @@ function buildXrayOutbound(s: ServerProfile, extra: OutboundExtras): object {
       },
     };
   }
+  if (s.protocol === "http") {
+    return {
+      tag: PROXY_TAG,
+      protocol: "http",
+      settings: {
+        servers: [
+          {
+            address: s.address,
+            port: s.port,
+            ...(s.username || s.password
+              ? { users: [{ user: s.username ?? "", pass: s.password ?? "" }] }
+              : {}),
+          },
+        ],
+      },
+      // An `https://` proxy is reached over a TLS stream.
+      ...(s.tls.enabled
+        ? {
+            streamSettings: {
+              network: "tcp",
+              security: "tls",
+              tlsSettings: {
+                serverName: s.tls.sni || s.address,
+                allowInsecure: !!s.tls.allowInsecure,
+              },
+            },
+          }
+        : {}),
+    };
+  }
 
   const streamSettings = buildXrayStream(s, extra.fragment);
   // xtls-rprx-vision cannot be combined with mux; Xray rejects the pair, so
