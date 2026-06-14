@@ -22,6 +22,11 @@ let counter = 0;
 export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
   push: ({ kind = "info", message, duration = 3800 }) => {
+    // De-duplicate: if an identical toast is already on screen (e.g. a connect
+    // retry / auto-reconnect firing the same validation error every attempt),
+    // don't stack a 2nd, 3rd, 4th copy — just keep the existing one.
+    const existing = get().toasts.find((t) => t.kind === kind && t.message === message);
+    if (existing) return existing.id;
     const id = ++counter;
     set((s) => ({ toasts: [...s.toasts, { id, kind, message, duration }].slice(-4) }));
     if (duration > 0 && typeof window !== "undefined") {

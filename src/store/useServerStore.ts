@@ -95,10 +95,41 @@ export function isTlsCertError(msg: string): boolean {
 }
 
 /**
+ * True for an `https://` URL whose host is a bare IP literal. Panels fronted by
+ * a raw IP (very common for RU/IR providers) almost always serve an untrusted or
+ * name-mismatched certificate, so a connection failure there is expected and
+ * safe to retry with verification disabled. This is the safety net for the case
+ * where the native error string doesn't clearly spell out "certificate".
+ */
+export function isBareIpHttpsUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    const host = u.hostname.replace(/^\[/, "").replace(/\]$/, "");
+    const ipv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+    const ipv6 = host.includes(":");
+    return ipv4 || ipv6;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A genuine HTTP status error (4xx/5xx) means the TLS handshake already
+ * succeeded — those must never be downgraded to an insecure retry.
+ */
+function isHttpStatusError(msg: string): boolean {
+  return /^HTTP\s+\d{3}/i.test(msg.trim());
+}
+
+/**
  * Fetch a subscription, transparently retrying once with TLS verification
- * disabled when (and only when) the first attempt fails with a certificate
- * error and the user has not already opted into insecure fetches. Returns the
- * payload plus whether an invalid certificate had to be accepted.
+ * disabled when the first attempt fails and the failure is consistent with an
+ * untrusted certificate — either because the native error names a cert problem,
+ * or because the URL is a bare-IP https panel (where a bad cert is the norm).
+ * Real HTTP status errors are never downgraded. The user never has to toggle
+ * anything: paste the link and it just works. Returns the payload plus whether
+ * an invalid certificate had to be accepted.
  */
 export async function fetchSubscriptionResilient(
   url: string,
@@ -110,7 +141,8 @@ export async function fetchSubscriptionResilient(
     return { payload, insecureCertAccepted: allowInsecure };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (!allowInsecure && isTlsCertError(msg)) {
+    const looksLikeCert = isTlsCertError(msg) || isBareIpHttpsUrl(url);
+    if (!allowInsecure && looksLikeCert && !isHttpStatusError(msg)) {
       const payload = await fetchSubscriptionInfo(url, true, userAgent);
       return { payload, insecureCertAccepted: true };
     }

@@ -8,6 +8,28 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::core::{AppState, CoreStatus};
 
+/// Format a `reqwest::Error` together with its full `source()` chain.
+///
+/// reqwest's top-level `Display` is just `error sending request for url (…)`,
+/// which hides the real cause (e.g. `invalid peer certificate: UnknownIssuer`).
+/// The frontend's resilient-fetch logic decides whether to retry with TLS
+/// verification disabled based on that wording, so we must surface every cause
+/// in the chain, deduplicated, instead of swallowing it.
+fn fmt_req_err(e: reqwest::Error) -> String {
+    use std::error::Error;
+    let mut s = e.to_string();
+    let mut src: Option<&(dyn Error + 'static)> = e.source();
+    while let Some(inner) = src {
+        let inner_str = inner.to_string();
+        if !s.contains(&inner_str) {
+            s.push_str(": ");
+            s.push_str(&inner_str);
+        }
+        src = inner.source();
+    }
+    s
+}
+
 #[derive(Serialize, Default)]
 pub struct TrafficStats {
     up: u64,
@@ -95,11 +117,11 @@ pub async fn fetch_subscription(
         .danger_accept_invalid_certs(skip_tls)
         .build()
         .map_err(|e| e.to_string())?;
-    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let resp = client.get(&url).send().await.map_err(fmt_req_err)?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }
-    resp.text().await.map_err(|e| e.to_string())
+    resp.text().await.map_err(fmt_req_err)
 }
 
 /// Body + provider metadata for a subscription fetch. `userinfo` is the raw
@@ -137,7 +159,7 @@ pub async fn fetch_subscription_info(
         .danger_accept_invalid_certs(skip_tls)
         .build()
         .map_err(|e| e.to_string())?;
-    let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
+    let resp = client.get(&url).send().await.map_err(fmt_req_err)?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }
@@ -154,7 +176,7 @@ pub async fn fetch_subscription_info(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("")
         .to_string();
-    let body = resp.text().await.map_err(|e| e.to_string())?;
+    let body = resp.text().await.map_err(fmt_req_err)?;
     Ok(SubscriptionPayload {
         body,
         userinfo,
