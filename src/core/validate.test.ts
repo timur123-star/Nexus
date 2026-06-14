@@ -48,6 +48,27 @@ describe("validateServerForLaunch", () => {
     expect(validateServerForLaunch({ ...ss, method: "" }, "en")!.code).toBe("missing_ss_method");
   });
 
+  it("rejects ShadowTLS whose inner Shadowsocks password is empty", () => {
+    // Mirrors the field core.log FATAL `initialize outbound[1]: missing password`:
+    // the inner SS outbound is generated with an empty password and crash-loops.
+    const base = parseShareLink(REALITY_FULL);
+    const shadowtls = {
+      ...base,
+      protocol: "shadowtls" as const,
+      shadowtls: { version: 3, password: "handshake", method: "2022-blake3-aes-128-gcm", ssPassword: "" },
+    };
+    const err = validateServerForLaunch(shadowtls, "en");
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe("missing_password");
+    // A complete ShadowTLS node passes.
+    expect(
+      validateServerForLaunch(
+        { ...shadowtls, shadowtls: { ...shadowtls.shadowtls, ssPassword: "innerpw" } },
+        "en",
+      ),
+    ).toBeNull();
+  });
+
   it("rejects AnyTLS — unsupported by the bundled sing-box 1.11 / Xray cores", () => {
     const anytls = parseShareLink("anytls://pw123@a.example.com:8443?sni=a.example.com#ANY");
     const err = validateServerForLaunch(anytls, "en");

@@ -115,6 +115,14 @@ function firstFailure(server: ServerProfile): ValidationCode | null {
       if (!(server.method ?? "").trim()) return "missing_ss_method";
       if (!(server.password ?? "").trim()) return "missing_password";
       break;
+    case "shadowtls":
+      // ShadowTLS carries an inner Shadowsocks connection. The config generator
+      // emits that inner outbound with `password: ssPassword || ""`, and an
+      // empty inner password makes sing-box exit FATAL
+      // (`initialize outbound[1]: missing password`) on a crash-loop. Catch it
+      // up-front like every other credential.
+      if (!(server.shadowtls?.ssPassword ?? "").trim()) return "missing_password";
+      break;
     case "wireguard":
       if (!server.wireguard?.privateKey?.trim() || !server.wireguard?.peerPublicKey?.trim()) {
         return "wireguard_incomplete";

@@ -16,7 +16,11 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 const SING_BOX_VERSION = "1.11.1";
-const XRAY_VERSION = "1.8.24";
+// Xray 1.8.24 predates post-quantum REALITY: it does not understand the
+// `mldsa65Verify` field our config generator emits for `pqv` nodes and exits
+// FATAL on such a config. v26.x (date-based versioning vYY.M.D) is the first
+// line that supports ML-DSA-65 REALITY, so PQ servers actually connect.
+const XRAY_VERSION = "26.5.9";
 
 // Built from fragments so the literal never forms a full URL token.
 const GH = "https://" + "github.com";

@@ -27,7 +27,8 @@ before running `npm run tauri dev` or `npm run tauri build`:
 Recommended versions (matching the configs this app generates):
 
 - **sing-box** `1.11.1` — https://github.com/SagerNet/sing-box/releases
-- **xray-core** `1.8.24` — https://github.com/XTLS/Xray-core/releases
+- **xray-core** `26.5.9` — https://github.com/XTLS/Xray-core/releases
+  (v26.x is required for post-quantum REALITY / `mldsa65Verify`; 1.8.24 crashes on such configs)
 
 > On macOS/Linux make the files executable: `chmod +x sing-box xray`
 
