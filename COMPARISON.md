@@ -40,37 +40,57 @@ QR share, ⌘K palette, mini-mode and an auto-updater.
    predictable. Many clients shell the link straight into the core and hope.
 5. **Auto-updater** with signed artifacts already wired in.
 
+## Protocols implemented (as of 2026-06-14)
+
+Parser **and** config generation (sing-box, plus Xray where the core supports
+it) are wired and unit-tested for:
+
+**VLESS** (incl. REALITY, `flow`/Vision, XHTTP, post-quantum REALITY), **VMess**,
+**Trojan**, **Shadowsocks** (incl. SIP002 + plugin/obfs), **Hysteria2**,
+**Hysteria v1**, **TUIC**, **WireGuard** (+ one-click **Cloudflare WARP**
+auto-registration), **AnyTLS**, **ShadowTLS** (v1/v2/v3 over inner SS),
+**SOCKS5**, **HTTP/HTTPS CONNECT**, **SSH** outbound, **Tor** outbound.
+
 ## Honest gaps vs. the leaders
 
 1. **No mobile.** Hiddify, NekoBox, FlClash all ship Android/iOS. We are
    desktop-only. This is the single biggest coverage gap.
-2. **Protocol breadth — now much closer, but not 100%.** After this update we
-   support VLESS, VMess, Trojan, Shadowsocks, Hysteria2, **Hysteria v1**, TUIC,
-   **WireGuard**, **SOCKS5**, **AnyTLS**. Still missing vs. the maximalists:
-   ShadowTLS, Juicity, naive/HTTP-proxy outbound, SSH, Tor, and full
-   **WARP** auto-registration. (WireGuard *parsing + config* is done; turnkey
-   WARP still needs an account-registration flow.)
-3. **Routing rules.** We have rule/global modes + custom rules, but not the rich
-   rule-set / GeoIP-GeoSite editor and per-app routing that Clash-ecosystem
-   clients expose.
-4. **Subscription management depth.** We fetch + parse subs; leaders add
-   auto-update schedules, traffic/expiry display, profile groups, and remote
-   rule providers.
-5. **Core binaries.** Some advanced transports (e.g. WARP, ECH) depend on the
-   shipped core build supporting them — needs the right sing-box/Xray binaries
-   bundled in `src-tauri/binaries/`.
+2. **Juicity + naïve.** Two protocols still missing vs. the maximalists. Neither
+   sing-box nor Xray implements **Juicity** — it needs its own `juicity-client`
+   binary bundled as a third engine, so it can't be faked through the existing
+   cores. **naïve** (naiveproxy) is likewise a separate core. Everything else on
+   the common-protocol list is now supported.
+3. **Tor / SSH depend on the core build.** Tor and SSH outbounds require a
+   sing-box binary compiled `with_*` those tags; the bundled build from
+   `fetch-cores` must include them or those two outbounds won't start.
+4. **No mobile-style remote rule providers.** We ship rule/global/direct modes,
+   a GeoIP/GeoSite + per-app (process_name) rule editor and saved routing
+   profiles, but not arbitrary remote *rule-provider* URLs the way Mihomo does.
+
+## What's now on par with the leaders
+
+- **Protocol breadth** is now comparable to NekoBox / v2rayN for the protocols
+  the cores actually run.
+- **Routing.** GeoIP/GeoSite rule editor, per-app split tunnelling
+  (process_name presets), QUIC blocking, and one-click saved routing profiles.
+- **Subscriptions.** Scheduled auto-update, status badges, custom User-Agent,
+  and **traffic + expiry** parsed from the `Subscription-Userinfo` header.
+- **WARP.** One-click client-side registration (X25519 keypair → Cloudflare
+  API → `wireguard://`), no external scripts.
 
 ## Verdict (honest)
 
 NexusShield is a **genuinely strong desktop client** — its dual-core engine,
 reliability/failover layer and clean UX put it ahead of the older desktop tools
 (v2rayN, Nekoray) on *polish and robustness*, and on par architecturally with
-Clash Verge Rev. It is **not yet** at Hiddify's level on raw breadth — mainly
-because of **no mobile apps** and a few exotic protocols/WARP automation. As a
-portfolio project it clearly demonstrates senior-level engineering: protocol
-parsing, multi-core config generation, process supervision, and a production
+Clash Verge Rev. On the desktop it now matches the protocol/routing/subscription
+breadth of the power-user clients for everything the two cores can run. It is
+**not yet** at Hiddify's level overall — almost entirely because of **no mobile
+apps** (and the two separate-binary protocols, Juicity/naïve). As a portfolio
+project it clearly demonstrates senior-level engineering: protocol parsing,
+multi-core config generation, process supervision, and a production
 build/release pipeline.
 
-**Highest-leverage next steps:** (1) a mobile target, (2) WARP one-click
-registration, (3) a GeoIP/GeoSite routing-rule editor, (4) richer subscription
-management (auto-update + expiry/traffic).
+**Highest-leverage next steps:** (1) a mobile target (the one real breadth gap),
+(2) bundle a third `juicity-client` core if Juicity coverage is wanted,
+(3) remote rule-provider URLs for Mihomo-style routing parity.
