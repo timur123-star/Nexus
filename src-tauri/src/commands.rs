@@ -229,7 +229,9 @@ pub async fn warp_register(public_key: String) -> Result<String, String> {
     // 22-char lowercase-hex id (same shape the official Android client sends)
     // and stamp the ToS field with the current UTC time — both are checked.
     let install_id = random_hex_22();
-    let tos = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+    let tos = chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string();
     let body = serde_json::json!({
         "key": public_key.trim(),
         "install_id": install_id,
@@ -342,10 +344,7 @@ pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
 /// hostname(s)/IP(s) that must stay reachable so the core can keep/restore the
 /// tunnel; everything else outbound is dropped. Requires elevated privileges.
 #[tauri::command]
-pub fn enable_kill_switch(
-    state: State<AppState>,
-    server_hosts: Vec<String>,
-) -> Result<(), String> {
+pub fn enable_kill_switch(state: State<AppState>, server_hosts: Vec<String>) -> Result<(), String> {
     if !crate::privilege::is_elevated() {
         return Err("kill-switch requires administrator privileges".into());
     }
@@ -493,7 +492,9 @@ pub async fn speed_test(proxy_port: u16) -> Result<SpeedTestResult, String> {
     let mut down_mbps = 0.0;
     let t = Instant::now();
     if let Ok(resp) = client
-        .get(format!("https://speed.cloudflare.com/__down?bytes={down_bytes}"))
+        .get(format!(
+            "https://speed.cloudflare.com/__down?bytes={down_bytes}"
+        ))
         .send()
         .await
     {

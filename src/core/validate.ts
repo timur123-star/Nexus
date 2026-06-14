@@ -18,7 +18,8 @@ export type ValidationCode =
   | "missing_uuid"
   | "missing_password"
   | "missing_ss_method"
-  | "wireguard_incomplete";
+  | "wireguard_incomplete"
+  | "unsupported_anytls";
 
 export interface ValidationError {
   code: ValidationCode;
@@ -69,6 +70,12 @@ const MESSAGES: Record<ValidationCode, Record<Lang, string>> = {
     fa: "کلیدهای سرور WireGuard موجود نیست. لینک را دوباره وارد کنید.",
     zh: "WireGuard 服务器缺少密钥。请重新导入链接。",
   },
+  unsupported_anytls: {
+    en: "AnyTLS isn't supported by the bundled cores (sing-box 1.11 / Xray). Use a VLESS / Trojan / Hysteria2 server instead.",
+    ru: "AnyTLS не поддерживается встроенными ядрами (sing-box 1.11 / Xray). Используйте сервер VLESS / Trojan / Hysteria2.",
+    fa: "AnyTLS توسط هسته‌های همراه (sing-box 1.11 / Xray) پشتیبانی نمی‌شود. به‌جای آن از سرور VLESS / Trojan / Hysteria2 استفاده کنید.",
+    zh: "内置内核（sing-box 1.11 / Xray）不支持 AnyTLS。请改用 VLESS / Trojan / Hysteria2 服务器。",
+  },
 };
 
 function firstFailure(server: ServerProfile): ValidationCode | null {
@@ -89,10 +96,14 @@ function firstFailure(server: ServerProfile): ValidationCode | null {
     case "vmess":
       if (!(server.uuid ?? "").trim()) return "missing_uuid";
       break;
+    case "anytls":
+      // AnyTLS landed in sing-box 1.12; the bundled core is 1.11.1 and Xray
+      // never supported it. Generating a config would crash the core with
+      // "unknown outbound type: anytls", so reject it up-front with guidance.
+      return "unsupported_anytls";
     case "trojan":
     case "hysteria2":
     case "hysteria":
-    case "anytls":
       if (!(server.password ?? "").trim()) return "missing_password";
       break;
     case "tuic":

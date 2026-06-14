@@ -47,6 +47,14 @@ describe("validateServerForLaunch", () => {
     ) as ServerProfile;
     expect(validateServerForLaunch({ ...ss, method: "" }, "en")!.code).toBe("missing_ss_method");
   });
+
+  it("rejects AnyTLS — unsupported by the bundled sing-box 1.11 / Xray cores", () => {
+    const anytls = parseShareLink("anytls://pw123@a.example.com:8443?sni=a.example.com#ANY");
+    const err = validateServerForLaunch(anytls, "en");
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe("unsupported_anytls");
+    expect(validateServerForLaunch(anytls, "ru")!.message).toMatch(/AnyTLS/);
+  });
 });
 
 describe("configGen defense-in-depth", () => {

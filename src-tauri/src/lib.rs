@@ -28,6 +28,14 @@ pub fn run() {
             // crashed while system proxy was active, leaving the user stranded.
             let _ = sysproxy::set_system_proxy(false, 0);
 
+            // Safety net: disarm the kill-switch on startup too. If a previous
+            // session crashed (or was force-killed) while armed, the OS firewall
+            // is left in default-deny outbound — the user has NO internet until
+            // it's cleared. `disable` is idempotent and only touches our own
+            // tagged rules, so it's safe to always run here. The frontend re-arms
+            // on the next connect if the user has the kill-switch enabled.
+            let _ = killswitch::disable();
+
             tray::build_tray(app.handle())?;
 
             // Deep links: register the `nexusshield://` scheme at runtime on the

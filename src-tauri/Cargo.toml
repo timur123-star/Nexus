@@ -34,7 +34,15 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "sync"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+# Subscription panels built on x-ui / 3x-ui forks (kittenx, etc.) routinely request
+# TLS renegotiation mid-handshake. rustls REJECTS peer-initiated renegotiation, so
+# `client.get(sub_url).send()` failed against those panels with an opaque
+# "error sending request for url (…)" and the subscription never loaded. The OS-native
+# TLS stack (schannel on Windows, Secure Transport on macOS, OpenSSL on Linux) handles
+# renegotiation exactly like curl/Hiddify do — so we use native-tls for max panel
+# compatibility. `native-tls-vendored` builds OpenSSL from source on Linux so CI needs
+# no system libssl (no-op on Windows/macOS, which use the OS stack).
+reqwest = { version = "0.12", default-features = false, features = ["native-tls-vendored", "json"] }
 
 anyhow = "1"
 thiserror = "2"

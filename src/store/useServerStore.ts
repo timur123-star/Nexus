@@ -168,12 +168,16 @@ export const useServerStore = create<ServerState>()(
       addFromBlob: (text) => {
         const { servers, errors } = parseMany(text);
         const stamped = servers.map((s) => ({ ...s, createdAt: now() }));
+        let freshCount = 0;
         set((s) => {
           const existing = new Set(s.servers.map((x) => x.id));
           const fresh = stamped.filter((x) => !existing.has(x.id));
+          freshCount = fresh.length;
           return { servers: [...s.servers, ...fresh] };
         });
-        return { added: stamped.length, errors: errors.length };
+        // Report what was ACTUALLY added (re-imports of existing servers are
+        // de-duped by id), so the "Added: N" toast never overstates the result.
+        return { added: freshCount, errors: errors.length };
       },
 
       removeServer: (id) => set((s) => ({ servers: s.servers.filter((x) => x.id !== id) })),

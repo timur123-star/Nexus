@@ -23,8 +23,8 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { useToastStore } from "../../store/useToastStore";
 import { Sparkline } from "../../shared/components/Sparkline";
 import { ShieldConnectButton } from "../../shared/components/ShieldConnectButton";
+import { Flag } from "../../shared/components/Flag";
 import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../../shared/lib/utils";
-import { flagFor } from "../../shared/lib/flags";
 import { PROTOCOL_LABEL } from "../servers/protocolMeta";
 import { useT } from "../../core/i18n/useT";
 import type { Lang, MessageKey } from "../../core/i18n";
@@ -286,7 +286,9 @@ export function ConnectionScreen({
           onClick={onBrowse}
           className="glass ns-lift flex items-center gap-3 rounded-full px-5 py-2.5 transition-colors hover:border-indigo/40"
         >
-          <span className="text-2xl leading-none">{flagFor(active.name)}</span>
+          <span className="text-2xl leading-none">
+            <Flag name={active.name} address={active.address} size={26} />
+          </span>
           <div className="text-left leading-tight">
             <div className="text-sm font-semibold text-text">{active.name}</div>
             <div className="flex items-center gap-2 text-[11px]">
@@ -562,7 +564,7 @@ function QuickConnectTile({
                 : "border-border bg-bg-elev/40 text-text-dim hover:border-indigo/40 hover:text-text",
             )}
           >
-            {s.favorite ? <Star size={13} className="fill-current" /> : <span className="text-base leading-none">{flagFor(s.name)}</span>}
+            {s.favorite ? <Star size={13} className="fill-current" /> : <Flag name={s.name} address={s.address} size={18} />}
           </button>
         ))}
         <button

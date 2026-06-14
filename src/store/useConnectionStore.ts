@@ -70,6 +70,19 @@ const TUN_NEEDS_ADMIN_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
 };
 
 /**
+ * Surfaced when the user is in TUN (VPN) mode but the selected server can only
+ * run on Xray-core (post-quantum REALITY / XHTTP), which has no TUN inbound. We
+ * refuse instead of starting Xray with a dead tunnel, and point the user at the
+ * mode that *does* work for this server (system proxy).
+ */
+const TUN_XRAY_CONFLICT_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
+  ru: "Этот сервер (post-quantum REALITY / XHTTP) работает только на ядре Xray, а Xray не поддерживает режим VPN (TUN). Переключитесь на режим «Системный прокси» для этого сервера или выберите обычный сервер для VPN.",
+  en: "This server (post-quantum REALITY / XHTTP) runs only on Xray-core, which has no VPN (TUN) mode. Switch to “System proxy” mode for this server, or pick a regular server for VPN.",
+  fa: "این سرور (REALITY پساکوانتومی / XHTTP) فقط روی هسته Xray کار می‌کند که حالت VPN (TUN) ندارد. برای این سرور به حالت «پروکسی سیستم» بروید یا یک سرور معمولی برای VPN انتخاب کنید.",
+  zh: "此服务器（后量子 REALITY / XHTTP）仅能在 Xray 内核上运行，而 Xray 没有 VPN (TUN) 模式。请为此服务器切换到“系统代理”模式，或选择常规服务器用于 VPN。",
+};
+
+/**
  * Arm the OS-level kill-switch for the given server, tolerating failure with a
  * user-visible warning. Called on every (re)connect so a failover transparently
  * updates the firewall allow-list to the new server.
@@ -151,7 +164,18 @@ function clearReconnectTimer(): void {
  * core. sing-box supports every protocol we parse, so it is always a valid
  * landing spot.
  */
-function selectCore(server: ServerProfile, preferredKind: string) {
+/**
+ * Protocols/features that ONLY Xray-core can run: the XHTTP transport and
+ * post-quantum (ML-DSA-65) REALITY. sing-box cannot run these at all.
+ */
+function requiresXray(server: ServerProfile): boolean {
+  return (
+    server.transport.type === "xhttp" ||
+    (server.tls.security === "reality" && !!server.tls.postQuantum)
+  );
+}
+
+function selectCore(server: ServerProfile, preferredKind: string, tunEnabled = false) {
   const preferred = getCore(preferredKind as never);
   const xrayCantObfs =
     preferred.kind === "xray" &&
@@ -160,9 +184,20 @@ function selectCore(server: ServerProfile, preferredKind: string) {
   // XHTTP transport and post-quantum (ML-DSA-65) REALITY are Xray-only: sing-box
   // cannot run them at all. Force Xray for those regardless of the user's
   // preferred core so the node actually connects instead of silently failing.
-  const needsXray =
-    server.transport.type === "xhttp" ||
-    (server.tls.security === "reality" && !!server.tls.postQuantum);
+  const needsXray = requiresXray(server);
+
+  // TUN (VPN) mode needs a virtual network interface, which ONLY sing-box can
+  // create — Xray-core has no TUN inbound. So in TUN mode we must land on
+  // sing-box whenever it can run the server, even if the user's preferred core
+  // is Xray; otherwise "VPN mode" would start Xray and silently tunnel nothing
+  // (the exact symptom users hit with a default Xray preference). Servers that
+  // *require* Xray (PQ-REALITY / XHTTP) can't use TUN at all — the caller
+  // detects that and surfaces a clear message instead of a dead tunnel.
+  if (tunEnabled && !needsXray) {
+    const singbox = ALL_CORES.find((c) => c.kind === "sing-box");
+    if (singbox && singbox.supports(server.protocol)) return singbox;
+  }
+
   if (needsXray) {
     const xray = ALL_CORES.find((c) => c.kind === "xray");
     if (xray && xray.supports(server.protocol)) return xray;
@@ -251,10 +286,6 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         autoReconnect: true,
         healthFailures: 0,
       });
-      // Arm the kill-switch *before* the tunnel comes up so the connection
-      // attempt itself can't leak. Re-arming on each (re)connect keeps the
-      // firewall allow-list pointed at the current server after a failover.
-      if (proxy.killSwitch) armKillSwitch(server.address);
       try {
         // Pre-flight: reject configs the core can't possibly launch (e.g. a
         // REALITY node missing its publicKey) with one clear message instead of
@@ -273,11 +304,27 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           return;
         }
 
-        const core = selectCore(server, proxy.coreKind);
+        const core = selectCore(server, proxy.coreKind, !!proxy.tun?.enabled);
         if (!core) {
           throw new Error(
             `\u041d\u0438 \u043e\u0434\u043d\u043e \u044f\u0434\u0440\u043e \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043f\u0440\u043e\u0442\u043e\u043a\u043e\u043b ${server.protocol.toUpperCase()}`,
           );
+        }
+        // TUN (VPN) mode with a server that can ONLY run on Xray (PQ-REALITY /
+        // XHTTP) is impossible on a single core: Xray has no TUN inbound and
+        // sing-box can't speak the protocol. Refuse with a clear, actionable
+        // message instead of triggering a UAC prompt and then tunnelling
+        // nothing.
+        if (proxy.tun?.enabled && core.kind === "xray") {
+          toast.error(TUN_XRAY_CONFLICT_MESSAGE[lang]);
+          clearReconnectTimer();
+          set({
+            status: "error",
+            autoReconnect: false,
+            activeCore: null,
+            error: TUN_XRAY_CONFLICT_MESSAGE[lang],
+          });
+          return;
         }
         // TUN (VPN) mode can't create the virtual interface without elevation.
         // Catch it up-front with a clear message + auto-elevate, instead of the
@@ -294,6 +341,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           void relaunchAsAdmin().catch(() => {});
           return;
         }
+        // Arm the kill-switch *after* the pre-flight checks pass but *before* the
+        // tunnel comes up, so the connection attempt itself can't leak — yet a
+        // server we reject up-front (invalid config, TUN/xray conflict, missing
+        // elevation) never needlessly points the firewall at a node that will
+        // never connect. Re-arming on each (re)connect keeps the allow-list
+        // pointed at the current server after a failover.
+        if (proxy.killSwitch) armKillSwitch(server.address);
         set({ activeCore: core.kind });
         const config = core.generateConfig(server, {
           mixedPort: proxy.mixedPort,

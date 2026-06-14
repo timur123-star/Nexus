@@ -113,8 +113,12 @@ function buildInbounds(opts: GenOptions): object[] {
       type: "tun",
       tag: "tun-in",
       interface_name: "nexus-tun",
-      inet4_address: "172.19.0.1/30",
-      inet6_address: "fdfe:dcba:9876::1/126",
+      // sing-box 1.10+ merged the legacy `inet4_address` / `inet6_address`
+      // fields into a single `address` array. The old fields are a FATAL error
+      // on 1.11+ ("legacy tun address fields is deprecated … set
+      // ENABLE_DEPRECATED_TUN_ADDRESS_X=true"), so the whole VPN/TUN mode failed
+      // to start. Use the modern `address` form.
+      address: ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
       auto_route: true,
       strict_route: true,
       stack: opts.tun.stack ?? "system",
@@ -410,8 +414,13 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
         ...(s.extra?.auth || s.password
           ? { auth_str: s.extra?.auth || s.password }
           : {}),
-        ...(s.extra?.upMbps ? { up_mbps: s.extra.upMbps } : {}),
-        ...(s.extra?.downMbps ? { down_mbps: s.extra.downMbps } : {}),
+        // sing-box REQUIRES up_mbps/down_mbps for hysteria v1 and exits FATAL
+        // ("missing upload speed") when either is absent or 0. Most share links
+        // omit them, so fall back to sane non-zero defaults instead of crashing
+        // the core. The server enforces its own caps; these are just the
+        // client's advertised estimate.
+        up_mbps: s.extra?.upMbps && s.extra.upMbps > 0 ? s.extra.upMbps : 50,
+        down_mbps: s.extra?.downMbps && s.extra.downMbps > 0 ? s.extra.downMbps : 200,
         ...(s.extra?.obfs ? { obfs: s.extra.obfs } : {}),
         ...(tls ? { tls } : { tls: { enabled: true } }),
       };

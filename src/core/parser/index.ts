@@ -9,6 +9,7 @@
 import type { ServerProfile } from "../types";
 import { ParseError, decodeBase64, looksBase64 } from "./util";
 import { SCHEME_PARSERS, SUPPORTED_SCHEMES } from "./protocols";
+import { looksLikeSingboxConfig, parseSingboxConfig } from "./singboxImport";
 
 export { ParseError } from "./util";
 export { SUPPORTED_SCHEMES } from "./protocols";
@@ -68,6 +69,28 @@ export function parseMany(text: string): ParseResult {
   const input = text.trim();
   const servers: ServerProfile[] = [];
   const errors: { line: string; reason: string }[] = [];
+
+  // A full sing-box JSON config ({ outbounds: [...] }) — served by sing-box /
+  // Hiddify "full config" subscriptions and kittenx/x-ui forks under a JSON
+  // content-type — is neither a link list nor base64. Convert its outbounds to
+  // servers directly; without this the import silently yielded zero servers.
+  if (looksLikeSingboxConfig(input)) {
+    const fromConfig = parseSingboxConfig(input);
+    if (fromConfig.length) {
+      const seenCfg = new Set<string>();
+      for (const s of fromConfig) {
+        const key = identityKey(s);
+        if (seenCfg.has(key)) continue;
+        seenCfg.add(key);
+        servers.push(s);
+      }
+      return { servers, errors };
+    }
+    // A config with no importable outbounds — report it instead of falling
+    // through to "unrecognised line" noise for every JSON line.
+    errors.push({ line: "sing-box config", reason: "no proxy outbounds found" });
+    return { servers, errors };
+  }
 
   // If the blob is base64 and does NOT itself start with a scheme, it's almost
   // certainly a base64 subscription — decode and recurse once. Strip whitespace

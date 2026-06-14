@@ -56,15 +56,41 @@ async function download(url, dest) {
   await pipeline(Readable.fromWeb(res.body), createWriteStream(dest));
 }
 
-function extract(archive, dest) {
+/**
+ * Decide how to extract an archive on a given platform. Returns the command +
+ * args to run. Pure (no side effects) so it can be unit-tested.
+ *
+ * GNU tar on Linux cannot read zips; use unzip there. bsdtar (macOS/Windows)
+ * handles both tar.gz and zip transparently.
+ *
+ * On Windows we must NOT shell out to a bare `tar`: when Git for Windows is
+ * installed its GNU tar shadows the System32 bsdtar on PATH, and GNU tar
+ * misreads an absolute archive path like `C:\…\x.zip` as a remote `host:path`
+ * (failing with "Cannot connect to C: resolve failed"). Use PowerShell's
+ * Expand-Archive for zips — always present and path-safe.
+ */
+export function extractCommand(archive, dest, platform) {
   const lower = archive.toLowerCase();
-  // GNU tar on Linux cannot read zips; use unzip there. bsdtar (macOS/Windows)
-  // handles both tar.gz and zip transparently.
-  if (lower.endsWith(".zip") && platform === "linux") {
-    run("unzip", ["-o", archive, "-d", dest]);
-  } else {
-    run("tar", ["-xf", archive, "-C", dest]);
+  if (lower.endsWith(".zip") && platform === "win32") {
+    return {
+      cmd: "powershell",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `Expand-Archive -LiteralPath '${archive}' -DestinationPath '${dest}' -Force`,
+      ],
+    };
   }
+  if (lower.endsWith(".zip") && platform === "linux") {
+    return { cmd: "unzip", args: ["-o", archive, "-d", dest] };
+  }
+  return { cmd: "tar", args: ["-xf", archive, "-C", dest] };
+}
+
+function extract(archive, dest) {
+  const { cmd, args } = extractCommand(archive, dest, platform);
+  run(cmd, args);
 }
 
 async function findFile(dir, name) {
@@ -131,7 +157,11 @@ async function main() {
   console.log(`[fetch] done -> ${outDir}`);
 }
 
-main().catch((e) => {
-  console.error("[fetch] failed:", e.message);
-  process.exit(1);
-});
+// Only auto-run when invoked directly (e.g. `node scripts/fetch-cores.mjs` or
+// `npm run fetch-cores`), not when imported by a test for its pure helpers.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((e) => {
+    console.error("[fetch] failed:", e.message);
+    process.exit(1);
+  });
+}

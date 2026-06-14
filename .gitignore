@@ -21,3 +21,7 @@ Thumbs.db
 # env
 .env
 .env.local
+
+# fetched core binaries (run `npm run fetch-cores`)
+src-tauri/binaries/*
+!src-tauri/binaries/README.md

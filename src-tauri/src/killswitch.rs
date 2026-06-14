@@ -219,12 +219,20 @@ fn enable_impl(allow: &[String]) -> Result<(), String> {
 
     // Allow loopback, established flows, tunnel interfaces and DNS-less direct
     // egress to the server IPs; drop everything else.
-    run("iptables", &[
-        "-A", TAG, "-o", "lo", "-j", "ACCEPT",
-    ])?;
-    run("iptables", &[
-        "-A", TAG, "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT",
-    ])?;
+    run("iptables", &["-A", TAG, "-o", "lo", "-j", "ACCEPT"])?;
+    run(
+        "iptables",
+        &[
+            "-A",
+            TAG,
+            "-m",
+            "conntrack",
+            "--ctstate",
+            "ESTABLISHED,RELATED",
+            "-j",
+            "ACCEPT",
+        ],
+    )?;
     for iface in ["tun0", "tun1", "wg0", "nexus0"] {
         let _ = run("iptables", &["-A", TAG, "-o", iface, "-j", "ACCEPT"]);
     }
@@ -243,9 +251,19 @@ fn enable_impl(allow: &[String]) -> Result<(), String> {
     let _ = run("ip6tables", &["-N", TAG]);
     let _ = run("ip6tables", &["-F", TAG]);
     let _ = run("ip6tables", &["-A", TAG, "-o", "lo", "-j", "ACCEPT"]);
-    let _ = run("ip6tables", &[
-        "-A", TAG, "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT",
-    ]);
+    let _ = run(
+        "ip6tables",
+        &[
+            "-A",
+            TAG,
+            "-m",
+            "conntrack",
+            "--ctstate",
+            "ESTABLISHED,RELATED",
+            "-j",
+            "ACCEPT",
+        ],
+    );
     for ip in allow {
         if ip.contains(':') {
             let _ = run("ip6tables", &["-A", TAG, "-d", ip, "-j", "ACCEPT"]);

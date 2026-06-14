@@ -46,19 +46,14 @@ const RESTART_STABLE_AFTER: Duration = Duration::from_secs(45);
 /// Small delay before respawning so we don't hot-loop on an instantly-dying core.
 const RESTART_BACKOFF: Duration = Duration::from_millis(1200);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum CoreStatus {
+    #[default]
     Stopped,
     Starting,
     Running,
     Error,
-}
-
-impl Default for CoreStatus {
-    fn default() -> Self {
-        CoreStatus::Stopped
-    }
 }
 
 /// Everything needed to (re)spawn one core process. Cloned into the supervisor
@@ -70,7 +65,6 @@ struct LaunchSpec {
     /// (port, secret) of the Clash API, used for readiness probing. None when
     /// the config exposes no API.
     clash: Option<(u16, String)>,
-    core_kind: String,
 }
 
 pub struct CoreManager {
@@ -116,7 +110,12 @@ impl CoreManager {
     }
 
     /// Write the config and (re)start the requested core ("sing-box" | "xray").
-    pub fn start(&mut self, app: &AppHandle, config_json: &str, core_kind: &str) -> Result<(), String> {
+    pub fn start(
+        &mut self,
+        app: &AppHandle,
+        config_json: &str,
+        core_kind: &str,
+    ) -> Result<(), String> {
         // Tear down any existing instance and invalidate its watcher.
         self.stop_inner();
 
@@ -131,7 +130,6 @@ impl CoreManager {
             bin,
             config_path,
             clash: parse_clash_endpoint(config_json),
-            core_kind: core_kind.to_string(),
         };
 
         let child = spawn_process(app, &spec)?;
@@ -141,7 +139,13 @@ impl CoreManager {
         *self.child.lock().map_err(|_| "child lock poisoned")? = Some(child);
         self.status = CoreStatus::Starting;
 
-        spawn_supervisor(app.clone(), self.child.clone(), self.generation.clone(), my_gen, spec);
+        spawn_supervisor(
+            app.clone(),
+            self.child.clone(),
+            self.generation.clone(),
+            my_gen,
+            spec,
+        );
 
         log::info!("{core_kind} starting");
         Ok(())
@@ -511,7 +515,11 @@ fn open_log_file(app: &AppHandle) -> Option<Arc<Mutex<File>>> {
         }
     }
 
-    let file = OpenOptions::new().create(true).append(true).open(&path).ok()?;
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .ok()?;
     Some(Arc::new(Mutex::new(file)))
 }
 
@@ -591,7 +599,10 @@ mod tests {
                 "secret": "s3cr3t"
             }}
         }"#;
-        assert_eq!(parse_clash_endpoint(cfg), Some((9090, "s3cr3t".to_string())));
+        assert_eq!(
+            parse_clash_endpoint(cfg),
+            Some((9090, "s3cr3t".to_string()))
+        );
     }
 
     #[test]
@@ -636,7 +647,10 @@ mod tests {
 
     #[test]
     fn ignores_benign_lines() {
-        assert_eq!(classify_core_error("inbound/mixed: started at 127.0.0.1:2080"), None);
+        assert_eq!(
+            classify_core_error("inbound/mixed: started at 127.0.0.1:2080"),
+            None
+        );
         assert_eq!(classify_core_error("router: loaded 12 rules"), None);
         assert_eq!(classify_core_error(""), None);
     }
@@ -656,7 +670,11 @@ mod tests {
             "core_timeout",
             "core_unrecoverable",
         ] {
-            assert_ne!(friendly_explanation(code), "core reported a problem", "missing: {code}");
+            assert_ne!(
+                friendly_explanation(code),
+                "core reported a problem",
+                "missing: {code}"
+            );
         }
     }
 }

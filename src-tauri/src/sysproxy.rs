@@ -25,8 +25,11 @@ pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
         key.set_value("ProxyServer", &server)
             .map_err(|e| format!("set ProxyServer: {e}"))?;
         // Bypass local + intranet addresses.
-        key.set_value("ProxyOverride", &"localhost;127.*;10.*;172.16.*;192.168.*;<local>")
-            .map_err(|e| format!("set ProxyOverride: {e}"))?;
+        key.set_value(
+            "ProxyOverride",
+            &"localhost;127.*;10.*;172.16.*;192.168.*;<local>",
+        )
+        .map_err(|e| format!("set ProxyOverride: {e}"))?;
     } else {
         key.set_value("ProxyEnable", &0u32)
             .map_err(|e| format!("clear ProxyEnable: {e}"))?;
@@ -53,8 +56,18 @@ fn notify_wininet() {
     const INTERNET_OPTION_SETTINGS_CHANGED: u32 = 39;
     const INTERNET_OPTION_REFRESH: u32 = 37;
     unsafe {
-        InternetSetOptionW(std::ptr::null_mut(), INTERNET_OPTION_SETTINGS_CHANGED, std::ptr::null_mut(), 0);
-        InternetSetOptionW(std::ptr::null_mut(), INTERNET_OPTION_REFRESH, std::ptr::null_mut(), 0);
+        InternetSetOptionW(
+            std::ptr::null_mut(),
+            INTERNET_OPTION_SETTINGS_CHANGED,
+            std::ptr::null_mut(),
+            0,
+        );
+        InternetSetOptionW(
+            std::ptr::null_mut(),
+            INTERNET_OPTION_REFRESH,
+            std::ptr::null_mut(),
+            0,
+        );
     }
 }
 
@@ -67,9 +80,18 @@ pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
     for svc in &services {
         let svc = svc.as_str();
         if enable {
-            run("networksetup", &["-setwebproxy", svc, host, port_s.as_str()])?;
-            run("networksetup", &["-setsecurewebproxy", svc, host, port_s.as_str()])?;
-            run("networksetup", &["-setsocksfirewallproxy", svc, host, port_s.as_str()])?;
+            run(
+                "networksetup",
+                &["-setwebproxy", svc, host, port_s.as_str()],
+            )?;
+            run(
+                "networksetup",
+                &["-setsecurewebproxy", svc, host, port_s.as_str()],
+            )?;
+            run(
+                "networksetup",
+                &["-setsocksfirewallproxy", svc, host, port_s.as_str()],
+            )?;
             run("networksetup", &["-setwebproxystate", svc, "on"])?;
             run("networksetup", &["-setsecurewebproxystate", svc, "on"])?;
             run("networksetup", &["-setsocksfirewallproxystate", svc, "on"])?;
