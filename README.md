@@ -5,7 +5,7 @@
 # NexusShield
 
 **A universal, cross-platform desktop VPN / proxy client for Xray-core & sing-box.**
-Two engines, six protocols, a glassmorphism UI — no terminal required.
+Two engines, a full modern protocol set, a glassmorphism UI — no terminal required.
 
 `Tauri v2` · `Rust` · `React 18` · `TypeScript` · `Tailwind v4` · `Zustand`
 
@@ -47,8 +47,8 @@ Everything here was designed and engineered manually: the dual-core abstraction,
 - **sing-box** and **Xray-core** behind a single `IProxyCore` interface — the app auto-selects the right engine for each node (e.g. forces Xray for XHTTP / post-quantum REALITY, sing-box for Hysteria2).
 
 **Protocols & import**
-- Full protocol set: **VLESS, VMess, Trojan, Shadowsocks, Hysteria2, TUIC** — including REALITY, `flow`, XHTTP and post-quantum REALITY.
-- Parses `vless://`, `vmess://`, `trojan://`, `ss://`, `hy2://` / `hysteria2://`, `tuic://`.
+- Full modern protocol set: **VLESS, VMess, Trojan, Shadowsocks, Hysteria2, Hysteria v1, TUIC, WireGuard (+ one-click Cloudflare WARP), AnyTLS, ShadowTLS, SOCKS5, HTTP(S) CONNECT, SSH, Tor** — including REALITY, `flow`/Vision, XHTTP and post-quantum REALITY.
+- Parses `vless://`, `vmess://`, `trojan://`, `ss://`, `hy2://` / `hysteria2://`, `hysteria://`, `tuic://`, `wireguard://` / `wg://`, `anytls://`, `shadowtls://`, `socks://` / `socks5://`, `http(s)://`, `ssh://`, `tor://`.
 - Import from link, list, base64 subscription, clipboard, or a **QR code from file/clipboard**, with automatic format detection.
 
 **Servers & subscriptions**
