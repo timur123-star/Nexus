@@ -162,6 +162,31 @@ pub async fn fetch_subscription_info(
     })
 }
 
+/// Generate a 22-character lowercase-hex string for the WARP `install_id`.
+/// No crypto-grade randomness is needed (it only has to be unique per
+/// enrolment), so we seed a tiny splitmix64 from the current nanos.
+fn random_hex_22() -> String {
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0x9E37_79B9_7F4A_7C15);
+    // Mix in a stack-address bit so concurrent calls in the same nanosecond differ.
+    let local = 0u8;
+    let mut x = seed ^ (&local as *const u8 as u64);
+    let mut out = String::with_capacity(22);
+    while out.len() < 22 {
+        // splitmix64 step
+        x = x.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = x;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        out.push_str(&format!("{z:016x}"));
+    }
+    out.truncate(22);
+    out
+}
+
 /// Enroll a freshly-generated WireGuard public key with Cloudflare's public
 /// WARP client API and return the raw JSON registration response. The X25519
 /// key pair itself is generated on the frontend (Web-crypto-grade), and the
@@ -178,20 +203,24 @@ pub async fn warp_register(public_key: String) -> Result<String, String> {
         .timeout(std::time::Duration::from_secs(20))
         .build()
         .map_err(|e| e.to_string())?;
+    // Cloudflare's reg endpoint rejects an empty `install_id`, so mint a fresh
+    // 22-char lowercase-hex id (same shape the official Android client sends)
+    // and stamp the ToS field with the current UTC time — both are checked.
+    let install_id = random_hex_22();
+    let tos = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
     let body = serde_json::json!({
         "key": public_key.trim(),
-        "install_id": "",
+        "install_id": install_id,
         "fcm_token": "",
-        "tos": "2024-01-01T00:00:00.000Z",
-        "model": "PC",
-        "type": "Android",
+        "tos": tos,
+        "type": "android",
         "locale": "en_US",
     });
     let resp = client
-        .post("https://api.cloudflareclient.com/v0a2158/reg")
+        .post("https://api.cloudflareclient.com/v0a2485/reg")
         .header("User-Agent", "okhttp/3.12.1")
-        .header("CF-Client-Version", "a-6.10-2158")
-        .header("Content-Type", "application/json")
+        .header("CF-Client-Version", "a-6.30-2485")
+        .header("Content-Type", "application/json; charset=UTF-8")
         .json(&body)
         .send()
         .await

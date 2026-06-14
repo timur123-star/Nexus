@@ -31,9 +31,28 @@ interface WarpAddresses {
 }
 interface WarpRegResponse {
   config?: {
+    client_id?: string;
     peers?: WarpPeer[];
     interface?: { addresses?: WarpAddresses };
   };
+}
+
+/**
+ * Cloudflare returns a base64 `client_id` (3 bytes). WireGuard implementations
+ * that talk to WARP must echo those 3 bytes in every packet's `reserved`
+ * field, otherwise Cloudflare silently drops the traffic. Decode it to the
+ * `a,b,c` form our parser understands; fall back to `0,0,0` if absent.
+ */
+function reservedFromClientId(clientId: string | undefined): string {
+  if (!clientId) return "0,0,0";
+  try {
+    const bin = atob(clientId);
+    const bytes = [bin.charCodeAt(0), bin.charCodeAt(1), bin.charCodeAt(2)];
+    if (bytes.every((b) => Number.isFinite(b))) return bytes.join(",");
+  } catch {
+    /* fall through */
+  }
+  return "0,0,0";
 }
 
 /**
@@ -74,7 +93,7 @@ export async function registerWarp(): Promise<string> {
   const q = new URLSearchParams({
     publickey: peerPub,
     address,
-    reserved: "0,0,0",
+    reserved: reservedFromClientId(data.config?.client_id),
     mtu: "1280",
   });
   return `wireguard://${encodeURIComponent(privB64)}@${host}:${port}?${q.toString()}#Cloudflare%20WARP`;

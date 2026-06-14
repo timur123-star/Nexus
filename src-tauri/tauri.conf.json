@@ -62,6 +62,16 @@
     "category": "Utility",
     "shortDescription": "Universal Xray/Sing-box client",
     "longDescription": "NexusShield — a modern cross-platform client for Xray-core and Sing-box.",
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "Russian"],
+        "displayLanguageSelector": true
+      }
+    }
   }
 }

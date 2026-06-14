@@ -52,6 +52,12 @@ jobs:
       - name: Install frontend deps
         run: npm ci || npm install
 
+      # The proxy engines (sing-box + xray-core) are NOT committed to git — they
+      # are downloaded here so the bundled installer actually ships with working
+      # cores. Without this step the app installs but cannot connect.
+      - name: Fetch proxy cores (sing-box + xray)
+        run: npm run fetch-cores
+
       - name: Build & release (signed, with updater artifacts)
         uses: tauri-apps/tauri-action@v0
         env:
