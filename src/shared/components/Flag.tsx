@@ -15,15 +15,23 @@ import { isoFor } from "../lib/flags";
 export function Flag({
   name,
   address,
+  iso: isoProp,
   size = 22,
   className,
 }: {
-  name: string;
+  name?: string;
   address?: string;
+  /**
+   * An explicit lowercase ISO 3166-1 alpha-2 code. When provided it wins over
+   * name/address inference — used where the country is known authoritatively
+   * (e.g. the tunnel's real exit geo reported by the backend) rather than
+   * guessed from a server label.
+   */
+  iso?: string | null;
   size?: number;
   className?: string;
 }) {
-  const iso = isoFor(name, address);
+  const iso = (isoProp || isoFor(name ?? "", address) || "").toLowerCase() || null;
   const w = size;
   const h = Math.round(size * 0.75);
   const boxStyle = { width: w, height: h };

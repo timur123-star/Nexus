@@ -69,16 +69,16 @@ fn enable_impl(allow: &[String]) -> Result<(), String> {
     // Start from a clean slate so re-arming with a new server is idempotent.
     let _ = disable_impl();
 
-    // Default-deny all outbound; loopback is implicitly exempt on Windows.
-    netsh(&[
-        "advfirewall",
-        "set",
-        "allprofiles",
-        "firewallpolicy",
-        "blockinbound,blockoutbound",
-    ])?;
+    // ORDER MATTERS. We punch the allow-holes FIRST, while outbound is still
+    // permitted, and only flip the default policy to deny as the very last step.
+    // Doing it the other way round (deny, then add allow rules) opens a window —
+    // however brief — where the core's own connection to the server is dropped,
+    // which can stall the handshake or trigger a spurious reconnect. Windows
+    // evaluates explicit allow rules above the default policy, so once the holes
+    // exist the core keeps its egress the instant the default flips to block.
 
-    // Allow the core executable itself to talk to the server.
+    // 1a) Allow the core executable itself to talk to the server (this also
+    //     covers the core's DNS resolution on the reconnect path).
     if let Some(core) = locate_any_core() {
         let prog = core.to_string_lossy().to_string();
         let _ = netsh(&[
@@ -94,8 +94,8 @@ fn enable_impl(allow: &[String]) -> Result<(), String> {
         ]);
     }
 
-    // Allow direct egress to each resolved server IP (covers cores that don't
-    // resolve to a single program path, and the reconnect path).
+    // 1b) Allow direct egress to each resolved server IP (covers cores that don't
+    //     resolve to a single program path, and the reconnect path).
     for ip in allow {
         let _ = netsh(&[
             "advfirewall",
@@ -109,7 +109,15 @@ fn enable_impl(allow: &[String]) -> Result<(), String> {
             "enable=yes",
         ]);
     }
-    Ok(())
+
+    // 2) Now arm the default-deny. Loopback is implicitly exempt on Windows.
+    netsh(&[
+        "advfirewall",
+        "set",
+        "allprofiles",
+        "firewallpolicy",
+        "blockinbound,blockoutbound",
+    ])
 }
 
 #[cfg(windows)]

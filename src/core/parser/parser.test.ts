@@ -21,6 +21,24 @@ describe("parseShareLink — vless", () => {
     expect(s.transport.type).toBe("tcp");
   });
 
+  it("normalizes UPPERCASE/mixed-case query keys (3x-ui / Hiddify exports)", () => {
+    // Some panels emit capitalized query keys. Before key normalization these
+    // missed every q.security / q.pbk lookup and the node silently degraded to
+    // plain TLS (or none), breaking the REALITY handshake on import.
+    const link =
+      "vless://11112222-3333-4444-5555-666677778888@example.com:443" +
+      "?Type=grpc&Security=reality&SNI=www.microsoft.com&FP=chrome" +
+      "&PBK=ABCDEF&SID=00aa&Flow=xtls-rprx-vision&ServiceName=mygrpc#UP";
+    const s = parseShareLink(link);
+    expect(s.tls.security).toBe("reality");
+    expect(s.tls.publicKey).toBe("ABCDEF");
+    expect(s.tls.shortId).toBe("00aa");
+    expect(s.tls.fingerprint).toBe("chrome");
+    expect(s.flow).toBe("xtls-rprx-vision");
+    expect(s.transport.type).toBe("grpc");
+    expect(s.transport.serviceName).toBe("mygrpc");
+  });
+
   it("parses a ws+tls vless link with path and host", () => {
     const link =
       "vless://uuid-x@cf.example.com:2053?type=ws&security=tls" +
@@ -116,6 +134,14 @@ describe("parseShareLink — shadowsocks", () => {
     const s = parseShareLink("ss://aes-256-gcm:pw@[2001:db8::1]:8388#v6");
     expect(s.address).toBe("2001:db8::1");
     expect(s.port).toBe(8388);
+  });
+
+  it("rejects a bracketed IPv6 host with no port instead of inventing one", () => {
+    // The bracket path must only read a port when ':' actually follows the
+    // closing bracket — a missing/garbled port has to fail host/port validation
+    // rather than slice address digits into a bogus port.
+    expect(() => parseShareLink("ss://aes-256-gcm:pw@[2001:db8::1]#v6")).toThrow(ParseError);
+    expect(() => parseShareLink("ss://aes-256-gcm:pw@[2001:db8::1]junk#v6")).toThrow(ParseError);
   });
 
   it("extracts a plugin/obfs query", () => {

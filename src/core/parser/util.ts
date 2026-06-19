@@ -50,11 +50,22 @@ export function makeId(seed: string): string {
   return `srv_${rand}`;
 }
 
-/** Parse a query string into a flat record (last value wins). */
+/**
+ * Parse a query string into a flat record (last value wins).
+ *
+ * KEYS are lower-cased; VALUES are left untouched. Share-link query keys are
+ * case-insensitive identifiers, but panels are wildly inconsistent about
+ * casing — 3x-ui / Hiddify exports routinely emit `Security=`, `PBK=`, `SID=`,
+ * `Type=`. Without normalization those uppercase keys silently miss every
+ * `q.security` / `q.pbk` lookup, so a REALITY node imports as plain TLS (or
+ * `none`) and never completes its handshake. Lower-casing keys here fixes it
+ * once for every protocol parser. Callers therefore read lower-case keys only
+ * (`q.servicename`, not `q.serviceName`).
+ */
 export function parseQuery(search: string): Record<string, string> {
   const out: Record<string, string> = {};
   const usp = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-  for (const [k, v] of usp.entries()) out[k] = v;
+  for (const [k, v] of usp.entries()) out[k.toLowerCase()] = v;
   return out;
 }
 

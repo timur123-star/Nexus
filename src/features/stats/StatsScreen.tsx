@@ -6,6 +6,7 @@ import { useSettingsStore } from "../../store/useSettingsStore";
 import { getConnections, openLogsDir, type ConnectionEntry } from "../../core/ipc";
 import { TrafficGraph } from "./TrafficGraph";
 import { SpeedTestPanel } from "./SpeedTestPanel";
+import { ExitInfoPanel } from "./ExitInfoPanel";
 import { coreLogRing } from "../../shared/hooks/useCoreEvents";
 import { formatBytes, formatUptime, cn } from "../../shared/lib/utils";
 import { useT } from "../../core/i18n/useT";
@@ -218,6 +219,9 @@ export function StatsScreen() {
 
       {/* Real download/upload/latency/jitter speed test through the tunnel */}
       <SpeedTestPanel />
+
+      {/* The tunnel's real exit IP + geo, as the outside world sees it */}
+      <ExitInfoPanel />
 
       {/* Totals */}
       <div className="grid grid-cols-4 gap-3">

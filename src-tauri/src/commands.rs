@@ -531,3 +531,44 @@ pub async fn speed_test(proxy_port: u16) -> Result<SpeedTestResult, String> {
         jitter_ms,
     })
 }
+
+/// The real exit identity of the tunnel: the public IP and geo the outside
+/// world actually sees. Lets the user confirm at a glance that traffic leaves
+/// through the expected country/provider — a feature the leading clients
+/// (v2rayN, Hiddify, NekoBox) all surface and a key trust signal.
+#[derive(Serialize, Default)]
+pub struct ExitInfo {
+    ip: String,
+    /// ISO-3166 alpha-2 country code (e.g. "NL"); the frontend renders the flag.
+    country: String,
+    city: String,
+    /// AS organisation / ISP name (e.g. "CLOUDFLARENET").
+    org: String,
+    /// Cloudflare edge colo the request hit (e.g. "AMS") — a coarse locality hint.
+    colo: String,
+}
+
+/// Resolve the tunnel's exit IP + geolocation by asking Cloudflare's open
+/// `/meta` endpoint *through the active proxy*. No API key, and it reuses the
+/// same trusted host the speed test already depends on, so it's reachable
+/// whenever the tunnel itself is. `proxy_port` 0 reports the direct (untunneled)
+/// identity, which is exactly what a "is my VPN actually on?" check wants to
+/// compare against.
+#[tauri::command]
+pub async fn exit_info(proxy_port: u16) -> Result<ExitInfo, String> {
+    let client = speedtest_client(proxy_port)?;
+    let resp = client
+        .get("https://speed.cloudflare.com/meta")
+        .send()
+        .await
+        .map_err(fmt_req_err)?;
+    let v: Value = resp.json().await.map_err(fmt_req_err)?;
+    let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
+    Ok(ExitInfo {
+        ip: s("clientIp"),
+        country: s("country"),
+        city: s("city"),
+        org: s("asOrganization"),
+        colo: s("colo"),
+    })
+}

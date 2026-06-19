@@ -24,6 +24,17 @@
 - игнорирует пер-конекшн телеметрию (`inbound/`, `outbound/`, `connection:`, `dns:`, `blocked connection`, `aborted by the software`, `reset by peer`, `context deadline exceeded`);
 - поднимает notice только на фатальных строках старта (`fatal`, `panic`, `start service`, `configure tun`, `invalid config`, `initialize`).
 
+## Исправление 4 — авто-переключение на gVisor, когда `system`-стек невозможен
+**Симптом (лог из fixed-сборки):** ядро по-прежнему падает на старте `system`-стека: `FATAL start service: post-start inbound/tun[tun-in]: starting tun stack: fix windows firewall for system stack: Error adding Rule: Ошибка. (<nil>)` — и так в цикле (8+ перезапусков).
+**Причина:** на этой машине Windows отказывает sing-box в регистрации правила брандмауэра для `system`-стека ДАЖЕ при поднятых BFE/mpssvc и с правами админа (TUN-адаптер создаётся — значит, права есть). Самолечение брандмауэра (`ensure_windows_firewall_ready`) не помогает: ОС жёстко блокирует регистрацию. Именно поэтому Hiddify «просто работает» — он собран на ядре с gVisor и вообще не трогает брандмауэр.
+**Фикс (прозрачный авто-фолбэк, без выбора ядра пользователем):**
+- `core.rs`: строка `fix windows firewall for system stack` теперь классифицируется в отдельный notice `tun_firewall` (а не глохнет как «неизвестно»).
+- Фронтенд (`useCoreNotices.ts` → `useConnectionStore.ts`): при получении `tun_firewall` сессия помечается `forceGvisorStack`, и ближайший авто-реконнект пересобирает конфиг со `stack: "gvisor"`. Пользователь видит info-тост «Системный TUN-стек недоступен — переключаюсь на gVisor», после чего туннель поднимается сам.
+- `ipc.ts`: добавлен код `tun_firewall` в тип `CoreNotice`.
+- Дефолт остаётся `system` (как вы просили): сначала пробуем быстрый kernel-стек, и только при отказе ОС автоматически уходим в gVisor. Ручной disconnect сбрасывает флаг — следующий запуск снова пробует `system`.
+
+С учётом исправлений 1 (DNS rule-set) и 3 (ложный классификатор) gVisor-конфиг теперь действительно рабочий, а не «подключается, но не работает».
+
 ## Известная проблема (НЕ исправлено в коде — нужен ваш тест)
 ### WireGuard / WARP падает на старте
 `FATAL post-start outbound/wireguard[proxy]: resolve endpoint domain for peer[0]: engage.cloudflareclient.com:2408: exchange4/6: context deadline exceeded`

@@ -101,7 +101,23 @@ pub fn run() {
             commands::validate_config,
             commands::open_logs_dir,
             commands::speed_test,
+            commands::exit_info,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running NexusShield");
+        .build(tauri::generate_context!())
+        .expect("error while building NexusShield")
+        .run(|app, event| {
+            // Final safety net on *every* exit path (tray quit, auto-update
+            // relaunch, OS session-end). The startup handler already covers a
+            // hard crash; this guarantees a clean app shutdown never strands the
+            // user behind an armed kill-switch / system proxy or leaks a core.
+            if let tauri::RunEvent::Exit = event {
+                let _ = killswitch::disable();
+                let _ = sysproxy::set_system_proxy(false, 0);
+                if let Some(state) = app.try_state::<AppState>() {
+                    if let Ok(mut mgr) = state.core.lock() {
+                        mgr.shutdown();
+                    }
+                }
+            }
+        });
 }

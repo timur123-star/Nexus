@@ -5,6 +5,7 @@ import { isTauri } from "../../core/ipc";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { cn, latencyLabel } from "../lib/utils";
+import { Flag } from "./Flag";
 import { useServerStore } from "../../store/useServerStore";
 import { useT } from "../../core/i18n/useT";
 import logoLockup from "../../assets/logo-lockup.png";
@@ -22,6 +23,7 @@ const STATUS_KEY: Record<ConnectionStatus, MessageKey> = {
 export function TitleBar() {
   const status = useConnectionStore((s) => s.status);
   const activeId = useConnectionStore((s) => s.activeServerId);
+  const exitInfo = useConnectionStore((s) => s.exitInfo);
   const active = useServerStore((s) => s.servers.find((x) => x.id === activeId));
   const minimizeToTray = useSettingsStore((s) => s.app.minimizeToTray);
   const t = useT();

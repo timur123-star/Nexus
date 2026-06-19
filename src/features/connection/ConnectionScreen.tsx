@@ -15,8 +15,10 @@ import {
   ClipboardPaste,
   Network,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import type { ConnectionStatus, ServerProfile } from "../../core/types";
+import type { ExitInfo } from "../../core/ipc";
 import { useServerStore } from "../../store/useServerStore";
 import { useConnectionStore } from "../../store/useConnectionStore";
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -69,6 +71,9 @@ interface DashStrings {
   subError: string;
   importedN: string;
   importNone: string;
+  exitIp: string;
+  exitChecking: string;
+  exitFailed: string;
 }
 const DASH_STRINGS: Record<Lang, DashStrings> = {
   en: {
@@ -81,6 +86,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     pasteClipboard: "Paste from clipboard", addManual: "Add manually",
     pasteEmpty: "Clipboard is empty", pasteFail: "Couldn't read the clipboard",
     subAdded: "Subscription added", subError: "Couldn't load the subscription", importedN: "Imported", importNone: "No configs found in the clipboard",
+    exitIp: "Exit IP", exitChecking: "Checking…", exitFailed: "Tap to re-check",
   },
   ru: {
     downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a",
@@ -92,6 +98,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     pasteClipboard: "Вставить из буфера", addManual: "Добавить вручную",
     pasteEmpty: "Буфер обмена пуст", pasteFail: "Не удалось прочитать буфер обмена",
     subAdded: "Подписка добавлена", subError: "Не удалось загрузить подписку", importedN: "Импортировано", importNone: "В буфере не найдено конфигов",
+    exitIp: "IP выхода", exitChecking: "Проверка…", exitFailed: "Нажмите для проверки",
   },
   fa: {
     downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج",
@@ -103,6 +110,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     pasteClipboard: "جای‌گذاری از کلیپ‌بورد", addManual: "افزودن دستی",
     pasteEmpty: "کلیپ‌بورد خالی است", pasteFail: "خواندن کلیپ‌بورد ناموفق بود",
     subAdded: "اشتراک اضافه شد", subError: "بارگیری اشتراک ناموفق بود", importedN: "وارد شد", importNone: "هیچ پیکربندی در کلیپ‌بورد یافت نشد",
+    exitIp: "IP خروج", exitChecking: "در حال بررسی…", exitFailed: "برای بررسی مجدد ضربه بزنید",
   },
   zh: {
     downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值",
@@ -114,6 +122,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     pasteClipboard: "从剪贴板粘贴", addManual: "手动添加",
     pasteEmpty: "剪贴板为空", pasteFail: "无法读取剪贴板",
     subAdded: "已添加订阅", subError: "无法加载订阅", importedN: "已导入", importNone: "剪贴板中未找到配置",
+    exitIp: "出口 IP", exitChecking: "检测中…", exitFailed: "点击重新检测",
   },
 };
 
@@ -145,6 +154,9 @@ export function ConnectionScreen({
   const [pasteBusy, setPasteBusy] = useState(false);
   const { status, activeServerId, activeCore, connectedAt, traffic, samples, toggle, connect } =
     useConnectionStore();
+  const exitInfo = useConnectionStore((s) => s.exitInfo);
+  const exitInfoStatus = useConnectionStore((s) => s.exitInfoStatus);
+  const refreshExitInfo = useConnectionStore((s) => s.refreshExitInfo);
 
   const active =
     servers.find((s) => s.id === activeServerId) ??
@@ -314,7 +326,15 @@ export function ConnectionScreen({
       {/* Bottom panel ─────────────────────────────────────────────── */}
       {/* Row 1 — connection facts */}
       <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
-        <InfoTile icon={Crosshair} label={L.ipAddress} value={active.address} mono />
+        <ExitIpTile
+          connected={connected}
+          serverAddress={active.address}
+          exitInfo={exitInfo}
+          exitInfoStatus={exitInfoStatus}
+          onRecheck={() => void refreshExitInfo()}
+          L={L}
+          lang={lang}
+        />
         <InfoTile icon={Zap} label={L.protocol} value={PROTOCOL_LABEL[active.protocol]} />
         <InfoTile icon={Lock} label={L.encryption} value={encryption} mono />
         <InfoTile
@@ -501,6 +521,78 @@ function ThroughputTile({
         <Sparkline data={series} width={240} height={30} color={color} responsive />
       </div>
     </div>
+  );
+}
+
+/** A coarse, never-throwing pretty country name for an ISO alpha-2 code. */
+function countryName(iso: string, lang: Lang): string {
+  if (!iso) return "";
+  try {
+    return new Intl.DisplayNames([lang], { type: "region" }).of(iso.toUpperCase()) ?? iso.toUpperCase();
+  } catch {
+    return iso.toUpperCase();
+  }
+}
+
+/**
+ * Row-1 identity tile. When disconnected it shows the selected server's
+ * endpoint address (what you're dialing). Once the tunnel is up it flips to the
+ * tunnel's REAL exit IP + country flag — the thing a user actually wants to
+ * confirm ("am I really coming out of NL?"). Clickable to re-check, and shows a
+ * spinner while the probe is in flight.
+ */
+function ExitIpTile({
+  connected,
+  serverAddress,
+  exitInfo,
+  exitInfoStatus,
+  onRecheck,
+  L,
+  lang,
+}: {
+  connected: boolean;
+  serverAddress: string;
+  exitInfo: ExitInfo | null;
+  exitInfoStatus: "idle" | "loading" | "ok" | "error";
+  onRecheck: () => void;
+  L: DashStrings;
+  lang: Lang;
+}) {
+  // Disconnected: behave exactly like the old static endpoint tile.
+  if (!connected) {
+    return <InfoTile icon={Crosshair} label={L.ipAddress} value={serverAddress} mono />;
+  }
+
+  const loading = exitInfoStatus === "loading";
+  const ok = exitInfoStatus === "ok" && !!exitInfo;
+  const iso = ok && exitInfo!.country ? exitInfo!.country.toLowerCase() : null;
+  const place = ok ? countryName(exitInfo!.country, lang) : "";
+
+  return (
+    <button
+      type="button"
+      onClick={onRecheck}
+      disabled={loading}
+      title={ok ? `${exitInfo!.ip} · ${[exitInfo!.city, place].filter(Boolean).join(", ")}` : L.exitFailed}
+      className="glass ns-lift rounded-card px-3.5 py-3 text-left transition-colors hover:border-indigo/40 disabled:cursor-default"
+    >
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-text-faint">
+        {iso ? <Flag iso={iso} size={15} /> : <Crosshair size={13} className="text-indigo" />}
+        {L.exitIp}
+      </div>
+      <div className="mt-1.5 flex items-center gap-1.5 truncate text-sm font-semibold text-text">
+        {loading ? (
+          <>
+            <Loader2 size={13} className="animate-spin text-text-faint" />
+            <span className="text-text-faint">{L.exitChecking}</span>
+          </>
+        ) : ok ? (
+          <span className="truncate font-mono">{exitInfo!.ip}</span>
+        ) : (
+          <span className="truncate text-text-faint">{L.exitFailed}</span>
+        )}
+      </div>
+    </button>
   );
 }
 

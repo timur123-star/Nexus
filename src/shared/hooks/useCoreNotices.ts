@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { onCoreNotice, type CoreNotice } from "../../core/ipc";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { activateGvisorFallback } from "../../store/useConnectionStore";
 import { toast } from "../../store/useToastStore";
 
 type Lang = "ru" | "en" | "fa" | "zh";
@@ -75,6 +76,15 @@ const NOTICE: Record<CoreNotice, { level: Level; text: Record<Lang, string> }> =
       zh: "权限不足 — 请以管理员身份运行应用",
     },
   },
+  tun_firewall: {
+    level: "info",
+    text: {
+      ru: "Системный TUN-стек недоступен на этой машине — переключаюсь на gVisor",
+      en: "The system TUN stack isn't available on this machine — switching to gVisor",
+      fa: "پشتهٔ TUN سیستمی روی این دستگاه در دسترس نیست — تغییر به gVisor",
+      zh: "此设备不支持系统 TUN 堆栈 — 正在切换到 gVisor",
+    },
+  },
   core_restarting: {
     level: "info",
     text: {
@@ -108,7 +118,16 @@ const NOTICE: Record<CoreNotice, { level: Level; text: Record<Lang, string> }> =
       ru: "Ядро постоянно падает — выберите другой сервер",
       en: "The core keeps crashing — pick another server",
       fa: "هسته مدام از کار می‌افتد — سرور دیگری انتخاب کنید",
-      zh: "内核持续崩溃 — 请选择其他服务器",
+      zh: "内核持续崩溃 — 请��择其他服务器",
+    },
+  },
+  tor_missing: {
+    level: "error",
+    text: {
+      ru: "Для Tor нужен внешний исполняемый файл «tor» в PATH — он не входит в комплект. Установите Tor или выберите другой сервер.",
+      en: "Tor needs an external 'tor' executable on PATH — it isn't bundled. Install Tor or pick another server.",
+      fa: "Tor به فایل اجرایی خارجی «tor» در PATH نیاز دارد — همراه برنامه ارائه نمی‌شود. Tor را نصب کنید یا سرور دیگری انتخاب کنید.",
+      zh: "Tor 需要 PATH 中存在外部 “tor” 可执行文件——它未随附捆绑。请安装 Tor 或选择其他服务器。",
     },
   },
 };
@@ -127,6 +146,11 @@ export function useCoreNotices(): void {
     const DEDUPE_MS = 4000;
 
     onCoreNotice((code) => {
+      // The system TUN stack couldn't register its Windows firewall rule on
+      // this machine; switch to the userspace gVisor stack so the next
+      // (auto-)reconnect brings the tunnel up with no user action.
+      if (code === "tun_firewall") activateGvisorFallback();
+
       const entry = NOTICE[code];
       if (!entry) return;
       const now = Date.now();

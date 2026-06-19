@@ -161,11 +161,16 @@ impl CoreManager {
         self.generation.fetch_add(1, Ordering::SeqCst);
         if let Ok(mut slot) = self.child.lock() {
             if let Some(mut child) = slot.take() {
-                let _ = child.kill();
-                let _ = child.wait();
+                kill_and_reap(&mut child);
             }
         }
         self.status = CoreStatus::Stopped;
+    }
+
+    /// Synchronous, AppHandle-free teardown for process-exit cleanup (see the
+    /// `RunEvent::Exit` handler in `lib.rs`). Never blocks indefinitely.
+    pub fn shutdown(&mut self) {
+        self.stop_inner();
     }
 
     fn set_status(&mut self, app: &AppHandle, s: CoreStatus) {
@@ -319,11 +324,21 @@ fn spawn_supervisor(
                 return;
             }
             match spawn_process(&app, &spec) {
-                Ok(new_child) => {
-                    if let Ok(mut slot) = child.lock() {
-                        *slot = Some(new_child);
+                Ok(mut new_child) => {
+                    // Re-check ownership *inside* the lock: a manual stop/start
+                    // could have landed between `still_current()` above and here.
+                    // If so, this spawn is an orphan we must kill, never store —
+                    // otherwise a stopped session leaks a live core process.
+                    match child.lock() {
+                        Ok(mut slot) if still_current() => {
+                            *slot = Some(new_child);
+                            // Loop back around to re-run readiness + liveness.
+                        }
+                        _ => {
+                            kill_and_reap(&mut new_child);
+                            return;
+                        }
                     }
-                    // Loop back around to re-run readiness + liveness.
                 }
                 Err(e) => {
                     emit_log(&app, &format!("auto-restart failed: {e}"));
@@ -422,8 +437,28 @@ fn process_exited(child: &Arc<Mutex<Option<Child>>>) -> bool {
 fn reap(child: &Arc<Mutex<Option<Child>>>) {
     if let Ok(mut slot) = child.lock() {
         if let Some(mut c) = slot.take() {
-            let _ = c.kill();
-            let _ = c.wait();
+            kill_and_reap(&mut c);
+        }
+    }
+}
+
+/// Kill a child and reap it with a bounded wait. `Child::wait` is unbounded and
+/// runs on the Tauri command thread while the core lock is held, so a core stuck
+/// tearing down its TUN device could otherwise hang the whole UI. We signal the
+/// kill, poll `try_wait` up to a short deadline, then move on regardless — the
+/// OS reaps the process even if we stop waiting on it.
+fn kill_and_reap(child: &mut Child) {
+    let _ = child.kill();
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) | Err(_) => return,
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
         }
     }
 }
@@ -472,6 +507,15 @@ fn pipe_lines<R: std::io::Read + Send + 'static>(
 /// it works across sing-box and xray wording.
 fn classify_core_error(line: &str) -> Option<&'static str> {
     let l = line.to_lowercase();
+    // A missing external executable is a fatal *startup* failure, but the line
+    // sing-box prints — `start service: start outbound/tor[proxy]: exec: "tor":
+    // executable file not found` — contains `outbound/`, which the
+    // per-connection filter below would otherwise swallow as routine telemetry.
+    // Detect it first. (This build has no embedded Tor, so a Tor node can only
+    // run if the user has a `tor` binary on PATH.)
+    if l.contains("executable file not found") || (l.contains("exec:") && l.contains("not found")) {
+        return Some("tor_missing");
+    }
     // Ignore routine per-connection telemetry. sing-box logs one INFO/ERROR
     // line for every proxied connection: blocked ads surface as
     // "operation not permitted", slow lookups as "context deadline exceeded",
@@ -500,6 +544,14 @@ fn classify_core_error(line: &str) -> Option<&'static str> {
         || l.contains("initialize");
     if !looks_bad {
         return None;
+    }
+
+    // The system TUN stack failed to register its Windows firewall rule (BFE /
+    // Defender Firewall locked down on this machine). Surface a dedicated code
+    // so the UI can transparently fall back to the userspace gVisor stack,
+    // which needs no firewall rule at all.
+    if l.contains("fix windows firewall") || l.contains("firewall for system stack") {
+        return Some("tun_firewall");
     }
 
     if l.contains("address already in use") || (l.contains("bind") && l.contains("in use")) {
@@ -555,8 +607,10 @@ fn friendly_explanation(code: &str) -> &'static str {
         "server_unreachable" => "the server is unreachable — try another server",
         "config_invalid" => "the generated config was rejected — the profile may be malformed",
         "need_admin" => "missing privileges — TUN/kill-switch need administrator rights",
+        "tun_firewall" => "the system TUN stack couldn't register its firewall rule — falling back to the gVisor stack",
         "core_restarting" => "recovering the connection…",
         "core_failed_start" => "the core failed to start",
+        "tor_missing" => "Tor needs an external 'tor' executable on PATH — it isn't bundled",
         "core_timeout" => "the core did not become ready in time",
         "core_unrecoverable" => "the core keeps crashing — pick another server",
         _ => "core reported a problem",
@@ -686,29 +740,41 @@ mod tests {
 
     #[test]
     fn classifies_common_failures() {
+        // Strings mirror real fatal-level core output: only lines that pass the
+        // `looks_bad` gate (fatal / start service / initialize / invalid config)
+        // raise a notice — bare per-connection warnings must stay silent so the
+        // UI never shows a false "core failed" toast while traffic flows.
         assert_eq!(
             classify_core_error("FATAL: bind: address already in use"),
             Some("port_in_use")
         );
         assert_eq!(
-            classify_core_error("error: tls: handshake failure"),
+            classify_core_error("FATAL start service: tls: handshake failure"),
             Some("tls_error")
         );
         assert_eq!(
-            classify_core_error("failed: authentication rejected"),
+            classify_core_error("FATAL start service: authentication rejected"),
             Some("auth_failed")
         );
         assert_eq!(
-            classify_core_error("error: lookup example.com: no such host"),
+            classify_core_error("FATAL start service: lookup example.com: no such host"),
             Some("dns_error")
         );
         assert_eq!(
-            classify_core_error("dial tcp 1.2.3.4:443: connection refused"),
+            classify_core_error("FATAL start service: dial tcp 1.2.3.4:443: connection refused"),
             Some("server_unreachable")
         );
         assert_eq!(
-            classify_core_error("error: failed to parse config"),
+            classify_core_error("FATAL: invalid config: failed to parse"),
             Some("config_invalid")
+        );
+        // The exact line the bundled sing-box prints when a Tor outbound can't
+        // find an external `tor` binary on PATH.
+        assert_eq!(
+            classify_core_error(
+                "FATAL start service: start outbound/tor[proxy]: exec: \"tor\": executable file not found in %path%"
+            ),
+            Some("tor_missing")
         );
     }
 
@@ -736,6 +802,8 @@ mod tests {
             "core_failed_start",
             "core_timeout",
             "core_unrecoverable",
+            "tun_firewall",
+            "tor_missing",
         ] {
             assert_ne!(
                 friendly_explanation(code),

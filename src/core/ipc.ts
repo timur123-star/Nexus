@@ -129,6 +129,31 @@ export interface SpeedTestResult {
 export const runSpeedTest = (proxyPort: number) =>
   safeInvoke<SpeedTestResult>("speed_test", { proxyPort }, mockSpeedTest());
 
+/**
+ * The real exit identity of the tunnel as the outside world sees it. Lets the
+ * user confirm at a glance that traffic actually leaves through the expected
+ * country/provider — a trust signal the leading clients all surface.
+ */
+export interface ExitInfo {
+  ip: string;
+  /** ISO-3166 alpha-2 country code (e.g. "NL"); the UI renders the flag. */
+  country: string;
+  city: string;
+  /** AS organisation / ISP name (e.g. "CLOUDFLARENET"). */
+  org: string;
+  /** Cloudflare edge colo the request hit (e.g. "AMS") — a coarse locality hint. */
+  colo: string;
+}
+
+/**
+ * Resolve the tunnel's exit IP + geolocation through the active proxy.
+ * `proxyPort` is the live mixed port; pass 0 to report the direct (untunneled)
+ * identity, which is exactly what an "is my VPN actually on?" check compares
+ * against. Outside Tauri it returns a plausible mock for in-browser dev.
+ */
+export const getExitInfo = (proxyPort: number) =>
+  safeInvoke<ExitInfo>("exit_info", { proxyPort }, mockExitInfo());
+
 export const validateConfig = (config: string) =>
   safeInvoke<{ ok: boolean; error?: string }>("validate_config", { config }, { ok: true });
 
@@ -159,7 +184,9 @@ export type CoreNotice =
   | "core_restarting"
   | "core_failed_start"
   | "core_timeout"
-  | "core_unrecoverable";
+  | "core_unrecoverable"
+  | "tun_firewall"
+  | "tor_missing";
 
 /** Subscribe to friendly core diagnostics. */
 export async function onCoreNotice(handler: (code: CoreNotice) => void): Promise<UnlistenFn> {
@@ -185,5 +212,14 @@ function mockSpeedTest(): SpeedTestResult {
     upMbps: 20 + Math.random() * 80,
     latencyMs: 25 + Math.random() * 70,
     jitterMs: 1 + Math.random() * 12,
+  };
+}
+function mockExitInfo(): ExitInfo {
+  return {
+    ip: "203.0.113.7",
+    country: "NL",
+    city: "Amsterdam",
+    org: "CLOUDFLARENET",
+    colo: "AMS",
   };
 }

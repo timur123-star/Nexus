@@ -10,8 +10,10 @@ import {
   disableKillSwitch,
   isElevated,
   relaunchAsAdmin,
+  getExitInfo,
   type CoreStatus,
   type TrafficStats,
+  type ExitInfo,
 } from "../core/ipc";
 import { useSettingsStore } from "./useSettingsStore";
 import { useServerStore } from "./useServerStore";
@@ -42,6 +44,29 @@ const FAILOVER_MESSAGE: Record<"ru" | "en" | "fa" | "zh", (name: string) => stri
   en: (n) => `Connection unstable — switching to the best server: ${n}`,
   fa: (n) => `اتصال ناپایدار است — در حال تغییر به بهترین سرور: ${n}`,
   zh: (n) => `连接不稳定 — 正在切换到最佳服务器：${n}`,
+};
+
+/**
+ * Hard ceiling on the "connecting" state. The Rust core has its own 10s
+ * readiness timeout and emits `error` when a core never opens its API, so in
+ * normal operation the frontend never relies on this. It exists purely as a
+ * defense-in-depth net for the cases the backend timeout can't cover: a lost
+ * `core://status` event, or a `coreStart` IPC call that hangs. Set comfortably
+ * above the backend's 10s readiness window so it only fires when something has
+ * genuinely gone silent.
+ */
+const CONNECT_TIMEOUT_MS = 25_000;
+
+/**
+ * Screen-local message shown when the connect watchdog fires (no terminal core
+ * status arrived in time). Kept out of the global dictionary so it never
+ * affects the i18n key-parity test.
+ */
+const CONNECT_TIMEOUT_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
+  ru: "Ядро не ответило вовремя — соединение прервано",
+  en: "The core didn't respond in time — connection aborted",
+  fa: "هسته به‌موقع پاسخ نداد — اتصال لغو شد",
+  zh: "内核未及时响应 — 连接已中止",
 };
 
 /**
@@ -131,6 +156,15 @@ interface ConnectionState {
   traffic: TrafficStats;
   samples: TrafficSample[];
 
+  /**
+   * The tunnel's real exit identity (public IP + geo as the outside world sees
+   * it), auto-resolved through the proxy when a connection comes up. Null until
+   * resolved; `exitInfoStatus` carries the in-flight / failed states so the UI
+   * can show a spinner or a retry affordance right on the main screen.
+   */
+  exitInfo: ExitInfo | null;
+  exitInfoStatus: "idle" | "loading" | "ok" | "error";
+
   connect: (server: ServerProfile) => Promise<void>;
   disconnect: () => Promise<void>;
   toggle: (server: ServerProfile) => Promise<void>;
@@ -138,6 +172,12 @@ interface ConnectionState {
   applyCoreStatus: (s: CoreStatus) => void;
   setStatus: (s: ConnectionStatus, error?: string) => void;
   pushTraffic: (t: TrafficStats) => void;
+  /**
+   * (Re)resolve the tunnel's exit identity through the active proxy. Safe to
+   * call any time; no-ops unless currently connected. Used both for the
+   * automatic fetch on connect and a manual re-check from the UI.
+   */
+  refreshExitInfo: () => Promise<void>;
   /**
    * Report the result of a periodic tunnel health probe (active server
    * reachable?). Drives recovery from a silently-dead tunnel where the core
@@ -154,6 +194,49 @@ function clearReconnectTimer(): void {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+}
+
+/**
+ * Watchdog for the "connecting" state — see `CONNECT_TIMEOUT_MS`. Armed when a
+ * connect attempt starts and cleared the moment any terminal status (running /
+ * stopped / error / manual disconnect) is observed.
+ */
+let connectTimer: ReturnType<typeof setTimeout> | null = null;
+function clearConnectTimer(): void {
+  if (connectTimer !== null) {
+    clearTimeout(connectTimer);
+    connectTimer = null;
+  }
+}
+
+/**
+ * Monotonic token bumped on every connection-state change. A slow `exit_info`
+ * probe captures the token at dispatch and discards its result if the token has
+ * moved on — so the identity of a previous (or torn-down) connection can never
+ * overwrite the current one's.
+ */
+let exitInfoToken = 0;
+function invalidateExitInfo(): void {
+  exitInfoToken++;
+}
+
+/**
+ * Once Windows rejects the `system` TUN stack's firewall-rule registration
+ * (BFE / Defender Firewall locked down on this machine), force the userspace
+ * gVisor TUN stack — which needs no firewall rule — for the rest of the
+ * session so the tunnel comes up without the user changing any setting. Reset
+ * on an explicit disconnect so a later attempt re-tries the faster system
+ * stack.
+ */
+let forceGvisorStack = false;
+/**
+ * Enable the gVisor TUN fallback for this session. Returns true only on the
+ * first activation so the caller can de-dupe its toast/reconnect.
+ */
+export function activateGvisorFallback(): boolean {
+  if (forceGvisorStack) return false;
+  forceGvisorStack = true;
+  return true;
 }
 
 /**
@@ -274,10 +357,15 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     healthFailures: 0,
     traffic: ZERO,
     samples: [],
+    exitInfo: null,
+    exitInfoStatus: "idle",
 
     connect: async (server) => {
       const { proxy } = useSettingsStore.getState();
       clearReconnectTimer();
+      clearConnectTimer();
+      // Any identity from a prior connection is stale the instant we re-dial.
+      invalidateExitInfo();
       set({
         status: "connecting",
         error: null,
@@ -285,6 +373,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         activeServer: server,
         autoReconnect: true,
         healthFailures: 0,
+        exitInfo: null,
+        exitInfoStatus: "idle",
       });
       try {
         // Pre-flight: reject configs the core can't possibly launch (e.g. a
@@ -354,7 +444,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           clashApiPort: proxy.clashApiPort,
           clashSecret: proxy.clashSecret,
           routingMode: proxy.routingMode,
-          tun: proxy.tun,
+          // Transparently fall back to the userspace gVisor TUN stack once the
+          // OS has rejected the system stack's firewall registration on this
+          // machine, so the tunnel comes up without the user changing anything.
+          tun:
+            forceGvisorStack && proxy.tun?.enabled
+              ? { ...proxy.tun, stack: "gvisor" }
+              : proxy.tun,
           allowLan: proxy.allowLan,
           fakeIp: proxy.fakeIp,
           dns: proxy.dns,
@@ -363,12 +459,32 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           mux: proxy.mux,
           fragment: proxy.fragment,
         });
+        // Arm the connect watchdog right before we hand off to the core: this
+        // covers both a `coreStart` IPC that never returns and a `running`
+        // status event that never arrives. Cleared on any terminal transition.
+        clearConnectTimer();
+        connectTimer = setTimeout(() => {
+          connectTimer = null;
+          const cur = get();
+          // If a terminal status already moved us out of "connecting", do
+          // nothing — this watchdog only acts on a genuinely silent core.
+          if (cur.status !== "connecting") return;
+          if (cur.autoReconnect && cur.activeServer) {
+            // Treat the silence as a soft failure and recover via the normal
+            // reconnect/failover path rather than stranding the user.
+            scheduleReconnect();
+          } else {
+            const l = useSettingsStore.getState().app.language;
+            set({ status: "error", activeCore: null, error: CONNECT_TIMEOUT_MESSAGE[l] });
+          }
+        }, CONNECT_TIMEOUT_MS);
         await coreStart(config, core.kind);
         // The connected/error transition now arrives via core://status events
         // (handled in applyCoreStatus), so we don't optimistically flip here.
       } catch (e) {
         // A hard failure to even launch the core is not auto-retried.
         clearReconnectTimer();
+        clearConnectTimer();
         set({
           status: "error",
           autoReconnect: false,
@@ -381,6 +497,12 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
     disconnect: async () => {
       const { proxy } = useSettingsStore.getState();
       clearReconnectTimer();
+      clearConnectTimer();
+      // A manual disconnect clears the session's gVisor fallback so the next
+      // connect re-tries the faster system stack (e.g. after the user fixes the
+      // firewall service or moves to another machine).
+      forceGvisorStack = false;
+      invalidateExitInfo();
       set({ autoReconnect: false, reconnectAttempts: 0, healthFailures: 0 });
       try {
         // Tear down the kill-switch first so the user always regains networking
@@ -397,6 +519,8 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           connectedAt: null,
           traffic: ZERO,
           samples: [],
+          exitInfo: null,
+          exitInfoStatus: "idle",
         });
       }
     },
@@ -420,31 +544,69 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
           break;
         case "running":
           clearReconnectTimer();
+          clearConnectTimer();
           set({
             status: "connected",
             connectedAt: state.connectedAt ?? Date.now(),
             error: null,
             reconnectAttempts: 0,
             healthFailures: 0,
+            // Drop any prior identity and show the probe as in-flight; the
+            // refresh below fills it in (and supersedes any stale probe).
+            exitInfo: null,
+            exitInfoStatus: "loading",
           });
           if (proxy.systemProxy) void setSystemProxy(true, proxy.mixedPort).catch(() => {});
+          // Resolve the real exit IP/geo through the freshly-up tunnel.
+          void get().refreshExitInfo();
           break;
         case "stopped":
+          // A terminal status arrived — the connect watchdog has served its
+          // purpose (or never armed). Either way, drop it.
+          clearConnectTimer();
+          // The exit identity belongs to a connection that's now gone.
+          invalidateExitInfo();
           if (state.autoReconnect) {
             scheduleReconnect();
+            set({ exitInfo: null, exitInfoStatus: "idle" });
           } else {
-            set({ status: "disconnected", connectedAt: null, activeCore: null });
+            set({
+              status: "disconnected",
+              connectedAt: null,
+              activeCore: null,
+              exitInfo: null,
+              exitInfoStatus: "idle",
+            });
           }
           break;
         case "error":
+          clearConnectTimer();
+          invalidateExitInfo();
           // Restore networking immediately; a dead local proxy must not strand the user.
           if (proxy.systemProxy) void setSystemProxy(false, proxy.mixedPort).catch(() => {});
           if (state.autoReconnect) {
             scheduleReconnect();
+            set({ exitInfo: null, exitInfoStatus: "idle" });
           } else {
-            set({ status: "error" });
+            set({ status: "error", exitInfo: null, exitInfoStatus: "idle" });
           }
           break;
+      }
+    },
+
+    refreshExitInfo: async () => {
+      if (get().status !== "connected") return;
+      const { proxy } = useSettingsStore.getState();
+      const token = ++exitInfoToken;
+      set({ exitInfoStatus: "loading" });
+      try {
+        const info = await getExitInfo(proxy.mixedPort);
+        // Drop a result that landed after the connection changed underneath us.
+        if (token !== exitInfoToken) return;
+        if (info.ip) set({ exitInfo: info, exitInfoStatus: "ok" });
+        else set({ exitInfo: null, exitInfoStatus: "error" });
+      } catch {
+        if (token === exitInfoToken) set({ exitInfo: null, exitInfoStatus: "error" });
       }
     },
 

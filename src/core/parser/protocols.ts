@@ -50,8 +50,10 @@ function buildTransport(q: Record<string, string>, net: Transport): TransportSet
   const t: TransportSettings = { type: net };
   if (q.path) t.path = q.path;
   if (q.host) t.host = q.host;
-  if (q.serviceName) t.serviceName = q.serviceName;
-  if (net === "grpc" && q.serviceName === undefined && q.path) t.serviceName = q.path;
+  // `parseQuery` lower-cases keys, so read `servicename` (panels send
+  // `serviceName`, `servicename`, or `ServiceName` — all land here).
+  if (q.servicename) t.serviceName = q.servicename;
+  if (net === "grpc" && q.servicename === undefined && q.path) t.serviceName = q.path;
   if (net === "xhttp") {
     if (q.mode) t.mode = q.mode;
     // `extra` is a URL-encoded JSON blob (e.g. {"xPaddingBytes":"100-1000"}).
@@ -80,7 +82,7 @@ function buildTls(q: Record<string, string>, security: Security): TlsSettings {
   if (q.sni || q.peer) tls.sni = q.sni || q.peer;
   if (q.fp) tls.fingerprint = q.fp;
   if (q.alpn) tls.alpn = q.alpn.split(",").map((s) => s.trim()).filter(Boolean);
-  if (q.allowInsecure === "1" || q.insecure === "1") tls.allowInsecure = true;
+  if (q.allowinsecure === "1" || q.insecure === "1") tls.allowInsecure = true;
   if (security === "reality") {
     tls.publicKey = q.pbk;
     tls.shortId = q.sid;
@@ -292,7 +294,7 @@ export function parseHysteria(link: string): ServerProfile {
   const u = safeUrl(link, "hysteria");
   const q = parseQuery(u.search);
   const tls = buildTls(
-    { sni: q.peer || q.sni, alpn: q.alpn, insecure: q.insecure || q.allowInsecure },
+    { sni: q.peer || q.sni, alpn: q.alpn, insecure: q.insecure || q.allowinsecure },
     "tls",
   );
   return finalize(
@@ -321,7 +323,7 @@ export function parseAnytls(link: string): ServerProfile {
   if (!u.username) throw new ParseError("anytls: missing password", link);
   const q = parseQuery(u.search);
   const tls = buildTls(
-    { sni: q.sni || q.peer, alpn: q.alpn, insecure: q.insecure || q.allowInsecure },
+    { sni: q.sni || q.peer, alpn: q.alpn, insecure: q.insecure || q.allowinsecure },
     "tls",
   );
   return finalize(
@@ -352,7 +354,7 @@ export function parseShadowtls(link: string): ServerProfile {
   const version = Number(q.version || q.v || 3) || 3;
   const handshake = decodeURIComponent(q.password || q.shadowtls_password || "");
   const tls = buildTls(
-    { sni: q.sni || q.host, alpn: q.alpn, insecure: q.insecure || q.allowInsecure, fp: q.fp },
+    { sni: q.sni || q.host, alpn: q.alpn, insecure: q.insecure || q.allowinsecure, fp: q.fp },
     "tls",
   );
   return finalize(
@@ -378,7 +380,7 @@ export function parseSsh(link: string): ServerProfile {
   const user = decodeURIComponent(u.username);
   const password = u.password ? decodeURIComponent(u.password) : undefined;
   // Private key may be passed base64-encoded (to survive URL encoding) or raw.
-  let privateKey = q.privateKey || q.private_key || q.pk || undefined;
+  let privateKey = q.privatekey || q.private_key || q.pk || undefined;
   if (privateKey && !privateKey.includes("BEGIN")) {
     privateKey = safeB64(privateKey) || privateKey;
   }
@@ -597,11 +599,17 @@ function splitFirst(s: string, sep: string): [string, string] {
 }
 
 function splitHostPort(s: string): [string, number] {
-  // IPv6 literal: [::1]:443
+  // Bracketed IPv6 literal: [::1]:443 (SIP002 requires the brackets so the
+  // address colons don't collide with the host:port colon).
   if (s.startsWith("[")) {
     const close = s.indexOf("]");
+    // No closing bracket → malformed; hand back a 0 port so the caller's
+    // host/port validation rejects it cleanly instead of slicing garbage.
+    if (close < 0) return [s, 0];
     const host = s.slice(1, close);
-    const port = Number(s.slice(close + 2));
+    // A port exists only when a ':' immediately follows the bracket. Anything
+    // else ("[::1]", "[::1]junk") has no port → 0, and the caller rejects it.
+    const port = s[close + 1] === ":" ? Number(s.slice(close + 2)) : 0;
     return [host, port];
   }
   const i = s.lastIndexOf(":");
