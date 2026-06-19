@@ -9,6 +9,7 @@ import {
   type BackupFile,
 } from "./backup";
 import { useServerStore } from "../store/useServerStore";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 const sampleServer: any = {
   id: "s1",
@@ -64,6 +65,21 @@ describe("backup serialize / parse", () => {
   it("rejects a backup with no settings object", () => {
     const bad = JSON.stringify({ app: BACKUP_MAGIC, servers: [] });
     expect(() => parseBackup(bad)).toThrow(/settings/i);
+  });
+
+  it("rejects a corrupt (non-array) subscription list instead of silently dropping it", () => {
+    const bad = JSON.stringify({
+      app: BACKUP_MAGIC,
+      settings: { app: {}, proxy: {} },
+      servers: [],
+      subscriptions: null,
+    });
+    expect(() => parseBackup(bad)).toThrow(/subscription/i);
+  });
+
+  it("still accepts a backup that simply omits subscriptions (forward-compat)", () => {
+    const ok = JSON.stringify({ app: BACKUP_MAGIC, settings: { app: {}, proxy: {} }, servers: [] });
+    expect(() => parseBackup(ok)).not.toThrow();
   });
 });
 

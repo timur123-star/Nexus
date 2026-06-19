@@ -71,6 +71,13 @@ export function parseBackup(text: string): BackupFile {
   if (obj.app !== BACKUP_MAGIC) throw new Error("not a NexusShield backup file");
   if (!obj.settings || typeof obj.settings !== "object") throw new Error("backup has no settings");
   if (!Array.isArray(obj.servers)) throw new Error("backup has no server list");
+  // `subscriptions` may be absent (v0 / forward-compat) — that's fine and loads
+  // as none. But a *present* non-array value means a corrupt/truncated file:
+  // reject it loudly instead of letting applyBackup silently drop every
+  // subscription the user expected to restore.
+  if (obj.subscriptions !== undefined && !Array.isArray(obj.subscriptions)) {
+    throw new Error("backup has a corrupt subscription list");
+  }
   return data as BackupFile;
 }
 
