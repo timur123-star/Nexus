@@ -79,6 +79,16 @@ export function TitleBar() {
         {status === "connected" && active?.latencyMs != null && (
           <span className="font-mono text-text-faint">· {latencyLabel(active.latencyMs)}</span>
         )}
+        {status === "connected" && exitInfo?.ip && (
+          <span
+            className="flex items-center gap-1.5 font-mono text-text-faint"
+            title={[exitInfo.ip, exitInfo.city, exitInfo.country].filter(Boolean).join(" · ")}
+          >
+            ·
+            <Flag iso={exitInfo.country ? exitInfo.country.toLowerCase() : null} size={16} />
+            <span className="hidden sm:inline">{exitInfo.ip}</span>
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1">
