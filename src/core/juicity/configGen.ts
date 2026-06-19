@@ -2,8 +2,9 @@
  * Generate a runnable juicity-client configuration from a ServerProfile.
  *
  * Juicity is a QUIC-based protocol that neither sing-box nor Xray implements, so
- * it runs on its own `juicity-client` binary. The client exposes a local SOCKS5
- * listener (our mixed port) and dials the server over QUIC.
+ * it runs on its own `juicity-client` binary. The client's `listen` serves both
+ * HTTP and SOCKS5 on the same port (our mixed port) — so the app's HTTP-proxy
+ * probes and the Windows system proxy reach it — and dials the server over QUIC.
  *
  * Reference: https://github.com/juicity/juicity (client config schema)
  */

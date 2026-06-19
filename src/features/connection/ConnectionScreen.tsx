@@ -49,7 +49,7 @@ interface DashStrings {
   uploaded: string;
   core: string;
   peak: string;
-  xrayLive: string;
+  liveStatsHint: string;
   ipAddress: string;
   protocol: string;
   encryption: string;
@@ -78,7 +78,7 @@ interface DashStrings {
 const DASH_STRINGS: Record<Lang, DashStrings> = {
   en: {
     downloaded: "Downloaded", uploaded: "Uploaded", core: "Core", peak: "peak",
-    xrayLive: "Live counters need the Clash API — unavailable on the Xray core.",
+    liveStatsHint: "Live counters need the Clash API — unavailable on the {core} core.",
     ipAddress: "IP Address", protocol: "Protocol", encryption: "Encryption", connStatus: "Status",
     stable: "Stable", tapConnect: "Tap to connect",
     connect: "Connect", disconnect: "Disconnect", connecting: "Connecting", quickConnect: "Quick connect",
@@ -90,7 +90,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
   },
   ru: {
     downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a",
-    xrayLive: "Живые счётчики работают через Clash API — недоступно на ядре Xray.",
+    liveStatsHint: "Живые счётчики работают через Clash API — недоступно на ядре {core}.",
     ipAddress: "IP-адрес", protocol: "Протокол", encryption: "Шифрование", connStatus: "Статус",
     stable: "Стабильно", tapConnect: "Нажмите, чтобы подключиться",
     connect: "Подключиться", disconnect: "Отключиться", connecting: "Подключение", quickConnect: "Быстрое подключение",
@@ -102,7 +102,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
   },
   fa: {
     downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج",
-    xrayLive: "شمارنده‌های زنده به Clash API نیاز دارند — روی هسته Xray در دسترس نیست.",
+    liveStatsHint: "شمارنده‌های زنده به Clash API نیاز دارند — روی هسته {core} در دسترس نیست.",
     ipAddress: "آدرس IP", protocol: "پروتکل", encryption: "رمزنگاری", connStatus: "وضعیت",
     stable: "پایدار", tapConnect: "برای اتصال ضربه بزنید",
     connect: "اتصال", disconnect: "قطع اتصال", connecting: "در حال اتصال", quickConnect: "اتصال سریع",
@@ -114,7 +114,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
   },
   zh: {
     downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值",
-    xrayLive: "实时计数依赖 Clash API——Xray 内核不可用。",
+    liveStatsHint: "实时计数依赖 Clash API——{core} 内核不可用。",
     ipAddress: "IP 地址", protocol: "协议", encryption: "加密", connStatus: "状态",
     stable: "稳定", tapConnect: "点击连接",
     connect: "连接", disconnect: "断开", connecting: "连接中", quickConnect: "快速连接",
@@ -125,6 +125,18 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     exitIp: "出口 IP", exitChecking: "检测中…", exitFailed: "点击重新检测",
   },
 };
+
+// Short, display-friendly core name. Only sing-box exposes the Clash API that
+// powers the live traffic counters; the others (Xray / Juicity / Naïve) don't.
+const CORE_LABELS: Record<string, string> = {
+  "sing-box": "sing-box",
+  xray: "Xray",
+  juicity: "Juicity",
+  naive: "Naïve",
+};
+function coreLabelFor(kind: string): string {
+  return CORE_LABELS[kind] ?? kind;
+}
 
 const valueInitial = { opacity: 0.35, y: -2 };
 const valueAnimate = { opacity: 1, y: 0 };
