@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # Apple Silicon
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
+          - platform: macos-latest # Intel
+            args: "--target x86_64-apple-darwin"
+            target: "x86_64-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+            target: ""
+          - platform: windows-latest
+            args: ""
+            target: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Add macOS Intel target
+        if: matrix.args == '--target x86_64-apple-darwin'
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend deps
+        run: npm ci
+
+      # The proxy engines (sing-box + xray-core) are NOT committed to git — they
+      # are downloaded here so the bundled installer actually ships with working
+      # cores. Without this step the app installs but cannot connect. The
+      # downloads are SHA-256-verified against pinned hashes inside the script.
+      #
+      # NEXUS_CORE_TARGET makes fetch-cores select the core arch for the BUILD
+      # target rather than the runner's host arch — critical for the macOS Intel
+      # build, which runs on an arm64 runner and would otherwise bundle arm64
+      # cores into an x86_64 app (the engine then can't launch).
+      - name: Fetch proxy cores (sing-box + xray)
+        run: npm run fetch-cores
+        env:
+          NEXUS_CORE_TARGET: ${{ matrix.target }}
+
+      - name: Build & release (signed, with updater artifacts)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # Protect the updater signing key with a passphrase via a repo secret
+          # (empty when unset, for backward compatibility). A leaked unprotected
+          # key lets anyone sign malicious auto-updates.
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "NexusShield ${{ github.ref_name }}"
+          releaseBody: "See the assets to download and install this version. The auto-updater will pick it up automatically."
+          # Publish as a DRAFT: every pushed tag builds and uploads artifacts, but
+          # a human must review and publish the release before auto-update clients
+          # receive it. Prevents a bad tag from instantly shipping to all users.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          # Generates latest.json (the updater manifest) and uploads it to the release.
+          includeUpdaterJson: true

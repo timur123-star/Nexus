@@ -1,0 +1,13 @@
+{
+  "name": "nexusshield-warp-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny relay that registers Cloudflare WARP peers on behalf of NexusShield from a non-blocked region.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,65 @@
+[package]
+name = "nexusshield"
+version = "0.1.0"
+description = "NexusShield — universal Xray-core / Sing-box client"
+authors = ["NexusShield"]
+# Transitive deps require the edition-2024 feature stabilized in Rust 1.85, so
+# 1.85 is the true minimum (the toolchain is pinned to 1.90 for reproducibility).
+edition = "2021"
+rust-version = "1.85"
+
+# The library is what Tauri's mobile/desktop entrypoints link against.
+[lib]
+name = "nexusshield_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+# Pin `time` to 0.3.47 in the BUILD graph (tauri-build -> tauri-utils -> time).
+# time 0.3.48 (released 2026-06-12) refactored format-description parsing and
+# added an impl that triggers a spurious E0119 coherence error inside
+# tauri-utils 2.9.2 (acl/value.rs & assets.rs) on EVERY rustc version.
+# 0.3.47 is the last release before that refactor and still satisfies the
+# `time = "^0.3.47"` requirement of plist (pulled in by tauri 2.11).
+time = "=0.3.47"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-deep-link = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "sync"] }
+# Subscription panels built on x-ui / 3x-ui forks (kittenx, etc.) routinely request
+# TLS renegotiation mid-handshake. rustls REJECTS peer-initiated renegotiation, so
+# `client.get(sub_url).send()` failed against those panels with an opaque
+# "error sending request for url (…)" and the subscription never loaded. The OS-native
+# TLS stack (schannel on Windows, Secure Transport on macOS, OpenSSL on Linux) handles
+# renegotiation exactly like curl/Hiddify do — so we use native-tls for max panel
+# compatibility. `native-tls-vendored` builds OpenSSL from source on Linux so CI needs
+# no system libssl (no-op on Windows/macOS, which use the OS stack).
+reqwest = { version = "0.12", default-features = false, features = ["native-tls-vendored", "json"] }
+
+anyhow = "1"
+thiserror = "2"
+log = "0.4"
+chrono = { version = "0.4", features = ["clock"] }
+# Pin `time` to 0.3.47 in the normal graph too (tauri -> tauri-utils -> time).
+# See the note in [build-dependencies] above for why 0.3.48 must be avoided.
+time = "=0.3.47"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

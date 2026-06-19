@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# NexusShield pre-commit hook.
+# Install once with:  ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+# Runs Prettier (check) and the TypeScript type-checker on staged work so broken
+# or unformatted code never lands on a branch.
+set -e
+echo "▸ prettier --check"
+bunx prettier --check . || {
+  echo "✗ Formatting issues. Run: bun run format" >&2
+  exit 1
+}
+echo "▸ tsc --noEmit"
+bunx tsc --noEmit
+echo "✓ pre-commit checks passed"

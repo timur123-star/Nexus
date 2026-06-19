@@ -1,0 +1,13 @@
+# Build/CI toolchain pin.
+#
+# The real fix for the tauri-utils 2.9.2 build break is pinning the `time`
+# crate to 0.3.47 (see src-tauri/Cargo.toml): time 0.3.48 introduced an impl
+# that triggers a spurious E0119 coherence error in tauri-utils on ALL rustc
+# versions, so changing the compiler alone does not help.
+#
+# rustc is kept pinned to 1.90.0 only for reproducible builds and parity with
+# the locally verified-good configuration. It can safely be bumped to a newer
+# stable now that the `time` pin resolves the actual issue.
+[toolchain]
+channel = "1.90.0"
+profile = "minimal"
