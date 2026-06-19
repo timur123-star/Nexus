@@ -137,10 +137,29 @@ function buildDns(opts: GenOptions): object {
     { tag: "dns-block", address: "rcode://success" },
   ];
 
-  const rules: object[] = [
-    { outbound: "any", server: "dns-direct" },
-    { rule_set: "geosite-cn", server: "dns-direct" },
-  ];
+  // DNS queries issued by an outbound itself resolve directly (avoids a loop).
+  const rules: object[] = [{ outbound: "any", server: "dns-direct" }];
+
+  // DO NOT reference a remote rule-set from a DNS rule. Unlike route rules
+  // (which sing-box resolves lazily / in the background), DNS-rule
+  // initialization is SYNCHRONOUS: on a fresh install with no cached `.srs` —
+  // or whenever the rule-set has not finished downloading yet (its
+  // download_detour is the proxy, which is not up at DNS-init time) — sing-box
+  // exits FATAL "initialize DNS rule: rule-set not found: geosite-cn". Gating
+  // this on routingMode === "rule" did NOT fix it: the crash fires in rule mode
+  // too (the rule-set is defined in the route block but not yet available when
+  // DNS rules initialise), which killed EVERY rule-mode connection on first run.
+  // CN domains now resolve via dns-remote (the `final` server); route rules
+  // still send CN traffic direct once the geosite-cn rule-set finishes loading.
+
+  // Fake-IP: route A/AAAA lookups to the fakeip server so domains get a synthetic
+  // IP and are routed by domain through the proxy. Needs BOTH a `fakeip` DNS
+  // server entry AND a query-type rule — the `fakeip` block alone is a silent
+  // no-op. Comes AFTER the direct rules so CN/direct domains keep real IPs.
+  if (opts.fakeIp) {
+    servers.push({ tag: "dns-fakeip", address: "fakeip" });
+    rules.push({ query_type: ["A", "AAAA"], server: "dns-fakeip" });
+  }
 
   return {
     servers,
