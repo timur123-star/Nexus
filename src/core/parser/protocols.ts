@@ -495,9 +495,16 @@ export function parseSocks(link: string): ServerProfile {
     const at = core.lastIndexOf("@");
     const userinfo = core.slice(0, at);
     hostPart = core.slice(at + 1);
-    // userinfo may be base64 (Nekobox) or plain user:pass.
-    const decoded = userinfo.includes(":") ? userinfo : safeB64(userinfo);
-    [username, password] = splitFirst(decoded, ":");
+    // userinfo may be base64 (Nekobox) or plain user:pass. The plain form is
+    // percent-encoded by our serializer, so decode each half back; base64
+    // userinfo carries no percent-escapes and is left as-is.
+    if (userinfo.includes(":")) {
+      const [u, p] = splitFirst(userinfo, ":");
+      username = safeDecode(u);
+      password = safeDecode(p);
+    } else {
+      [username, password] = splitFirst(safeB64(userinfo), ":");
+    }
   }
   // Strip any trailing query (rarely used for socks).
   const qIdx = hostPart.indexOf("?");
@@ -536,9 +543,16 @@ export function parseHttp(link: string): ServerProfile {
     const at = core.lastIndexOf("@");
     const userinfo = core.slice(0, at);
     hostPart = core.slice(at + 1);
-    // userinfo may be base64 or plain user:pass.
-    const decoded = userinfo.includes(":") ? userinfo : safeB64(userinfo);
-    [username, password] = splitFirst(decoded, ":");
+    // userinfo may be base64 or plain user:pass. The plain form is percent-
+    // encoded by our serializer, so decode each half back; base64 userinfo
+    // carries no percent-escapes and is left as-is.
+    if (userinfo.includes(":")) {
+      const [u, p] = splitFirst(userinfo, ":");
+      username = safeDecode(u);
+      password = safeDecode(p);
+    } else {
+      [username, password] = splitFirst(safeB64(userinfo), ":");
+    }
   }
   // A genuine proxy link is host:port with no path; a subscription URL has a
   // path ("/sub", "/api/...") and/or no explicit port → reject those so they
@@ -642,6 +656,15 @@ function parseReserved(raw: string | undefined): number[] | undefined {
 function safeB64(s: string): string {
   try {
     return decodeBase64(s);
+  } catch {
+    return s;
+  }
+}
+
+/** decodeURIComponent that returns the input unchanged on a malformed escape. */
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
   } catch {
     return s;
   }

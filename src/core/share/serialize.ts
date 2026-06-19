@@ -43,6 +43,10 @@ function addTlsParams(p: URLSearchParams, tls: TlsSettings): void {
     if (tls.publicKey) p.set("pbk", tls.publicKey);
     if (tls.shortId) p.set("sid", tls.shortId);
     if (tls.spiderX) p.set("spx", tls.spiderX);
+    // Post-quantum (ML-DSA-65) REALITY: the parser reads `pqv` back into
+    // `tls.postQuantum`. Dropping it here makes a PQ node silently re-import as
+    // a plain-REALITY node, which then fails the handshake against the server.
+    if (tls.postQuantum) p.set("pqv", tls.postQuantum);
   }
 }
 
@@ -106,6 +110,7 @@ export function serverToShareLink(s: ServerProfile): string {
     case "hysteria2": {
       const p = new URLSearchParams();
       if (s.tls.sni) p.set("sni", s.tls.sni);
+      if (s.tls.alpn?.length) p.set("alpn", s.tls.alpn.join(","));
       if (s.tls.allowInsecure) p.set("insecure", "1");
       if (s.extra?.obfs) p.set("obfs", s.extra.obfs);
       if (s.extra?.obfsPassword) p.set("obfs-password", s.extra.obfsPassword);
@@ -126,6 +131,7 @@ export function serverToShareLink(s: ServerProfile): string {
       const p = new URLSearchParams();
       if (s.extra?.auth) p.set("auth", s.extra.auth);
       if (s.tls.sni) p.set("peer", s.tls.sni);
+      if (s.tls.alpn?.length) p.set("alpn", s.tls.alpn.join(","));
       if (s.tls.allowInsecure) p.set("insecure", "1");
       if (s.extra?.obfs) p.set("obfs", s.extra.obfs);
       if (s.extra?.upMbps) p.set("upmbps", String(s.extra.upMbps));

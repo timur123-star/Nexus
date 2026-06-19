@@ -48,8 +48,29 @@ const cases: Case[] = [
   },
   {
     proto: "hysteria2",
-    link: "hysteria2://pw@h2.example.com:443?sni=h2.example.com#H2",
-    check: (s) => [s.address, s.port, s.password, s.tls.sni],
+    link: "hysteria2://pw@h2.example.com:443?sni=h2.example.com&alpn=h3#H2",
+    check: (s) => [s.address, s.port, s.password, s.tls.sni, s.tls.alpn],
+  },
+  {
+    proto: "hysteria",
+    link: "hysteria://h.example.com:443?auth=tok&peer=h.example.com&alpn=h3,h2#HY1",
+    check: (s) => [s.address, s.port, s.tls.sni, s.tls.alpn],
+  },
+  {
+    proto: "vless+reality+pq",
+    link:
+      "vless://uuid-pq@pq.example.com:443?type=tcp&security=reality&pbk=PBK&sid=SID&pqv=1#PQ",
+    check: (s) => [s.address, s.port, s.uuid, s.tls.security, s.tls.publicKey, s.tls.postQuantum],
+  },
+  {
+    proto: "socks-special-creds",
+    link: "socks://us%3Aer:p%40ss%3Aword@1.2.3.4:1080#SK",
+    check: (s) => [s.address, s.port, s.username, s.password],
+  },
+  {
+    proto: "http-special-creds",
+    link: "http://user:p%40ss%2Fword@hp.example.com:8080#HP",
+    check: (s) => [s.address, s.port, s.username, s.password],
   },
   {
     proto: "tuic",
