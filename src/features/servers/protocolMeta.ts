@@ -15,6 +15,8 @@ export const PROTOCOL_LABEL: Record<Protocol, string> = {
   shadowtls: "ShadowTLS",
   ssh: "SSH",
   tor: "Tor",
+  juicity: "Juicity",
+  naive: "Naïve",
 };
 
 /** Accent colour per protocol for chips — kept visually distinct for quick
@@ -34,6 +36,8 @@ export const PROTOCOL_COLOR: Record<Protocol, string> = {
   shadowtls: "#c084fc",
   ssh: "#94a3b8",
   tor: "#7e57c2",
+  juicity: "#22d3ee",
+  naive: "#84cc16",
 };
 
 export const ALL_PROTOCOLS: Protocol[] = [
@@ -51,4 +55,6 @@ export const ALL_PROTOCOLS: Protocol[] = [
   "shadowtls",
   "ssh",
   "tor",
+  "juicity",
+  "naive",
 ];

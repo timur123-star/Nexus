@@ -20,10 +20,15 @@ export type Protocol =
   | "anytls"
   | "shadowtls"
   | "ssh"
-  | "tor";
+  | "tor"
+  // Protocols that need their OWN dedicated engine binary — neither sing-box nor
+  // Xray implements them. They run a local SOCKS/HTTP listener only (no TUN, no
+  // Clash API), so traffic stats and VPN/TUN mode are unavailable through them.
+  | "juicity"
+  | "naive";
 
 /** Proxy core that actually runs the connection. */
-export type CoreKind = "sing-box" | "xray";
+export type CoreKind = "sing-box" | "xray" | "juicity" | "naive";
 
 /** Transport / network layer carried over the protocol. */
 export type Transport = "tcp" | "ws" | "grpc" | "http" | "h2" | "quic" | "xhttp";

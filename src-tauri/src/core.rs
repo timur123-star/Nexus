@@ -56,14 +56,25 @@ pub enum CoreStatus {
     Error,
 }
 
+/// How a core wants its config passed on the command line. sing-box / xray /
+/// juicity-client all take `run -c <config>`; naïve takes the config path as a
+/// single positional argument.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ArgStyle {
+    RunConfig,
+    PositionalConfig,
+}
+
 /// Everything needed to (re)spawn one core process. Cloned into the supervisor
 /// thread so it can relaunch the core on its own after a crash.
 #[derive(Clone)]
 struct LaunchSpec {
     bin: PathBuf,
     config_path: PathBuf,
+    /// How to pass the config on the command line (varies by engine).
+    arg_style: ArgStyle,
     /// (port, secret) of the Clash API, used for readiness probing. None when
-    /// the config exposes no API.
+    /// the config exposes no API (juicity / naïve never expose one).
     clash: Option<(u16, String)>,
 }
 
@@ -109,7 +120,8 @@ impl CoreManager {
         self.status
     }
 
-    /// Write the config and (re)start the requested core ("sing-box" | "xray").
+    /// Write the config and (re)start the requested core
+    /// ("sing-box" | "xray" | "juicity" | "naive").
     pub fn start(
         &mut self,
         app: &AppHandle,
@@ -126,9 +138,17 @@ impl CoreManager {
 
         self.set_status(app, CoreStatus::Starting);
 
+        // naïve takes the config path positionally; every other supported core
+        // (sing-box / xray / juicity-client) uses `run -c <config>`.
+        let arg_style = match core_kind {
+            "naive" => ArgStyle::PositionalConfig,
+            _ => ArgStyle::RunConfig,
+        };
+
         let spec = LaunchSpec {
             bin,
             config_path,
+            arg_style,
             clash: parse_clash_endpoint(config_json),
         };
 
@@ -232,12 +252,15 @@ fn spawn_process(app: &AppHandle, spec: &LaunchSpec) -> Result<Child, String> {
     ensure_windows_firewall_ready(&spec.bin);
 
     let mut command = Command::new(&spec.bin);
-    command
-        .arg("run")
-        .arg("-c")
-        .arg(&spec.config_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    match spec.arg_style {
+        ArgStyle::RunConfig => {
+            command.arg("run").arg("-c").arg(&spec.config_path);
+        }
+        ArgStyle::PositionalConfig => {
+            command.arg(&spec.config_path);
+        }
+    }
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     // On Windows, suppress the flashing console window that would otherwise pop
     // up every time we launch the (console-subsystem) core binary.
@@ -676,6 +699,9 @@ fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
 fn locate_core(app: &AppHandle, core_kind: &str) -> Result<PathBuf, String> {
     let base = match core_kind {
         "xray" => "xray",
+        // Juicity / naïve ship as their own engine binaries.
+        "juicity" => "juicity-client",
+        "naive" => "naive",
         _ => "sing-box",
     };
     let exe_name = if cfg!(windows) {

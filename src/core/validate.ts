@@ -128,6 +128,11 @@ function firstFailure(server: ServerProfile): ValidationCode | null {
         return "wireguard_incomplete";
       }
       break;
+    case "juicity":
+      // Juicity authenticates with uuid + password (runs on juicity-client).
+      if (!(server.uuid ?? "").trim()) return "missing_uuid";
+      if (!(server.password ?? "").trim()) return "missing_password";
+      break;
     default:
       break;
   }

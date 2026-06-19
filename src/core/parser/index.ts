@@ -14,12 +14,15 @@ import { looksLikeSingboxConfig, parseSingboxConfig } from "./singboxImport";
 export { ParseError } from "./util";
 export { SUPPORTED_SCHEMES } from "./protocols";
 
-const SCHEME_RE = new RegExp(`^(${SUPPORTED_SCHEMES.join("|")})://`, "i");
+// Allow an optional `+suffix` on the scheme (e.g. `naive+https://`) — some
+// clients carry the transport after a plus. The base scheme before the `+` is
+// what selects the parser.
+const SCHEME_RE = new RegExp(`^(${SUPPORTED_SCHEMES.join("|")})(\\+[a-z0-9]+)?://`, "i");
 
 /** Parse exactly one share link. Throws ParseError on unknown/invalid input. */
 export function parseShareLink(link: string): ServerProfile {
   const trimmed = link.trim();
-  const m = /^([a-z0-9]+):\/\//i.exec(trimmed);
+  const m = /^([a-z0-9]+)(?:\+[a-z0-9]+)?:\/\//i.exec(trimmed);
   if (!m) throw new ParseError("not a share link (no scheme://)", link);
   const scheme = m[1].toLowerCase();
   const parser = SCHEME_PARSERS[scheme];

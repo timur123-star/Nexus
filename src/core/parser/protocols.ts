@@ -371,6 +371,61 @@ export function parseShadowtls(link: string): ServerProfile {
   );
 }
 
+export function parseJuicity(link: string): ServerProfile {
+  // Juicity (QUIC, runs on its own juicity-client binary):
+  //   juicity://uuid:password@host:port?sni=...&congestion_control=bbr
+  //     &allow_insecure=0#name
+  const u = safeUrl(link, "juicity");
+  const q = parseQuery(u.search);
+  const uuid = decodeURIComponent(u.username || "") || q.uuid || "";
+  const password = decodeURIComponent(u.password || "") || q.password || "";
+  if (!uuid) throw new ParseError("juicity: missing uuid", link);
+  if (!password) throw new ParseError("juicity: missing password", link);
+  const tls = buildTls(
+    { sni: q.sni || q.peer, alpn: q.alpn, insecure: q.allow_insecure || q.insecure },
+    "tls",
+  );
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "juicity",
+      address: u.hostname,
+      port: parsePort(u.port),
+      uuid,
+      password,
+      transport: { type: "quic" },
+      tls,
+      extra: { congestionControl: q.congestion_control || q.congestion },
+    },
+    link,
+  );
+}
+
+export function parseNaive(link: string): ServerProfile {
+  // Naïve (naiveproxy, runs on its own `naive` binary). The common share form
+  // is `naive+https://user:pass@host:port#name`; bare `naive://` is treated as
+  // HTTPS too. The credentials + host become the upstream `https://` proxy.
+  const normalized = link.replace(/^naive\+https:\/\//i, "naive://");
+  const u = safeUrl(normalized, "naive");
+  const username = decodeURIComponent(u.username || "");
+  const password = decodeURIComponent(u.password || "");
+  if (!u.hostname) throw new ParseError("naive: missing host", link);
+  return finalize(
+    {
+      name: decodeRemark(u.hash, `${u.hostname}:${u.port}`),
+      protocol: "naive",
+      address: u.hostname,
+      port: parsePort(u.port),
+      username: username || undefined,
+      password: password || undefined,
+      transport: { type: "tcp" },
+      // Naïve always tunnels over HTTPS/H2; the SNI defaults to the host.
+      tls: { enabled: true, security: "tls", sni: u.hostname },
+    },
+    link,
+  );
+}
+
 export function parseSsh(link: string): ServerProfile {
   // ssh://user:password@host:port#name
   //   or ssh://user@host:port?privateKey=<base64-PEM>&passphrase=...#name
@@ -651,6 +706,8 @@ export const SCHEME_PARSERS: Record<string, (link: string) => ServerProfile> = {
   shadowtls: parseShadowtls,
   ssh: parseSsh,
   tor: parseTor,
+  juicity: parseJuicity,
+  naive: parseNaive,
 };
 
 export const SUPPORTED_SCHEMES = Object.keys(SCHEME_PARSERS) as readonly string[];
