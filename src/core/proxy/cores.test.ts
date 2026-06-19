@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { getCore, ALL_CORES } from "./index";
 import { singboxCore } from "./singboxCore";
 import { xrayCore } from "./xrayCore";
+import { juicityCore } from "./juicityCore";
+import { naiveCore } from "./naiveCore";
 import { parseShareLink } from "../parser";
 import type { Protocol } from "../types";
 
@@ -39,17 +41,38 @@ describe("getCore resolution", () => {
   it("maps the known core kinds", () => {
     expect(getCore("sing-box")).toBe(singboxCore);
     expect(getCore("xray")).toBe(xrayCore);
+    expect(getCore("juicity")).toBe(juicityCore);
+    expect(getCore("naive")).toBe(naiveCore);
   });
   it("defaults to sing-box for unknown/empty values", () => {
     expect(getCore(undefined)).toBe(singboxCore);
     expect(getCore(null)).toBe(singboxCore);
     expect(getCore("nonsense" as any)).toBe(singboxCore);
   });
-  it("exposes exactly two cores with stable identity", () => {
-    expect(ALL_CORES).toHaveLength(2);
-    expect(ALL_CORES.map((c) => c.kind).sort()).toEqual(["sing-box", "xray"]);
+  it("exposes exactly four cores with stable identity", () => {
+    expect(ALL_CORES).toHaveLength(4);
+    expect(ALL_CORES.map((c) => c.kind).sort()).toEqual([
+      "juicity",
+      "naive",
+      "sing-box",
+      "xray",
+    ]);
     expect(singboxCore.label).toBe("sing-box");
     expect(xrayCore.label).toBe("Xray-core");
+  });
+
+  it("dedicated-engine cores advertise only their own protocol", () => {
+    expect(juicityCore.supports("juicity")).toBe(true);
+    expect(juicityCore.supports("naive")).toBe(false);
+    expect(juicityCore.supports("vless")).toBe(false);
+    expect(naiveCore.supports("naive")).toBe(true);
+    expect(naiveCore.supports("juicity")).toBe(false);
+    expect(naiveCore.supports("vless")).toBe(false);
+    // sing-box / xray must NOT claim the dedicated-engine protocols.
+    expect(singboxCore.supports("juicity")).toBe(false);
+    expect(singboxCore.supports("naive")).toBe(false);
+    expect(xrayCore.supports("juicity")).toBe(false);
+    expect(xrayCore.supports("naive")).toBe(false);
   });
 });
 

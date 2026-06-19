@@ -32,6 +32,8 @@ const TARGET_KEYS: RoutingTarget[] = ["proxy", "direct", "block"];
 const CORE_TITLE: Record<CoreKind, string> = {
   "sing-box": "sing-box",
   xray: "Xray-core",
+  juicity: "Juicity",
+  naive: "Naïve",
 };
 
 const ROUTE_ICON: Record<RoutingMode, React.ElementType> = {
