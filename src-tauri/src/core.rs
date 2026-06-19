@@ -174,10 +174,58 @@ impl CoreManager {
     }
 }
 
+/// Best-effort prepare the Windows firewall for the sing-box `system` TUN
+/// stack. Since v1.3-beta12 sing-box registers a Windows Defender Firewall
+/// rule at post-start through WFP / the Base Filtering Engine. If BFE or the
+/// firewall service (mpssvc) is disabled — common after "debloat"/optimizer
+/// scripts — that registration fails with "fix windows firewall for system
+/// stack: Error adding Rule" and the core exits FATAL. We re-enable + start
+/// those services and pre-register an allow rule for the core binary so the
+/// `system` stack works without forcing the user onto gVisor. Every step is
+/// fire-and-forget: it must never block or fail core startup.
+#[cfg(windows)]
+fn ensure_windows_firewall_ready(bin: &std::path::Path) {
+    for svc in ["BFE", "mpssvc"] {
+        let _ = crate::proc::silent_command("sc")
+            .args(["config", svc, "start=", "auto"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = crate::proc::silent_command("sc")
+            .args(["start", svc])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+    let prog = format!("program={}", bin.to_string_lossy());
+    let _ = crate::proc::silent_command("netsh")
+        .args([
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
+            "name=NexusShield-Core",
+            "dir=out",
+            "action=allow",
+            prog.as_str(),
+            "enable=yes",
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+#[cfg(not(windows))]
+fn ensure_windows_firewall_ready(_bin: &std::path::Path) {}
+
 /// Spawn the core process described by `spec` and wire its stdout/stderr to the
 /// UI + the rotating log file. stderr additionally runs through the diagnostic
 /// classifier so common failures surface as friendly notices.
 fn spawn_process(app: &AppHandle, spec: &LaunchSpec) -> Result<Child, String> {
+    // Make the system TUN stack's post-start firewall registration succeed even
+    // on machines where BFE/Defender Firewall were disabled (see helper docs).
+    ensure_windows_firewall_ready(&spec.bin);
+
     let mut command = Command::new(&spec.bin);
     command
         .arg("run")
@@ -424,13 +472,32 @@ fn pipe_lines<R: std::io::Read + Send + 'static>(
 /// it works across sing-box and xray wording.
 fn classify_core_error(line: &str) -> Option<&'static str> {
     let l = line.to_lowercase();
-    // Only inspect lines that look like a problem to avoid false positives.
-    let looks_bad = l.contains("error")
-        || l.contains("failed")
-        || l.contains("fatal")
+    // Ignore routine per-connection telemetry. sing-box logs one INFO/ERROR
+    // line for every proxied connection: blocked ads surface as
+    // "operation not permitted", slow lookups as "context deadline exceeded",
+    // and closed sockets as "reset by peer"/"aborted by the software". None of
+    // these are core failures, so they must never raise a failure notice or the
+    // UI shows a false "core failed" toast while traffic is actually flowing.
+    let is_per_connection = l.contains("inbound/")
+        || l.contains("outbound/")
+        || l.contains("connection:")
+        || l.contains("dns:")
+        || l.contains("blocked connection")
+        || l.contains("aborted by the software")
+        || l.contains("reset by peer")
+        || l.contains("context deadline exceeded");
+    if is_per_connection {
+        return None;
+    }
+    // Only genuine startup / service-level failures abort the core. Restrict
+    // notices to fatal-level lines so transient per-request warnings are never
+    // mistaken for a crash.
+    let looks_bad = l.contains("fatal")
         || l.contains("panic")
-        || l.contains("refused")
-        || l.contains("timeout");
+        || l.contains("start service")
+        || l.contains("configure tun")
+        || l.contains("invalid config")
+        || l.contains("initialize");
     if !looks_bad {
         return None;
     }

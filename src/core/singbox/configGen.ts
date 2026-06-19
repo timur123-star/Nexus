@@ -121,6 +121,14 @@ function buildInbounds(opts: GenOptions): object[] {
       address: ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
       auto_route: true,
       strict_route: true,
+      // Default to the `system` stack (kernel-level, fastest, what Hiddify-
+      // style setups expect). The `system` stack runs a "fix windows firewall
+      // for system stack" step that adds a Windows Defender Firewall rule via
+      // the Base Filtering Engine; if BFE/Defender Firewall is disabled it
+      // exits FATAL ("...Error adding Rule"). The Rust backend now self-heals
+      // this before launch (ensure_windows_firewall_ready: re-enables BFE +
+      // mpssvc and pre-registers an allow rule), so `system` starts reliably.
+      // gVisor remains available as a fallback for locked-down machines.
       stack: opts.tun.stack ?? "system",
       sniff: true,
       mtu: 9000,
