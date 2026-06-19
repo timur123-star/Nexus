@@ -692,7 +692,8 @@ fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("running-config.json"))
 }
 
-/// Resolve a core executable by base name ("sing-box" | "xray"). Search order:
+/// Resolve a core executable by core kind (sing-box / xray / juicity-client /
+/// naive). Search order:
 ///   1. bundled resource  <resources>/binaries/<name>[.exe]
 ///   2. next to our own exe
 ///   3. PATH (bare name)
