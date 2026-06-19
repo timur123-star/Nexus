@@ -45,7 +45,7 @@ const BLOCK_TAG = "block";
 // geosite are handled separately because modern sing-box expresses them through
 // generated rule-sets rather than an inline field.
 const MATCH_KEY: Record<
-  Exclude<RoutingRuleMatch, "geoip" | "geosite" | "port">,
+  Exclude<RoutingRuleMatch, "geoip" | "geosite" | "port" | "rule_set_url">,
   string
 > = {
   domain: "domain",
@@ -141,7 +141,7 @@ function buildInbounds(opts: GenOptions): object[] {
 function buildDns(opts: GenOptions): object {
   const servers: object[] = [
     { tag: "dns-remote", address: opts.dns.remote || "https://1.1.1.1/dns-query", detour: PROXY_TAG },
-    { tag: "dns-direct", address: opts.dns.direct || "https://223.5.5.5/dns-query", detour: DIRECT_TAG },
+    { tag: "dns-direct", address: opts.dns.direct || "local", detour: DIRECT_TAG },
     { tag: "dns-block", address: "rcode://success" },
   ];
 
@@ -265,6 +265,13 @@ function buildCustomRules(rules: RoutingRule[] | undefined): {
       const tag = `${kind}-${code}`;
       out.push({ rule_set: tag, outbound });
       ruleSets.push(ruleSet(tag, kind, code));
+    } else if (r.match === "rule_set_url") {
+      // Mihomo/Clash-style remote rule-provider. Only accept well-formed HTTP(S)
+      // URLs so a typo can't produce a rule-set sing-box rejects at startup.
+      if (!/^https?:\/\//i.test(value)) continue;
+      const rs = remoteRuleSetFromUrl(value);
+      out.push({ rule_set: rs.tag, outbound });
+      ruleSets.push(rs.def);
     } else if (r.match === "port") {
       const port = Number(value);
       if (!Number.isInteger(port) || port < 1 || port > 65535) continue;
@@ -274,6 +281,26 @@ function buildCustomRules(rules: RoutingRule[] | undefined): {
     }
   }
   return { rules: out, ruleSets };
+}
+
+/**
+ * Build a sing-box `remote` rule-set from an arbitrary provider URL. The tag is
+ * derived deterministically from the URL (a stable djb2 hash) so the same URL
+ * always yields the same tag — that lets dedup-by-tag drop accidental dupes and
+ * keeps generated configs reproducible (important for the snapshot tests).
+ *
+ * The format follows sing-box's own convention: a `.srs` URL is the compiled
+ * `binary` form, anything else (typically `.json`) is parsed as `source`.
+ */
+function remoteRuleSetFromUrl(url: string): { tag: string; def: object } {
+  let h = 5381;
+  for (let i = 0; i < url.length; i++) h = ((h << 5) + h + url.charCodeAt(i)) >>> 0;
+  const tag = `rule-${h.toString(36)}`;
+  const format = /\.srs(\?|#|$)/i.test(url) ? "binary" : "source";
+  return {
+    tag,
+    def: { tag, type: "remote", format, url, download_detour: PROXY_TAG },
+  };
 }
 
 function ruleSet(tag: string, kind: "geoip" | "geosite", name: string): object {

@@ -25,6 +25,7 @@ const MATCH_KEYS: RoutingRuleMatch[] = [
   "geosite",
   "port",
   "process_name",
+  "rule_set_url",
 ];
 const TARGET_KEYS: RoutingTarget[] = ["proxy", "direct", "block"];
 
@@ -49,6 +50,7 @@ const MATCH_PLACEHOLDER: Record<RoutingRuleMatch, string> = {
   geosite: "telegram",
   port: "443",
   process_name: "telegram.exe",
+  rule_set_url: "https://example.com/rules/my-list.srs",
 };
 
 // Localised label for the accent picker. Inline so messages.ts (and its i18n

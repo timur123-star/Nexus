@@ -63,9 +63,12 @@ auto-registration), **AnyTLS**, **ShadowTLS** (v1/v2/v3 over inner SS),
 3. **Tor / SSH depend on the core build.** Tor and SSH outbounds require a
    sing-box binary compiled `with_*` those tags; the bundled build from
    `fetch-cores` must include them or those two outbounds won't start.
-4. **No mobile-style remote rule providers.** We ship rule/global/direct modes,
-   a GeoIP/GeoSite + per-app (process_name) rule editor and saved routing
-   profiles, but not arbitrary remote *rule-provider* URLs the way Mihomo does.
+4. ~~**No mobile-style remote rule providers.**~~ **DONE (2026-06-19).** The
+   rule editor now has a **`Rule URL`** match type: paste any sing-box
+   rule-provider URL (`.srs` binary or `.json` source) and it's turned into a
+   `remote` rule-set downloaded through the proxy and routed to the chosen
+   target — Mihomo-style rule-provider parity on the desktop. (sing-box core
+   only; Xray has no equivalent and silently ignores these rules.)
 
 ## What's now on par with the leaders
 

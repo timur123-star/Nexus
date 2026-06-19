@@ -35,13 +35,14 @@
 
 С учётом исправлений 1 (DNS rule-set) и 3 (ложный классификатор) gVisor-конфиг теперь действительно рабочий, а не «подключается, но не работает».
 
-## Известная проблема (НЕ исправлено в коде — нужен ваш тест)
-### WireGuard / WARP падает на старте
-`FATAL post-start outbound/wireguard[proxy]: resolve endpoint domain for peer[0]: engage.cloudflareclient.com:2408: exchange4/6: context deadline exceeded`
-
-Ядро не может зарезолвить домен эндпоинта WARP при старте. Вероятная причина: `direct` DNS по умолчанию — `https://223.5.5.5/dns-query` (AliDNS, КНР), который из РФ может быть недоступен/медленным (то же объясняет редкие `context deadline exceeded` по DNS). Возможные решения (на выбор, требуется проверка реальным запуском):
-- сменить `direct` DNS на доступный из РФ (например `https://dns.google/dns-query` или системный);
-- для WireGuard-эндпоинтов с доменом резолвить через надёжный direct-резолвер / использовать статический IP WARP.
+## Исправление 5 — WireGuard / WARP падал на старте (резолв эндпоинта)
+**Симптом:** `FATAL post-start outbound/wireguard[proxy]: resolve endpoint domain for peer[0]: engage.cloudflareclient.com:2408: exchange4/6: context deadline exceeded`.
+**Причина:** sing-box резолвит домен эндпоинта WARP СИНХРОННО при старте через `direct`-DNS. Дефолт был `https://223.5.5.5/dns-query` (AliDNS, КНР), недоступный из РФ/Ирана → домен не резолвился → FATAL. То же объясняло редкие `context deadline exceeded` по DNS.
+**Фикс:**
+- `useSettingsStore.ts`: дефолт `dns.direct` сменён с AliDNS на `local` (системный резолвер ОС — доступен в любом регионе, так делает Hiddify). Добавлена миграция в `merge`: старый AliDNS-дефолт автоматически переписывается на `local`, а осознанно заданный пользователем direct-DNS сохраняется.
+- `singbox/configGen.ts`: fallback `dns-direct` тоже `local`.
+- Добавлены unit-тесты (`configGen.test.ts`), интеграционный тест `sing-box check` подтверждает, что `local` — валидный конфиг.
+- Xray-генератор не эмитит DNS-блок (использует системный резолвер), поэтому не был затронут.
 
 ## Как применить
 1. Пересоберите приложение (Tauri): фронтенд (`configGen.ts`, `useSettingsStore.ts`) + Rust-бэкенд (`core.rs`).

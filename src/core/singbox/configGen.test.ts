@@ -114,6 +114,76 @@ describe("generateSingboxConfig rejects Xray-only features", () => {
   });
 });
 
+describe("generateSingboxConfig DNS", () => {
+  it("defaults the direct resolver to `local` (OS resolver, reachable in every region)", () => {
+    // Regression: the old AliDNS default (223.5.5.5) is unreachable from RU/IR,
+    // so a domain-addressed WARP/WireGuard endpoint never resolved at startup
+    // and the core exited FATAL. `local` resolves via the OS and always works.
+    const cfg: any = generateSingboxConfig(server(), baseOpts);
+    const direct = cfg.dns.servers.find((s: any) => s.tag === "dns-direct");
+    expect(direct.address).toBe("local");
+    expect(direct.address).not.toBe("https://223.5.5.5/dns-query");
+  });
+
+  it("honours an explicit direct resolver when the user set one", () => {
+    const cfg: any = generateSingboxConfig(server(), {
+      ...baseOpts,
+      dns: { remote: "", direct: "https://dns.google/dns-query" },
+    });
+    const direct = cfg.dns.servers.find((s: any) => s.tag === "dns-direct");
+    expect(direct.address).toBe("https://dns.google/dns-query");
+  });
+});
+
+describe("generateSingboxConfig remote rule-providers", () => {
+  it("turns a .srs rule-provider URL into a binary remote rule_set + route rule", () => {
+    const url = "https://example.com/rules/ru-block.srs";
+    const cfg: any = generateSingboxConfig(server(), {
+      ...baseOpts,
+      customRules: [{ match: "rule_set_url", value: url, target: "block" }],
+    });
+    const rs = cfg.route.rule_set.find((r: any) => r.url === url);
+    expect(rs).toBeTruthy();
+    expect(rs.type).toBe("remote");
+    expect(rs.format).toBe("binary");
+    expect(rs.download_detour).toBe("proxy");
+    // a matching route rule references the generated tag and the chosen target
+    const routeRule = cfg.route.rules.find((r: any) => r.rule_set === rs.tag);
+    expect(routeRule.outbound).toBe("block");
+  });
+
+  it("treats a non-.srs URL as a `source` rule-set", () => {
+    const url = "https://example.com/rules/proxy.json";
+    const cfg: any = generateSingboxConfig(server(), {
+      ...baseOpts,
+      customRules: [{ match: "rule_set_url", value: url, target: "proxy" }],
+    });
+    const rs = cfg.route.rule_set.find((r: any) => r.url === url);
+    expect(rs.format).toBe("source");
+  });
+
+  it("derives a stable tag from the URL and dedupes duplicates", () => {
+    const url = "https://example.com/rules/dup.srs";
+    const cfg: any = generateSingboxConfig(server(), {
+      ...baseOpts,
+      customRules: [
+        { match: "rule_set_url", value: url, target: "proxy" },
+        { match: "rule_set_url", value: url, target: "proxy" },
+      ],
+    });
+    const sets = cfg.route.rule_set.filter((r: any) => r.url === url);
+    expect(sets).toHaveLength(1);
+  });
+
+  it("ignores a malformed (non-http) rule-provider value", () => {
+    const cfg: any = generateSingboxConfig(server(), {
+      ...baseOpts,
+      customRules: [{ match: "rule_set_url", value: "not-a-url", target: "block" }],
+    });
+    expect(cfg.route.rule_set.some((r: any) => r.url === "not-a-url")).toBe(false);
+  });
+});
+
 describe("generateSingboxConfig new protocols", () => {
   it("builds a WireGuard outbound with local_address + keys", () => {
     const cfg: any = generateSingboxConfig(

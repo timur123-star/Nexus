@@ -151,7 +151,13 @@ export const DEFAULT_PROXY: ProxySettings = {
   customRules: [],
   routingProfiles: BUILTIN_ROUTING_PROFILES,
   tun: { enabled: false, stack: "system" },
-  dns: { remote: "https://1.1.1.1/dns-query", direct: "https://223.5.5.5/dns-query" },
+  // `direct` resolves domestic/direct domains AND the endpoint of any
+  // domain-addressed outbound (notably the WARP/WireGuard endpoint, which
+  // sing-box resolves SYNCHRONOUSLY at startup). The old default was AliDNS
+  // (223.5.5.5) which is unreachable from Russia/Iran, so the WARP endpoint
+  // never resolved and the core exited FATAL. `local` uses the OS resolver,
+  // which is reachable in every region and is what Hiddify-style setups use.
+  dns: { remote: "https://1.1.1.1/dns-query", direct: "local" },
   fakeIp: true,
   mux: { enabled: false, protocol: "smux" },
   fragment: { enabled: false, packets: "tlshello", length: "10-20", interval: "10-20" },
@@ -213,11 +219,24 @@ export const useSettingsStore = create<SettingsState>()(
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;
         const persistedProxy = (p.proxy ?? {}) as Partial<ProxySettings>;
+        // Migrate the obsolete AliDNS `direct` default (223.5.5.5, unreachable
+        // from RU/IR — it broke WARP/WireGuard endpoint resolution at startup)
+        // to the OS resolver. Only the exact old default is rewritten, so a
+        // user's deliberately customised direct DNS is always preserved.
+        const persistedDirect = persistedProxy.dns?.direct;
+        const migratedDirect =
+          !persistedDirect || persistedDirect === "https://223.5.5.5/dns-query"
+            ? current.proxy.dns.direct
+            : persistedDirect;
         return {
           ...current,
           proxy: {
             ...current.proxy,
             ...persistedProxy,
+            dns: {
+              remote: persistedProxy.dns?.remote || current.proxy.dns.remote,
+              direct: migratedDirect,
+            },
             // Always keep the built-in presets available even if an older
             // persisted state had none.
             routingProfiles:

@@ -199,7 +199,14 @@ export type RoutingRuleMatch =
   | "geoip"
   | "geosite"
   | "port"
-  | "process_name";
+  | "process_name"
+  /**
+   * A remote rule-provider URL (Mihomo/Clash-style). The `value` is an HTTPS
+   * URL to a sing-box rule-set: a compiled `.srs` (binary) or a `.json`
+   * (source). sing-box downloads it through the proxy and routes every domain/
+   * IP it contains to the chosen target. sing-box-only — Xray has no equivalent.
+   */
+  | "rule_set_url";
 
 /** Where a matched rule sends traffic. */
 export type RoutingTarget = "proxy" | "direct" | "block";
