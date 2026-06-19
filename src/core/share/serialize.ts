@@ -177,6 +177,21 @@ export function serverToShareLink(s: ServerProfile): string {
     case "tor": {
       return `tor://${hostPort(s)}${frag(s.name)}`;
     }
+    case "juicity": {
+      const p = new URLSearchParams();
+      if (s.tls.sni) p.set("sni", s.tls.sni);
+      if (s.extra?.congestionControl) p.set("congestion_control", s.extra.congestionControl);
+      if (s.tls.allowInsecure) p.set("allow_insecure", "1");
+      const userinfo = `${encodeURIComponent(s.uuid ?? "")}:${encodeURIComponent(s.password ?? "")}`;
+      const qs = p.toString();
+      return `juicity://${userinfo}@${hostPort(s)}${qs ? `?${qs}` : ""}${frag(s.name)}`;
+    }
+    case "naive": {
+      const auth = s.username
+        ? `${encodeURIComponent(s.username)}:${encodeURIComponent(s.password ?? "")}@`
+        : "";
+      return `naive+https://${auth}${hostPort(s)}${frag(s.name)}`;
+    }
     case "wireguard": {
       const wg = s.wireguard;
       const p = new URLSearchParams();
