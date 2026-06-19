@@ -21,6 +21,11 @@ const SING_BOX_VERSION = "1.11.1";
 // FATAL on such a config. v26.x (date-based versioning vYY.M.D) is the first
 // line that supports ML-DSA-65 REALITY, so PQ servers actually connect.
 const XRAY_VERSION = "26.5.9";
+// Optional third/fourth engines for protocols neither sing-box nor Xray runs.
+// Fetched best-effort: a failure here never aborts the (required) sing-box/xray
+// download. Bump these when juicity / naiveproxy cut a new release.
+const JUICITY_VERSION = "0.5.0";
+const NAIVE_VERSION = "149.0.7827.114-1";
 
 // Built from fragments so the literal never forms a full URL token.
 const GH = "https://" + "github.com";
@@ -46,6 +51,24 @@ function xrayAssetName() {
   if (platform === "linux") return arch === "arm64" ? "Xray-linux-arm64-v8a.zip" : "Xray-linux-64.zip";
   if (platform === "darwin") return arch === "arm64" ? "Xray-macos-arm64-v8a.zip" : "Xray-macos-64.zip";
   return "Xray-windows-64.zip";
+}
+
+function juicityAssetName() {
+  const a = arch === "arm64" ? "arm64" : "x86_64";
+  if (platform === "linux") return `juicity-linux-${a}.zip`;
+  if (platform === "darwin") return `juicity-macos-${a}.zip`;
+  return `juicity-windows-${a}.zip`;
+}
+
+function naiveAssetName() {
+  const v = NAIVE_VERSION;
+  if (platform === "linux") return `naiveproxy-v${v}-linux-${arch === "arm64" ? "arm64" : "x64"}.tar.xz`;
+  // macOS assets carry a doubled arch suffix, e.g. `…-mac-x64-x64.tar.xz`.
+  if (platform === "darwin")
+    return arch === "arm64"
+      ? `naiveproxy-v${v}-mac-arm64-arm64.tar.xz`
+      : `naiveproxy-v${v}-mac-x64-x64.tar.xz`;
+  return `naiveproxy-v${v}-win-${arch === "arm64" ? "arm64" : "x64"}.zip`;
 }
 
 function run(cmd, args) {
@@ -127,6 +150,15 @@ async function fetchCore(label, assetName, urlPath, binName, extras) {
   }
 }
 
+/** Like fetchCore but never throws — logs and continues (optional engines). */
+async function fetchCoreOptional(label, assetName, urlPath, binName, extras) {
+  try {
+    await fetchCore(label, assetName, urlPath, binName, extras);
+  } catch (e) {
+    console.warn(`[fetch] optional core '${label}' skipped: ${e.message}`);
+  }
+}
+
 let WORK = "";
 
 async function main() {
@@ -150,8 +182,27 @@ async function main() {
     ["geosite.dat", "geoip.dat"],
   );
 
+  // Optional engines — best-effort so a missing/renamed asset never fails the
+  // build. The app degrades gracefully: a juicity/naive server simply can't
+  // connect until its binary is present in `binaries/`.
+  await fetchCoreOptional(
+    "juicity",
+    juicityAssetName(),
+    `juicity/juicity/releases/download/v${JUICITY_VERSION}`,
+    `juicity-client${exe}`,
+    [],
+  );
+
+  await fetchCoreOptional(
+    "naive",
+    naiveAssetName(),
+    `klzgrad/naiveproxy/releases/download/v${NAIVE_VERSION}`,
+    `naive${exe}`,
+    [],
+  );
+
   if (!isWin) {
-    for (const f of ["sing-box", "xray"]) {
+    for (const f of ["sing-box", "xray", "juicity-client", "naive"]) {
       const p = join(outDir, f);
       if (existsSync(p)) await chmod(p, 0o755);
     }
