@@ -108,6 +108,20 @@ const TUN_XRAY_CONFLICT_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
 };
 
 /**
+ * Juicity / Naïve run on their own single-purpose engine binaries
+ * (juicity-client / naive). Those engines expose only a local SOCKS listener —
+ * they have no TUN inbound — so "VPN mode" would elevate, start the engine, and
+ * then route nothing system-wide. Refuse up-front and point the user at the
+ * mode that actually works (system proxy).
+ */
+const TUN_DEDICATED_ENGINE_MESSAGE: Record<"ru" | "en" | "fa" | "zh", string> = {
+  ru: "Этот протокол работает на отдельном движке (juicity-client / naive) без режима VPN (TUN) — доступен только «Системный прокси». Переключитесь на него для этого сервера или выберите обычный сервер для VPN.",
+  en: "This protocol runs on a dedicated engine (juicity-client / naive) with no VPN (TUN) mode — only “System proxy” is available. Switch to it for this server, or pick a regular server for VPN.",
+  fa: "این پروتکل روی یک موتور اختصاصی (juicity-client / naive) بدون حالت VPN (TUN) اجرا می‌شود — فقط «پروکسی سیستم» در دسترس است. برای این سرور به آن بروید یا یک سرور معمولی برای VPN انتخاب کنید.",
+  zh: "此协议运行在专用引擎（juicity-client / naive）上，没有 VPN (TUN) 模式 — 仅支持“系统代理”。请为此服务器切换到该模式，或选择常规服务器用于 VPN。",
+};
+
+/**
  * Arm the OS-level kill-switch for the given server, tolerating failure with a
  * user-visible warning. Called on every (re)connect so a failover transparently
  * updates the firewall allow-list to the new server.
@@ -413,6 +427,20 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
             autoReconnect: false,
             activeCore: null,
             error: TUN_XRAY_CONFLICT_MESSAGE[lang],
+          });
+          return;
+        }
+        // Same dead-tunnel trap for the dedicated-engine cores: juicity-client /
+        // naive have no TUN inbound, so VPN mode would elevate and then route
+        // nothing. Refuse with a clear, protocol-appropriate message.
+        if (proxy.tun?.enabled && (core.kind === "juicity" || core.kind === "naive")) {
+          toast.error(TUN_DEDICATED_ENGINE_MESSAGE[lang]);
+          clearReconnectTimer();
+          set({
+            status: "error",
+            autoReconnect: false,
+            activeCore: null,
+            error: TUN_DEDICATED_ENGINE_MESSAGE[lang],
           });
           return;
         }

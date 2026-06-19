@@ -74,6 +74,17 @@ const cases: Case[] = [
     check: (s) => [s.address, s.port, s.wireguard?.privateKey, s.wireguard?.peerPublicKey],
   },
   {
+    proto: "juicity",
+    link:
+      "juicity://11112222-3333-4444-5555-666677778888:secretpw@jc.example.com:443?sni=jc.example.com&congestion_control=bbr#JC",
+    check: (s) => [s.address, s.port, s.uuid, s.password, s.tls.sni, s.extra?.congestionControl],
+  },
+  {
+    proto: "naive",
+    link: "naive+https://user1:pass1@nv.example.com:443#NV",
+    check: (s) => [s.address, s.port, s.username, s.password, s.tls.sni],
+  },
+  {
     proto: "ipv6-literal",
     link: "ss://aes-256-gcm:pw@[2001:db8::1]:8388#v6",
     check: (s) => [s.address, s.port],

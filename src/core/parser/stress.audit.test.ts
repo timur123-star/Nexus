@@ -45,6 +45,8 @@ const LINKS: Record<string, string> = {
   "socks-plain": "socks://user:pass@sk2.example.com:1080#SOCKS%20plain",
   http: "http://user:pass@hp.example.com:8080#HTTP%20proxy",
   https: "https://user:pass@hps.example.com:8443#HTTPS%20proxy",
+  juicity: "juicity://uuid-jjjj:jpass@jc.example.com:443?sni=jc.example.com&congestion_control=bbr&allow_insecure=0#Juicity",
+  naive: "naive+https://nuser:npass@nv.example.com:443#Naive",
 };
 
 describe("subscription import stress audit", () => {
