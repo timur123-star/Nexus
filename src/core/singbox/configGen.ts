@@ -546,6 +546,12 @@ function buildOutbound(s: ServerProfile, opts: GenOptions): object {
       // ShadowTLS is emitted as a chain by buildProxyOutbounds; this branch is
       // unreachable but kept for switch exhaustiveness.
       throw new Error("shadowtls handled by buildProxyOutbounds");
+    case "juicity":
+    case "naive":
+      // These run on their own dedicated engine binaries (juicity-client /
+      // naive), never sing-box. selectCore routes them to their own core, so
+      // this is unreachable — guard loudly rather than emit a broken outbound.
+      throw new Error(`Protocol "${s.protocol}" requires its own engine, not sing-box`);
   }
 }
 
