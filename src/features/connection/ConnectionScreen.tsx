@@ -28,6 +28,7 @@ import { ShieldConnectButton } from "../../shared/components/ShieldConnectButton
 import { Flag } from "../../shared/components/Flag";
 import { cn, formatBytes, formatUptime, latencyColor, latencyLabel } from "../../shared/lib/utils";
 import { PROTOCOL_LABEL } from "../servers/protocolMeta";
+import { getCore } from "../../core/proxy";
 import { useT } from "../../core/i18n/useT";
 import type { Lang, MessageKey } from "../../core/i18n";
 
@@ -126,18 +127,6 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
   },
 };
 
-// Short, display-friendly core name. Only sing-box exposes the Clash API that
-// powers the live traffic counters; the others (Xray / Juicity / Naïve) don't.
-const CORE_LABELS: Record<string, string> = {
-  "sing-box": "sing-box",
-  xray: "Xray",
-  juicity: "Juicity",
-  naive: "Naïve",
-};
-function coreLabelFor(kind: string): string {
-  return CORE_LABELS[kind] ?? kind;
-}
-
 const valueInitial = { opacity: 0.35, y: -2 };
 const valueAnimate = { opacity: 1, y: 0 };
 const valueTransition = { duration: 0.25, ease: "easeOut" };
@@ -176,7 +165,9 @@ export function ConnectionScreen({
 
   const connected = status === "connected";
   const busy = status === "connecting" || status === "reconnecting";
-  const xrayActive = connected && activeCore === "xray";
+  // Live counters come from the Clash API, which only sing-box exposes. For any
+  // other active core (Xray / Juicity / Naïve) the graph stays flat — explain it.
+  const noLiveStats = connected && activeCore != null && !getCore(activeCore).providesClashApi;
 
   // Quick-connect shortcuts: favourites first, then best-ping servers.
   const quickServers = useMemo(() => {
@@ -225,7 +216,7 @@ export function ConnectionScreen({
       const singleHttpUrl = /^https?:\/\//i.test(text) && !/\s/.test(text);
       const isSubUrl = singleHttpUrl && !text.includes("@");
       if (isSubUrl) {
-        let host = "Подписка";
+        let host = t("import.tabSubscription");
         try {
           host = new URL(text).hostname || host;
         } catch {
@@ -281,7 +272,7 @@ export function ConnectionScreen({
   const shieldLabel = t(STATUS_LABEL_KEY[status]).replace("\u2026", "");
   const shieldSub = connected ? uptime || `0${unitS}` : busy ? "\u2026" : L.tapConnect;
   const shownCore = (connected || busy) && activeCore ? activeCore : proxyCore;
-  const coreLabel = shownCore === "xray" ? "Xray" : "sing-box";
+  const coreLabel = getCore(shownCore).label;
   const dash = "\u2014";
   const encryption = active.tls.security !== "none" ? active.tls.security.toUpperCase() : "AES-256";
   const statusText = connected ? L.stable : t(STATUS_LABEL_KEY[status]);
@@ -399,9 +390,9 @@ export function ConnectionScreen({
         />
       </div>
 
-      {xrayActive && (
+      {noLiveStats && activeCore && (
         <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-text-faint">
-          <Cpu size={11} /> {L.xrayLive}
+          <Cpu size={11} /> {L.liveStatsHint.replace("{core}", getCore(activeCore).label)}
         </p>
       )}
     </div>

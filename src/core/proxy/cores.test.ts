@@ -61,6 +61,16 @@ describe("getCore resolution", () => {
     expect(xrayCore.label).toBe("Xray-core");
   });
 
+  it("only sing-box exposes the Clash API that powers live traffic counters", () => {
+    expect(singboxCore.providesClashApi).toBe(true);
+    // Xray uses its own stats API; the dedicated engines have none.
+    expect(xrayCore.providesClashApi).toBe(false);
+    expect(juicityCore.providesClashApi).toBe(false);
+    expect(naiveCore.providesClashApi).toBe(false);
+    // Exactly one core feeds the live graph.
+    expect(ALL_CORES.filter((c) => c.providesClashApi)).toHaveLength(1);
+  });
+
   it("dedicated-engine cores advertise only their own protocol", () => {
     expect(juicityCore.supports("juicity")).toBe(true);
     expect(juicityCore.supports("naive")).toBe(false);

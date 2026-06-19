@@ -20,6 +20,7 @@ const XRAY_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
 export const xrayCore: IProxyCore = {
   kind: "xray",
   label: "Xray-core",
+  providesClashApi: false, // Xray uses its own stats API, not the Clash API we poll.
   supports: (p) => XRAY_PROTOCOLS.has(p),
   generateConfig: (server, opts) =>
     generateXrayConfig(server, {

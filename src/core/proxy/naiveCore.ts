@@ -10,6 +10,7 @@ import type { IProxyCore } from "./types";
 export const naiveCore: IProxyCore = {
   kind: "naive",
   label: "Naïve",
+  providesClashApi: false, // dedicated engine: HTTP listener only, no stats API.
   supports: (p: Protocol) => p === "naive",
   generateConfig: (server, opts) =>
     generateNaiveConfig(server, {

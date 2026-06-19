@@ -15,6 +15,7 @@ const DEDICATED_ENGINE_ONLY: ReadonlySet<Protocol> = new Set<Protocol>([
 export const singboxCore: IProxyCore = {
   kind: "sing-box",
   label: "sing-box",
+  providesClashApi: true,
   supports: (p) => !DEDICATED_ENGINE_ONLY.has(p),
   generateConfig: (server, opts) => generateSingboxConfig(server, opts),
 };

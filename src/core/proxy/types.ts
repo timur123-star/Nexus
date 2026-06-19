@@ -14,6 +14,13 @@ export interface IProxyCore {
   readonly kind: CoreKind;
   /** Human-friendly name for the UI. */
   readonly label: string;
+  /**
+   * Whether this core exposes the Clash API that powers the live traffic
+   * counters / speed graph. Only sing-box does; Xray uses its own (unpolled)
+   * API and the dedicated engines (Juicity / Naïve) have no stats API at all.
+   * The UI uses this to gate the traffic poller and explain the flat graph.
+   */
+  readonly providesClashApi: boolean;
   /** Whether this core can run the given protocol. */
   supports(protocol: Protocol): boolean;
   /** Build a runnable config object for the given server + options. */

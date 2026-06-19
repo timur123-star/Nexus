@@ -33,6 +33,11 @@ pub fn set_system_proxy(enable: bool, port: u16) -> Result<(), String> {
     } else {
         key.set_value("ProxyEnable", &0u32)
             .map_err(|e| format!("clear ProxyEnable: {e}"))?;
+        // Clean teardown: drop the address/bypass we wrote so the user doesn't
+        // see a stale 127.0.0.1:{port} lingering in Windows proxy settings.
+        // Best-effort — a missing value (never enabled) must not fail disable.
+        key.delete_value("ProxyServer").ok();
+        key.delete_value("ProxyOverride").ok();
     }
 
     notify_wininet();

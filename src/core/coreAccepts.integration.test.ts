@@ -24,6 +24,11 @@ const XRAY = join(BIN, process.platform === "win32" ? "xray.exe" : "xray");
 const haveSingbox = existsSync(SINGBOX);
 const haveXray = existsSync(XRAY);
 
+// These tests spawn the REAL core binaries (execFileSync). Cold-start + config
+// validation can exceed Vitest's 5s default under load (xray observed at ~7s on
+// a busy machine), so give every binary-backed test a generous, stable budget.
+const BIN_TIMEOUT = 30_000;
+
 const sbOpts = {
   mixedPort: 2080,
   clashApiPort: 9090,
@@ -73,28 +78,28 @@ describe.skipIf(!haveSingbox)("sing-box accepts generated configs", () => {
       sbOpts,
     );
     expect(() => checkSingbox(cfg, "vless-reality")).not.toThrow();
-  });
+  }, BIN_TIMEOUT);
   it("Hysteria2", () => {
     const cfg = generateSingboxConfig(
       srv({ protocol: "hysteria2", password: "pw", tls: { enabled: true, security: "tls", sni: "h" } }),
       sbOpts,
     );
     expect(() => checkSingbox(cfg, "hy2")).not.toThrow();
-  });
+  }, BIN_TIMEOUT);
   it("Trojan", () => {
     const cfg = generateSingboxConfig(
       srv({ protocol: "trojan", password: "pw", tls: { enabled: true, security: "tls", sni: "h" } }),
       sbOpts,
     );
     expect(() => checkSingbox(cfg, "trojan")).not.toThrow();
-  });
+  }, BIN_TIMEOUT);
   it("Shadowsocks", () => {
     const cfg = generateSingboxConfig(
       srv({ protocol: "shadowsocks", method: "aes-128-gcm", password: "pw", tls: { enabled: false, security: "none" } }),
       sbOpts,
     );
     expect(() => checkSingbox(cfg, "ss")).not.toThrow();
-  });
+  }, BIN_TIMEOUT);
 });
 
 describe.skipIf(!haveXray)("xray accepts generated configs", () => {
@@ -104,7 +109,7 @@ describe.skipIf(!haveXray)("xray accepts generated configs", () => {
       { mixedPort: 2080, clashApiPort: 9090, routingMode: "rule", allowLan: false },
     );
     expect(() => checkXray(cfg, "vless-reality")).not.toThrow();
-  });
+  }, BIN_TIMEOUT);
 });
 
 /**
@@ -169,7 +174,7 @@ describe.skipIf(!haveSingbox)("sing-box accepts every supported protocol", () =>
     it(name, () => {
       const cfg = generateSingboxConfig(server, sbOpts);
       expect(() => checkSingbox(cfg, `matrix-${name}`)).not.toThrow();
-    });
+    }, BIN_TIMEOUT);
   }
 });
 
@@ -185,7 +190,7 @@ describe.skipIf(!haveSingbox)("real subscription config → sing-box (incl. TUN)
       const cfg = generateSingboxConfig(s, sbOpts);
       expect(() => checkSingbox(cfg, `sub-proxy-${s.protocol}`)).not.toThrow();
     }
-  });
+  }, BIN_TIMEOUT);
 
   it("every imported node is accepted by sing-box in TUN (VPN) mode", () => {
     for (const s of servers) {
@@ -195,5 +200,5 @@ describe.skipIf(!haveSingbox)("real subscription config → sing-box (incl. TUN)
       });
       expect(() => checkSingbox(cfg, `sub-tun-${s.protocol}`)).not.toThrow();
     }
-  });
+  }, BIN_TIMEOUT);
 });

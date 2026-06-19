@@ -11,6 +11,7 @@ import type { IProxyCore } from "./types";
 export const juicityCore: IProxyCore = {
   kind: "juicity",
   label: "Juicity",
+  providesClashApi: false, // dedicated engine: HTTP+SOCKS listener only, no stats API.
   supports: (p: Protocol) => p === "juicity",
   generateConfig: (server, opts) =>
     generateJuicityConfig(server, {
