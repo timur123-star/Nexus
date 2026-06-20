@@ -104,6 +104,20 @@ describe("applyBackup", () => {
     expect(typeof useServerStore.getState().addFromBlob).toBe("function");
   });
 
+  it("round-trips custom DNS settings through serialize → parse → apply", () => {
+    useSettingsStore.setState((s) => ({
+      proxy: { ...s.proxy, dns: { remote: "https://doh.example/dns-query", direct: "9.9.9.9" } },
+    }));
+    const text = serializeBackup();
+    // Wipe DNS, then restore from the backup and confirm it comes back intact.
+    useSettingsStore.setState((s) => ({ proxy: { ...s.proxy, dns: { remote: "", direct: "" } } }));
+    applyBackup(parseBackup(text));
+    expect(useSettingsStore.getState().proxy.dns).toEqual({
+      remote: "https://doh.example/dns-query",
+      direct: "9.9.9.9",
+    });
+  });
+
   it("tolerates an older backup with missing arrays (falls back to empty)", () => {
     const res = applyBackup({
       app: BACKUP_MAGIC,
