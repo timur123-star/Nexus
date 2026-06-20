@@ -32,5 +32,6 @@ export const xrayCore: IProxyCore = {
       blockQuic: opts.blockQuic,
       fragment: opts.fragment ?? null,
       mux: opts.mux ?? null,
+      dns: opts.dns,
     }),
 };

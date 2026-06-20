@@ -24,6 +24,13 @@ export interface XrayGenOptions {
   fragment?: { enabled: boolean; packets: string; length: string; interval: string } | null;
   /** Stream multiplexing on the proxy outbound. */
   mux?: { enabled: boolean; protocol?: string } | null;
+  /**
+   * Encrypted DNS resolvers. `remote` is the user's DoH/DoT URL, `direct` the
+   * bootstrap/fallback resolver. When omitted, xray falls back to the system
+   * resolver (its prior behaviour). Mirrors the sing-box DNS settings so a node
+   * resolves the same way on either core.
+   */
+  dns?: { remote: string; direct: string };
 }
 
 const PROXY_TAG = "proxy";
@@ -73,8 +80,11 @@ export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions):
     });
   }
 
+  const dns = buildXrayDns(opts.dns);
+
   return {
     log: { loglevel: "warning" },
+    ...(dns ? { dns } : {}),
     inbounds: [
       {
         tag: "http-in",
@@ -94,6 +104,31 @@ export function generateXrayConfig(server: ServerProfile, opts: XrayGenOptions):
     ],
     outbounds,
     routing: buildXrayRouting(opts.routingMode, opts.customRules, opts.blockQuic),
+  };
+}
+
+/**
+ * Build xray's `dns` object from the app's resolver settings, or return null to
+ * leave xray on the system resolver (its prior behaviour) when DNS is unset.
+ *
+ * Shape mirrors the sing-box DNS intent: the user's encrypted resolver first,
+ * a plain/system resolver second. That second entry is essential — it bootstraps
+ * a *hostname*-based DoH URL (xray must resolve the DoH host before it can use
+ * it) and serves as a last-resort fallback, so resolution can never dead-lock
+ * waiting on itself. An IP-literal DoH (the default `https://1.1.1.1/dns-query`)
+ * needs no bootstrap at all.
+ */
+function buildXrayDns(dns: XrayGenOptions["dns"]): object | null {
+  if (!dns) return null;
+  const remote = dns.remote?.trim() || "https://1.1.1.1/dns-query";
+  const directRaw = dns.direct?.trim();
+  // "local"/"localhost"/empty all mean "use the OS resolver" — xray spells that
+  // special server "localhost" (sing-box spells it "local"), so normalise it.
+  const direct =
+    !directRaw || directRaw === "local" || directRaw === "localhost" ? "localhost" : directRaw;
+  return {
+    servers: [remote, direct],
+    queryStrategy: "UseIP",
   };
 }
 

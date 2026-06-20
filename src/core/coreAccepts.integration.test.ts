@@ -106,7 +106,15 @@ describe.skipIf(!haveXray)("xray accepts generated configs", () => {
   it("VLESS + REALITY", () => {
     const cfg = generateXrayConfig(
       srv({ uuid: "u", tls: { enabled: true, security: "reality", publicKey: "mL8S_P3Szjj-uDI32836ntWvHTJDu52Q-uMLnsBuyAU", shortId: "0123abcd" } }),
-      { mixedPort: 2080, clashApiPort: 9090, routingMode: "rule", allowLan: false },
+      {
+        mixedPort: 2080,
+        clashApiPort: 9090,
+        routingMode: "rule",
+        allowLan: false,
+        // Exercise the generated `dns` block against the real binary so a
+        // malformed resolver shape can never ship unnoticed.
+        dns: { remote: "https://1.1.1.1/dns-query", direct: "local" },
+      },
     );
     expect(() => checkXray(cfg, "vless-reality")).not.toThrow();
   }, BIN_TIMEOUT);

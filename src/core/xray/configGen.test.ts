@@ -46,6 +46,30 @@ describe("generateXrayConfig — base", () => {
   });
 });
 
+describe("generateXrayConfig — dns", () => {
+  it("emits the user's DoH first with a bootstrap/fallback resolver", () => {
+    const cfg = gen({ dns: { remote: "https://dns.example/dns-query", direct: "9.9.9.9" } });
+    expect(cfg.dns.servers).toEqual(["https://dns.example/dns-query", "9.9.9.9"]);
+    expect(cfg.dns.queryStrategy).toBe("UseIP");
+  });
+
+  it("normalises the sing-box 'local' sentinel to xray's 'localhost'", () => {
+    const cfg = gen({ dns: { remote: "https://1.1.1.1/dns-query", direct: "local" } });
+    expect(cfg.dns.servers).toEqual(["https://1.1.1.1/dns-query", "localhost"]);
+  });
+
+  it("falls back to a default DoH when remote is blank", () => {
+    const cfg = gen({ dns: { remote: "", direct: "" } });
+    expect(cfg.dns.servers[0]).toBe("https://1.1.1.1/dns-query");
+    expect(cfg.dns.servers[1]).toBe("localhost");
+  });
+
+  it("omits the dns block entirely when DNS is unset (system resolver)", () => {
+    const cfg = gen();
+    expect(cfg.dns).toBeUndefined();
+  });
+});
+
 describe("generateXrayConfig — fragment", () => {
   it("adds a fragment freedom outbound and dials the proxy through it", () => {
     const cfg = gen({
