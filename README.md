@@ -11,7 +11,7 @@ Two engines, a full modern protocol set, a glassmorphism UI — no terminal requ
 
 [![CI](https://github.com/timur123-star/Nexus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/timur123-star/Nexus/actions/workflows/ci.yml)
 [![Tauri](https://img.shields.io/badge/Tauri-2-FFC131?logo=tauri&logoColor=black)](https://tauri.app/)
-[![Rust](https://img.shields.io/badge/Rust-1.77%2B-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.90%2B-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5%20·%20strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
@@ -145,7 +145,7 @@ Everything here was designed and engineered manually: the dual-core abstraction,
 ## Building from source
 
 ### Requirements
-- Node.js ≥ 20, Rust ≥ 1.77 (msvc on Windows), WebView2 (Windows).
+- Node.js ≥ 20, Rust ≥ 1.90 (msvc on Windows), WebView2 (Windows).
 - The `sing-box` and `xray` core binaries (fetched by a script, see below).
 
 ### Steps
