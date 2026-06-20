@@ -47,6 +47,13 @@ export interface ProxySettings {
   };
   /** Block all traffic when VPN disconnects unexpectedly (kill switch). */
   killSwitch: boolean;
+  /**
+   * When a connection drops, automatically switch to the lowest-latency
+   * reachable server (failover by ping). OFF by default — the app still
+   * auto-reconnects to the SAME server, but never moves the user to a
+   * different one without their consent.
+   */
+  autoFailover: boolean;
   /** Accept self-signed TLS certificates when fetching subscriptions. */
   allowInsecureSubs: boolean;
   clashApiPort: number;
@@ -162,6 +169,7 @@ export const DEFAULT_PROXY: ProxySettings = {
   mux: { enabled: false, protocol: "smux" },
   fragment: { enabled: false, packets: "tlshello", length: "10-20", interval: "10-20" },
   killSwitch: false,
+  autoFailover: false,
   allowInsecureSubs: false,
   clashApiPort: 9090,
   clashSecret: randomClashSecret(),

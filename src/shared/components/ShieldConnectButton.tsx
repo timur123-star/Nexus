@@ -66,13 +66,15 @@ export function ShieldConnectButton({
 
   return (
     <div className="flex flex-col items-center gap-3">
+      {/* Never disabled — while "busy" a tap CANCELS the in-flight connect, so a
+          crash-looping core can always be stopped instead of stranding the user
+          on an endless "connecting". */}
       <motion.button
         type="button"
         onClick={onClick}
-        disabled={busy}
-        whileHover={reduce || busy ? undefined : { scale: 1.03 }}
-        whileTap={reduce || busy ? undefined : { scale: 0.96 }}
-        className="relative grid place-items-center rounded-2xl focus:outline-none disabled:cursor-wait"
+        whileHover={reduce ? undefined : { scale: 1.03 }}
+        whileTap={reduce ? undefined : { scale: 0.96 }}
+        className="relative grid cursor-pointer place-items-center rounded-2xl focus:outline-none"
         style={{ width: 248, height: 261 }}
         aria-label={label}
       >

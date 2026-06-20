@@ -203,6 +203,27 @@ const ADV_STRINGS: Record<
   },
 };
 
+// Inline 4-language labels for the auto-failover toggle, kept out of the global
+// i18n dictionary so its strict key-parity test stays untouched.
+const FAILOVER_STRINGS: Record<Lang, { label: string; hint: string }> = {
+  en: {
+    label: "Auto-switch to the best server",
+    hint: "If the connection drops, automatically move to the lowest-latency reachable server. Off: keep reconnecting to the same one.",
+  },
+  ru: {
+    label: "Авто-переключение на лучший сервер",
+    hint: "При обрыве связи автоматически переходить на доступный сервер с наименьшим пингом. Выключено: переподключаться к тому же серверу.",
+  },
+  fa: {
+    label: "تغییر خودکار به بهترین سرور",
+    hint: "اگر اتصال قطع شود، به‌طور خودکار به سریع‌ترین سرور در دسترس بروید. خاموش: اتصال مجدد به همان سرور.",
+  },
+  zh: {
+    label: "自动切换到最佳服务器",
+    hint: "连接断开时，自动切换到延迟最低的可用服务器。关闭：仅重连到同一服务器。",
+  },
+};
+
 function sameRules(a: RoutingProfile["customRules"], b: RoutingProfile["customRules"]): boolean {
   if (a.length !== b.length) return false;
   return a.every((r, i) => r.match === b[i].match && r.value === b[i].value && r.target === b[i].target);
@@ -461,6 +482,12 @@ export function SettingsScreen() {
           hint={t("settings.killSwitch.hint")}
           checked={proxy.killSwitch}
           onChange={(v) => setProxy({ killSwitch: v })}
+        />
+        <Toggle
+          label={(FAILOVER_STRINGS[app.language] ?? FAILOVER_STRINGS.en).label}
+          hint={(FAILOVER_STRINGS[app.language] ?? FAILOVER_STRINGS.en).hint}
+          checked={proxy.autoFailover}
+          onChange={(v) => setProxy({ autoFailover: v })}
         />
         <Toggle
           label={t("settings.insecureSubs.label")}

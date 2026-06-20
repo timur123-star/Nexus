@@ -338,9 +338,13 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
         if (!cur.autoReconnect || !cur.activeServer) return;
 
         // After a couple of failed attempts on the same endpoint, fail over to
-        // the best reachable alternative instead of retrying a dead server.
+        // the best reachable alternative instead of retrying a dead server —
+        // but ONLY when the user has opted into automatic server switching.
+        // With it off (the default) we keep retrying the SAME server so the
+        // app never silently moves the user to a different node.
+        const autoFailover = useSettingsStore.getState().proxy.autoFailover;
         let target = cur.activeServer;
-        if (attempt >= FAILOVER_AFTER_ATTEMPTS) {
+        if (autoFailover && attempt >= FAILOVER_AFTER_ATTEMPTS) {
           const better = await pickFailoverTarget(cur.activeServer.id);
           if (better && better.id !== cur.activeServer.id) {
             target = better;
@@ -555,10 +559,17 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
 
     toggle: async (server) => {
       const { status, activeServerId, connect, disconnect } = get();
-      if ((status === "connected" || status === "reconnecting") && activeServerId === server.id) {
+      // A live session is any non-terminal state: still dialing ("connecting"),
+      // up ("connected"), or recovering ("reconnecting"). Tapping the SAME
+      // server in any of these means "stop" — so a crash-looping connect can
+      // ALWAYS be cancelled, never leaving the user stuck on an endless
+      // "connecting" they can't dismiss.
+      const live =
+        status === "connecting" || status === "connected" || status === "reconnecting";
+      if (live && activeServerId === server.id) {
         await disconnect();
       } else {
-        if (status === "connected") await disconnect();
+        if (live) await disconnect(); // switching servers: tear the old one down first
         await connect(server);
       }
     },

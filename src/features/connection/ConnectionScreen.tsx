@@ -57,6 +57,7 @@ interface DashStrings {
   connStatus: string;
   stable: string;
   tapConnect: string;
+  tapCancel: string;
   connect: string;
   disconnect: string;
   connecting: string;
@@ -81,7 +82,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     downloaded: "Downloaded", uploaded: "Uploaded", core: "Core", peak: "peak",
     liveStatsHint: "Live counters need the Clash API — unavailable on the {core} core.",
     ipAddress: "IP Address", protocol: "Protocol", encryption: "Encryption", connStatus: "Status",
-    stable: "Stable", tapConnect: "Tap to connect",
+    stable: "Stable", tapConnect: "Tap to connect", tapCancel: "Tap to cancel",
     connect: "Connect", disconnect: "Disconnect", connecting: "Connecting", quickConnect: "Quick connect",
     modeProxy: "Proxy", modeSystem: "System proxy", modeTun: "VPN",
     pasteClipboard: "Paste from clipboard", addManual: "Add manually",
@@ -93,7 +94,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     downloaded: "\u0421\u043a\u0430\u0447\u0430\u043d\u043e", uploaded: "\u041e\u0442\u0434\u0430\u043d\u043e", core: "\u042f\u0434\u0440\u043e", peak: "\u043f\u0438\u043a",
     liveStatsHint: "Живые счётчики работают через Clash API — недоступно на ядре {core}.",
     ipAddress: "IP-адрес", protocol: "Протокол", encryption: "Шифрование", connStatus: "Статус",
-    stable: "Стабильно", tapConnect: "Нажмите, чтобы подключиться",
+    stable: "Стабильно", tapConnect: "Нажмите, чтобы подключиться", tapCancel: "Нажмите, чтобы отменить",
     connect: "Подключиться", disconnect: "Отключиться", connecting: "Подключение", quickConnect: "Быстрое подключение",
     modeProxy: "Прокси", modeSystem: "Системный прокси", modeTun: "VPN",
     pasteClipboard: "Вставить из буфера", addManual: "Добавить вручную",
@@ -105,7 +106,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     downloaded: "دانلود‌شده", uploaded: "آپلود‌شده", core: "هسته", peak: "اوج",
     liveStatsHint: "شمارنده‌های زنده به Clash API نیاز دارند — روی هسته {core} در دسترس نیست.",
     ipAddress: "آدرس IP", protocol: "پروتکل", encryption: "رمزنگاری", connStatus: "وضعیت",
-    stable: "پایدار", tapConnect: "برای اتصال ضربه بزنید",
+    stable: "پایدار", tapConnect: "برای اتصال ضربه بزنید", tapCancel: "برای لغو ضربه بزنید",
     connect: "اتصال", disconnect: "قطع اتصال", connecting: "در حال اتصال", quickConnect: "اتصال سریع",
     modeProxy: "پروکسی", modeSystem: "پروکسی سیستم", modeTun: "VPN",
     pasteClipboard: "جای‌گذاری از کلیپ‌بورد", addManual: "افزودن دستی",
@@ -117,7 +118,7 @@ const DASH_STRINGS: Record<Lang, DashStrings> = {
     downloaded: "已下载", uploaded: "已上传", core: "核心", peak: "峰值",
     liveStatsHint: "实时计数依赖 Clash API——{core} 内核不可用。",
     ipAddress: "IP 地址", protocol: "协议", encryption: "加密", connStatus: "状态",
-    stable: "稳定", tapConnect: "点击连接",
+    stable: "稳定", tapConnect: "点击连接", tapCancel: "点击取消",
     connect: "连接", disconnect: "断开", connecting: "连接中", quickConnect: "快速连接",
     modeProxy: "代理", modeSystem: "系统代理", modeTun: "VPN",
     pasteClipboard: "从剪贴板粘贴", addManual: "手动添加",
@@ -270,7 +271,9 @@ export function ConnectionScreen({
   const shieldState = connected ? "connected" : busy ? "busy" : "idle";
   // Nameplate shows the live connection STATE (Подключено / Подключение / Отключено).
   const shieldLabel = t(STATUS_LABEL_KEY[status]).replace("\u2026", "");
-  const shieldSub = connected ? uptime || `0${unitS}` : busy ? "\u2026" : L.tapConnect;
+  // While busy the emblem is a CANCEL control (tap to abort the connect), so the
+  // sublabel invites that instead of a dead "\u2026".
+  const shieldSub = connected ? uptime || `0${unitS}` : busy ? L.tapCancel : L.tapConnect;
   const shownCore = (connected || busy) && activeCore ? activeCore : proxyCore;
   const coreLabel = getCore(shownCore).label;
   const dash = "\u2014";
@@ -290,7 +293,7 @@ export function ConnectionScreen({
 
         <ShieldConnectButton
           state={shieldState}
-          onClick={() => !busy && toggle(active)}
+          onClick={() => toggle(active)}
           label={shieldLabel}
           sublabel={shieldSub}
         />
