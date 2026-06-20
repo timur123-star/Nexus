@@ -665,8 +665,9 @@ export const useConnectionStore = create<ConnectionState>((set, get) => {
       const failures = state.healthFailures + 1;
       if (failures >= HEALTH_FAIL_THRESHOLD && state.autoReconnect) {
         // The core process may still be alive, but the endpoint is unreachable —
-        // kick off a reconnect (which fails over to the best server) rather than
-        // waiting for a hard crash that may never arrive.
+        // kick off a reconnect (retrying the same server, or failing over to the
+        // best one only if the user enabled auto-failover) rather than waiting
+        // for a hard crash that may never arrive.
         set({ healthFailures: 0 });
         scheduleReconnect();
       } else {
